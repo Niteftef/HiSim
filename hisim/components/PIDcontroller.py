@@ -282,7 +282,7 @@ class PIDController(cp.Component):
     #     Bd=Ad*B
     #     delta_tm=Ad*0+Bd[0,0]*-feed_forward_signal
         
-        return delta_tm[0,0]
+        # return delta_tm[0,0]
     def determine_conditions(self, current_temperature: float, set_point: float) -> str:
         """ For determining heating and cooling mode and implementing a dead zone. Currently disabled. """
         offset_in_degree_celsius = 0.5
