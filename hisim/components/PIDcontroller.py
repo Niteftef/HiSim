@@ -218,7 +218,9 @@ class PIDController(cp.Component):
         # Retrieve building temperature
         building_temperature_t_mc = stsv.get_input_value(self.t_mC)
         feed_forward_signal=self.feedforward(phi_st, phi_m) #eed_forward_signal=self.feedforward(phi_st, phi_ia, phi_m,solar_gains_through_windows)
-        feed_forward_signal=self.state.manipulated_variable-feed_forward_signal
+        # feed_forward_signal=4*self.state.manipulated_variable-feed_forward_signal
+        # if feed_forward_signal <0:
+        #     feed_forward_signal=0
         # delta_tm=self.FFeffect(feed_forward_signal)
         # building_temperature_t_mc=building_temperature_t_mc-delta_tm
         
@@ -248,6 +250,7 @@ class PIDController(cp.Component):
         manipulated_variable = p_value + i_value + d_value
         self.state.manipulated_variable=manipulated_variable
         
+        
         stsv.set_output_value(self.error_pvalue_output, p_value)
         stsv.set_output_value(self.error_dvalue_output, d_value)
         stsv.set_output_value(self.error_ivalue_output, i_value)
@@ -268,7 +271,7 @@ class PIDController(cp.Component):
         solar_gain: float = 0.00194583117912788
 
         
-        feed_forward_signal=  ((phi_st_gain * phi_st) + (phi_m_gain * phi_m) )/process_gain
+        feed_forward_signal= -((phi_st_gain * phi_st) + (phi_m_gain * phi_m) )/process_gain
         # feed_forward_signal= -phi_m # -((solar_gain * solar_gains_through_windows))/process_gain
         # feed_forward_signal= 0 #- ( (phi_st_gain * phi_st) + (phi_m_gain * phi_m) )/process_gain
         return feed_forward_signal
