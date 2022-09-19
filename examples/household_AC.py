@@ -9,6 +9,7 @@ from hisim.components import weather
 from hisim.components import generic_pv_system
 from hisim.components import building
 from hisim.components import PIDcontroller
+from hisim.components import disturbance_rejection_signal
 from hisim.components import air_conditioner
 from hisim.components import sumbuilder
 from hisim.postprocessingoptions import PostProcessingOptions
@@ -28,8 +29,13 @@ __version__ = "0.1"
 __maintainer__ = "Vitor Hugo Bellotto Zago"
 __email__ = "vitor.zago@rwth-aachen.de"
 __status__ = "development"
-
-def household_AC_explicit(my_sim: Simulator, my_simulation_parameters: Optional[SimulationParameters] = None, ki: float = 1, kd: float = 1, kp: float = 1) -> None:
+#kd: float = 111.72
+tau_r: float = 1.0
+tauI: float = tau_r * 1279 #1863
+Kplant: float = 0.002313005  #1.8750 / 1000  # 0.15773831/(10000) #
+kc=1/(tau_r*Kplant)
+# ki: float = 2*921, kd: float = 921*0.5, kp: float =1091.7*1.2
+def household_AC_explicit(my_sim: Simulator, my_simulation_parameters: Optional[SimulationParameters] = None, ki: float =88.2599230901655, kd: float =0, kp: float =8003.2594202044575) -> None:
     """
     This setup function emulates an household including
     the basic components. Here the residents have their
@@ -42,8 +48,12 @@ def household_AC_explicit(my_sim: Simulator, my_simulation_parameters: Optional[
         - Weather
         - Photovoltaic System
         - Building
-        - Heat Pump
+        - Air conditioner 
     """
+    ##### delete all files in cache:
+    # dir = '..//hisim//inputs//cache'
+    # for file in os.listdir( dir ):
+    #     os.remove( os.path.join( dir, file ) )
 
     ##### System Parameters #####
 
@@ -71,7 +81,7 @@ def household_AC_explicit(my_sim: Simulator, my_simulation_parameters: Optional[
     occupancy_profile = "CH01"
 
     # Set building
-    building_code = "ES.ME.SFH.05.Gen.ReEx.001.003"
+    building_code ="ES.ME.SFH.05.Gen.ReEx.001.003"  #  "ES.ME.SFH.04.Gen.ReEx.001.001" # 
     building_class = "medium"
     initial_temperature = 19
     heating_reference_temperature = -14
@@ -99,13 +109,13 @@ def household_AC_explicit(my_sim: Simulator, my_simulation_parameters: Optional[
 
     # Build system parameters
     if my_simulation_parameters is None:
-        #my_simulation_parameters = SimulationParameters.full_year_all_options(year=year, seconds_per_timestep=seconds_per_timestep)
+        # my_simulation_parameters = SimulationParameters.full_year_all_options(year=year, seconds_per_timestep=seconds_per_timestep)
         my_simulation_parameters = SimulationParameters.january_only(year=year, seconds_per_timestep=seconds_per_timestep)
-        my_simulation_parameters.post_processing_options.append(PostProcessingOptions.PLOT_LINE)
+        # my_simulation_parameters.post_processing_options.append(PostProcessingOptions.PLOT_LINE)
         keystr = "ki_" + f"{ki:.3f}" + "_kp_" + f"{kp:.3f}" + "_kd_" + f"{kd:.3f}"
-        my_simulation_parameters.result_directory = os.path.join("ac_results_5", keystr)
+        my_simulation_parameters.result_directory = os.path.join("ac_results_5", "Method2 FF keystr")
         #my_simulation_parameters.post_processing_options.clear()
-        #my_simulation_parameters.enable_all_options()
+        my_simulation_parameters.enable_all_options()
     my_sim.set_simulation_parameters(my_simulation_parameters)
     # Build occupancy
     my_occupancy_config= loadprofilegenerator_connector.OccupancyConfig(profile_name="CH01")
@@ -113,7 +123,7 @@ def household_AC_explicit(my_sim: Simulator, my_simulation_parameters: Optional[
     my_sim.add_component(my_occupancy)
 
     # Build Weather
-    my_weather_config = weather.WeatherConfig(location= "Seville")
+    my_weather_config = weather.WeatherConfig(location= location)
     my_weather = weather.Weather(config=my_weather_config, my_simulation_parameters= my_simulation_parameters)
     my_sim.add_component(my_weather)
 
@@ -171,7 +181,8 @@ def household_AC_explicit(my_sim: Simulator, my_simulation_parameters: Optional[
     my_sim.add_component(my_base_electricity_load_profile)
 
     my_building = building.Building(config=my_building_config,
-                                        my_simulation_parameters=my_simulation_parameters)
+                                    my_simulation_parameters=my_simulation_parameters,
+                                    my_simulation_repository = my_sim.simulation_repository)
     my_building.connect_input(my_building.Altitude,
                               my_weather.component_name,
                               my_building.Altitude)
@@ -191,8 +202,8 @@ def household_AC_explicit(my_sim: Simulator, my_simulation_parameters: Optional[
                               my_weather.component_name,
                               my_building.DirectNormalIrradianceExtra)
     my_building.connect_input(my_building.ApparentZenith,
-                             my_weather.component_name,
-                             my_building.ApparentZenith)
+                              my_weather.component_name,
+                              my_building.ApparentZenith)
     my_building.connect_input(my_building.TemperatureOutside,
                               my_weather.component_name,
                               my_weather.TemperatureOutside)
@@ -200,36 +211,7 @@ def household_AC_explicit(my_sim: Simulator, my_simulation_parameters: Optional[
                               my_occupancy.component_name,
                               my_occupancy.HeatingByResidents)
     my_sim.add_component(my_building)
-    if control=="PID":
     
-        pid_controller=PIDcontroller.PIDController(my_simulation_parameters=my_simulation_parameters,ki=ki, kp=kp, kd=kd)
-        pid_controller.connect_input(pid_controller.TemperatureMean,
-                                              my_building.component_name,
-                                              my_building.TemperatureMean)
-        # pid_controller.connect_input(pid_controller.TemperatureMeanPrev,
-        #                                       my_building.component_name,
-        #                                       my_building.TemperatureMeanPrev)
-        # pid_controller.connect_input(pid_controller.HeatingByResidents,
-        #                                       my_occupancy.component_name,
-        #                                       my_occupancy.HeatingByResidents)
-        # pid_controller.connect_input(pid_controller.SolarGainThroughWindows,
-        #                                       my_building.component_name,
-        #                                       my_building.SolarGainThroughWindows)
-        # pid_controller.connect_input(pid_controller.TemperatureOutside,
-        #                                       my_weather.component_name,
-        #                                       my_weather.TemperatureOutside)
-        # pid_controller.connect_input(pid_controller.TemperatureAir,
-        #                                       my_building.component_name,
-        #                                       my_building.TemperatureAir)
-    if control=="on_off":
-        my_air_conditioner_controller=air_conditioner.AirConditionercontroller(t_air_heating=t_air_heating,
-                                                                t_air_cooling=t_air_cooling,
-                                                                offset=offset,
-                                                                my_simulation_parameters=my_simulation_parameters)
-        my_air_conditioner_controller.connect_input(my_air_conditioner_controller.TemperatureMean,
-                                              my_building.component_name,
-                                              my_building.TemperatureMean)
-
     my_air_conditioner = air_conditioner.AirConditioner(manufacturer=ac_manufacturer,
                                           name=Model,
                                           min_operation_time=hp_min_operation_time,
@@ -237,31 +219,130 @@ def household_AC_explicit(my_sim: Simulator, my_simulation_parameters: Optional[
                                           control=control,
                                           my_simulation_parameters=my_simulation_parameters)
     my_air_conditioner.connect_input(my_air_conditioner.TemperatureOutside,
-                                my_weather.component_name,
-                                my_weather.TemperatureOutside)
+                                     my_weather.component_name,
+                                     my_weather.TemperatureOutside)   
+    my_sim.add_component(my_air_conditioner) 
+    
+    if control=="PID":
+        # disturbance_rejection=disturbance_rejection_signal.DisturbanceRejection(my_simulation_parameters=my_simulation_parameters)
+        # disturbance_rejection.connect_input(disturbance_rejection.HeatFluxThermalMassNode,
+        #                                     my_building.component_name,
+        #                                     my_building.HeatFluxThermalMassNode)
+        # disturbance_rejection.connect_input(disturbance_rejection.HeatFluxWallNode,
+        #                                     my_building.component_name,
+        #                                     my_building.HeatFluxWallNode)
+        # my_building.connect_input(my_building.SolarGainsRejectionSignal,
+        #                           disturbance_rejection.component_name,
+        #                           disturbance_rejection.SolarGainsRejectionSignal)
+        # my_sim.add_component(disturbance_rejection)
+        
+        pid_controller=PIDcontroller.PIDController(my_simulation_parameters=my_simulation_parameters,ki=ki, kp=kp, kd=kd, my_simulation_repository = my_sim.simulation_repository)
+        pid_controller.connect_input(pid_controller.TemperatureMean,
+                                     my_building.component_name,
+                                     my_building.TemperatureMean)
+        pid_controller.connect_input(pid_controller.HeatFluxThermalMassNode,
+                                      my_building.component_name,
+                                      my_building.HeatFluxThermalMassNode)
+        pid_controller.connect_input(pid_controller.HeatFluxWallNode,
+                                      my_building.component_name,
+                                      my_building.HeatFluxWallNode)
+        my_air_conditioner.connect_input(my_air_conditioner.FeedForwardSignal,
+                                          pid_controller.component_name,
+                                          pid_controller.FeedForwardSignal)
+        my_air_conditioner.connect_input(my_air_conditioner.ElectricityOutputPID,
+                                         pid_controller.component_name,
+                                         pid_controller.ElectricityOutputPID)
+        my_sim.add_component(pid_controller)
+        
+    if control=="on_off":
+        my_air_conditioner_controller=air_conditioner.AirConditionercontroller(t_air_heating=t_air_heating,
+                                                                               t_air_cooling=t_air_cooling,
+                                                                               offset=offset,
+                                                                               my_simulation_parameters=my_simulation_parameters)
+        my_air_conditioner_controller.connect_input(my_air_conditioner_controller.TemperatureMean,
+                                                    my_building.component_name,
+                                                    my_building.TemperatureMean)
+        my_sim.add_component(my_air_conditioner_controller)
     
     if control=="on_off":
         my_air_conditioner.connect_input(my_air_conditioner.State,
-                                my_air_conditioner_controller.component_name,
-                                my_air_conditioner_controller.State)
-
-        my_sim.add_component(my_air_conditioner_controller)
-    if control=="PID":
-        my_air_conditioner.connect_input(my_air_conditioner.ElectricityOutputPID,
-                                pid_controller.component_name,
-                                pid_controller.ElectricityOutputPID)
+                                         my_air_conditioner_controller.component_name,
+                                         my_air_conditioner_controller.State)
 
         
-        my_sim.add_component(pid_controller)
-    my_sim.add_component(my_air_conditioner)
-
+        
+      
     my_building.connect_input(my_building.ThermalEnergyDelivered,
                               my_air_conditioner.component_name,
-                              my_air_conditioner.ThermalEnergyDelivered)
+                              my_air_conditioner.ThermalEnergyDelivered)    
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    # if control=="on_off":
+    #     my_air_conditioner_controller=air_conditioner.AirConditionercontroller(t_air_heating=t_air_heating,
+    #                                                                            t_air_cooling=t_air_cooling,
+    #                                                                            offset=offset,
+    #                                                                            my_simulation_parameters=my_simulation_parameters)
+    #     my_air_conditioner_controller.connect_input(my_air_conditioner_controller.TemperatureMean,
+    #                                                 my_building.component_name,
+    #                                                 my_building.TemperatureMean)
+        
     
 
+    # my_air_conditioner = air_conditioner.AirConditioner(manufacturer=ac_manufacturer,
+    #                                       name=Model,
+    #                                       min_operation_time=hp_min_operation_time,
+    #                                       min_idle_time=hp_min_idle_time,
+    #                                       control=control,
+    #                                       my_simulation_parameters=my_simulation_parameters)
+    # my_air_conditioner.connect_input(my_air_conditioner.TemperatureOutside,
+    #                                  my_weather.component_name,
+    #                                  my_weather.TemperatureOutside)
+    
 
-
+    # if control=="on_off":
+    #     my_air_conditioner.connect_input(my_air_conditioner.State,
+    #                                      my_air_conditioner_controller.component_name,
+    #                                      my_air_conditioner_controller.State)
+    #     my_sim.add_component(my_air_conditioner_controller)
+        
+    # if control == "PID":
+    #     pid_controller=PIDcontroller.PIDController(my_simulation_parameters=my_simulation_parameters,ki=ki, kp=kp, kd=kd, my_simulation_repository = my_sim.simulation_repository)
+    #     pid_controller.connect_input(pid_controller.TemperatureMean,
+    #                                  my_building.component_name,
+    #                                  my_building.TemperatureMean)
+        
+    #     # pid_controller.connect_input(pid_controller.SolarGainThroughWindows,
+    #     #                                       my_building.component_name,
+    #     #                                       my_building.SolarGainThroughWindows)
+    #     my_sim.add_component(pid_controller)
+        
+        
+    #     my_air_conditioner.connect_input(my_air_conditioner.ElectricityOutputPID,
+    #                                      pid_controller.component_name,
+    #                                      pid_controller.ElectricityOutputPID) 
+    #     my_sim.add_component(my_air_conditioner)
+    
+    #     # my_air_conditioner.connect_input(my_air_conditioner.FeedForwardSignal,
+    #     #                                   pid_controller.component_name,
+    #     #                                   pid_controller.FeedForwardSignal)
+        
+    # my_building.connect_input(my_building.ThermalEnergyDelivered,
+    #                           my_air_conditioner.component_name,
+    #                           my_air_conditioner.ThermalEnergyDelivered)
+    
+    
+    
 
 if __name__ == "__main__":
     y = np.logspace(-2, 3, num=5)
