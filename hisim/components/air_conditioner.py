@@ -22,14 +22,16 @@ class AirConditionerState:
     This data class saves the state of the air conditioner
     """
 
-    def __init__(self, timestep_actual: int = -1, state: int = 0, timestep_of_last_action: int = 0):
+    def __init__(self, timestep_actual: int = -1, state: int = 0, timestep_of_last_action: int = 0, thermal_energy_delivered_extra: float =0):
         self.timestep_actual = timestep_actual
         self.state = state
         self.timestep_of_last_action = timestep_of_last_action
+        self.thermal_energy_delivered_extra= thermal_energy_delivered_extra
 
     def clone(self):
         return AirConditionerState(timestep_actual=self.timestep_actual, state=self.state,
-                                   timestep_of_last_action=self.timestep_of_last_action)
+                                   timestep_of_last_action=self.timestep_of_last_action,
+                                   thermal_energy_delivered_extra=self.thermal_energy_delivered_extra)
 
     def is_first_iteration(self, timestep):
         if self.timestep_actual + 1 == timestep:
@@ -52,7 +54,8 @@ class AirConditioner(cp.Component):
     State = "State"
     TemperatureOutside = "TemperatureOutside"
     ElectricityOutputPID = "ElectricityOutputPID"
-
+    TemperatureMean = "Residence Temperature"
+    FeedForwardSignal="FeedForwardSignal"
     # outputs
     ThermalEnergyDelivered = "ThermalEnergyDelivered"
     ElectricityOutput = "ElectricityOutput"
@@ -72,11 +75,21 @@ class AirConditioner(cp.Component):
                                                         LoadTypes.TEMPERATURE,
                                                         Units.CELSIUS,
                                                         True)
+        self.t_mC: cp.ComponentInput = self.add_input(self.component_name,
+                                                      self.TemperatureMean,
+                                                      LoadTypes.TEMPERATURE,
+                                                      Units.CELSIUS,
+                                                      False)
         self.stateC: cp.ComponentInput = self.add_input(self.component_name,
                                                         self.State,
                                                         LoadTypes.ANY,
                                                         Units.ANY,
                                                         False)
+        self.feed_forward_signalC: cp.ComponentInput = self.add_input(self.component_name,
+                                                                self.FeedForwardSignal,
+                                                                LoadTypes.ELECTRICITY,
+                                                                Units.WATT,
+                                                                False)
         self.electric_power: cp.ComponentInput = self.add_input(self.component_name,
                                                                 self.ElectricityOutputPID,
                                                                 LoadTypes.ELECTRICITY,
@@ -208,6 +221,7 @@ class AirConditioner(cp.Component):
         # Inputs
         t_out = stsv.get_input_value(self.t_outC)
         on_off_state = stsv.get_input_value(self.stateC)
+        
 
         if self.control == "on_off":
             # Heating Season:
@@ -252,15 +266,23 @@ class AirConditioner(cp.Component):
             stsv.set_output_value(self.electricity_outputC, electricity_output)
 
         if self.control == "PID":
+            t_m_old = stsv.get_input_value(self.t_mC)
+            feed_forward_signal = stsv.get_input_value(self.feed_forward_signalC)
             Electric_Power = stsv.get_input_value(self.electric_power)
+            
             if Electric_Power > 0:
                 cop = self.cal_cop(t_out)
-                thermal_energy_delivered = Electric_Power * cop
+                thermal_energy_delivered = Electric_Power * cop + feed_forward_signal
             elif Electric_Power < 0:
                 eer = self.cal_eer(t_out)
-                thermal_energy_delivered = Electric_Power * eer
+                thermal_energy_delivered = Electric_Power * eer + feed_forward_signal
             else:
                 thermal_energy_delivered = 0
+                
+            if thermal_energy_delivered > 15000:
+                thermal_energy_delivered=15000
+            elif thermal_energy_delivered <-15000:
+                thermal_energy_delivered=-15000
 
             stsv.set_output_value(self.thermal_energy_deliveredC, thermal_energy_delivered)
 
