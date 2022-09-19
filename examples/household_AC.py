@@ -113,7 +113,7 @@ def household_AC_explicit(my_sim: Simulator, my_simulation_parameters: Optional[
         my_simulation_parameters = SimulationParameters.january_only(year=year, seconds_per_timestep=seconds_per_timestep)
         # my_simulation_parameters.post_processing_options.append(PostProcessingOptions.PLOT_LINE)
         keystr = "ki_" + f"{ki:.3f}" + "_kp_" + f"{kp:.3f}" + "_kd_" + f"{kd:.3f}"
-        my_simulation_parameters.result_directory = os.path.join("ac_results_5", "Method2 FF keystr")
+        my_simulation_parameters.result_directory = os.path.join("ac_results_5", keystr)
         #my_simulation_parameters.post_processing_options.clear()
         my_simulation_parameters.enable_all_options()
     my_sim.set_simulation_parameters(my_simulation_parameters)
@@ -146,7 +146,8 @@ def household_AC_explicit(my_sim: Simulator, my_simulation_parameters: Optional[
     my_building_config=building.BuildingConfig(building_code = building_code,
                                             bClass = building_class,
                                             initial_temperature = initial_temperature,
-                                            heating_reference_temperature = heating_reference_temperature )
+                                            heating_reference_temperature = heating_reference_temperature,
+                                            name="Building1")
 
 
     my_photovoltaic_system.connect_input(my_photovoltaic_system.TemperatureOutside,
@@ -181,8 +182,7 @@ def household_AC_explicit(my_sim: Simulator, my_simulation_parameters: Optional[
     my_sim.add_component(my_base_electricity_load_profile)
 
     my_building = building.Building(config=my_building_config,
-                                    my_simulation_parameters=my_simulation_parameters,
-                                    my_simulation_repository = my_sim.simulation_repository)
+                                    my_simulation_parameters=my_simulation_parameters)
     my_building.connect_input(my_building.Altitude,
                               my_weather.component_name,
                               my_building.Altitude)
