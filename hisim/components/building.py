@@ -8,8 +8,8 @@ import os
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from typing import List, Any
-from typing import Optional 
-# Owned
+from functools import lru_cache
+
 from hisim import utils
 from hisim import component as cp
 from hisim import dynamic_component
@@ -21,7 +21,7 @@ from hisim.components.configuration import LoadConfig
 from hisim.simulationparameters import SimulationParameters
 from hisim.components.weather import Weather
 from hisim.components.loadprofilegenerator_connector import Occupancy
-from functools import lru_cache
+
 
 __authors__ = "Vitor Hugo Bellotto Zago"
 __copyright__ = "Copyright 2021, the House Infrastructure Project"
@@ -113,11 +113,23 @@ class BuildingControllerState:
 
 @dataclass_json
 @dataclass
-class BuildingConfig:
+class BuildingConfig(cp.ConfigBase):
+    def get_main_classname(self):
+        return Building.get_full_classname()
+
     heating_reference_temperature: float
     building_code: str
     bClass: str
     initial_temperature: float
+
+    @classmethod
+    def get_default_german_single_family_home(cls) -> Any:
+        config = BuildingConfig(name="Building_1",
+            building_code="DE.N.SFH.05.Gen.ReEx.001.002",
+            bClass="medium",
+            initial_temperature=23,
+            heating_reference_temperature=-14)
+        return config
 
 
 @dataclass_json
@@ -171,10 +183,6 @@ class Building(dynamic_component.DynamicComponent):
     DiffuseHorizontalIrradiance = "DiffuseHorizontalIrradiance"
     GlobalHorizontalIrradiance = "GlobalHorizontalIrradiance"
     TemperatureOutside = "TemperatureOutside"
-    
-    
-    # Inputs -> disturbance_rejection_signal
-    SolarGainsRejectionSignal="SolarGainsRejectionSignal"
 
     # Outputs
     TemperatureMean = "Residence Temperature"
@@ -188,18 +196,10 @@ class Building(dynamic_component.DynamicComponent):
     MassOutput = "MassOutput"
     TemperatureOutput = "TemperatureOutput"
     ReferenceMaxHeatBuildingDemand = "ReferenceMaxHeatBuildingDemand"
-    ActualEnergy="ActualEnergy"
-    TemperatureMeanNext="TemperatureMeanNext"
-    HeatFluxWallNode="HeatFluxWallNode"
-    HeatFluxThermalMassNode="HeatFluxThermalMassNode"
     
-    Heat_flux_thermal_mass_node="Heat_flux_thermal_mass_node"
-    Heat_flux_surface_node="Heat_flux_surface_node"
-    Heat_flux_indoor_air_node="Heat_flux_indoor_air_node"  
-
-    # dynamic
-    my_component_inputs: List[dynamic_component.DynamicConnectionInput] = []
-    my_component_outputs: List[dynamic_component.DynamicConnectionOutput] = []
+    CoolingEnergy="CoolingEnergy"
+    HeatFluxWallNode="HeatFluxWallNode"
+    HeatFluxThermalMassNode="HeatFluxThermalMassNode" 
 
     # Similar components to connect to:
     # 1. Weather
@@ -208,8 +208,10 @@ class Building(dynamic_component.DynamicComponent):
 
     @utils.measure_execution_time
     def __init__(self,
-                 my_simulation_parameters: SimulationParameters, config: BuildingConfig, my_simulation_repository : Optional[ cp.SimRepository ] = None):
-
+                 my_simulation_parameters: SimulationParameters, config: BuildingConfig):
+        # dynamic
+        self.my_component_inputs: List[dynamic_component.DynamicConnectionInput] = []
+        self.my_component_outputs: List[dynamic_component.DynamicConnectionOutput] = []
         super().__init__(my_component_inputs=self.my_component_inputs,
                          my_component_outputs=self.my_component_outputs,
                          name="Building",
@@ -240,7 +242,7 @@ class Building(dynamic_component.DynamicComponent):
             heating_reference_temperature=config.heating_reference_temperature,
             initial_temperature=config.initial_temperature)
         self.build(config.bClass, config.building_code)
-        self.simulation_repository=my_simulation_repository
+
         self.state: BuildingState = BuildingState(t_m=config.initial_temperature, c_m=self.c_m)
         self.previous_state = self.state.self_copy()
 
@@ -251,12 +253,6 @@ class Building(dynamic_component.DynamicComponent):
                                                                            lt.LoadTypes.HEATING,
                                                                            lt.Units.WATT,
                                                                            False)
-        self.disturbance_rejection_signalC: cp.ComponentInput = self.add_input(self.component_name,
-                                                                           self.SolarGainsRejectionSignal,
-                                                                           lt.LoadTypes.HEATING,
-                                                                           lt.Units.WATT,
-                                                                           False)
-        
         self.mass_inputC: cp.ComponentInput = self.add_input(self.component_name,
                                                              self.MassInput,
                                                              lt.LoadTypes.WARM_WATER,
@@ -309,11 +305,6 @@ class Building(dynamic_component.DynamicComponent):
                                                         lt.LoadTypes.TEMPERATURE,
                                                         lt.Units.CELSIUS,
                                                         True)
-        
-        self.actual_energyC: cp.ComponentOutput = self.add_output(self.component_name,
-                                                                           self.ActualEnergy,
-                                                                           lt.LoadTypes.HEATING,
-                                                                           lt.Units.WATT_PER_SQUARE_METER)
 
         self.occupancy_heat_gainC: cp.ComponentInput = self.add_input(self.component_name,
                                                                       self.HeatingByResidents,
@@ -325,16 +316,6 @@ class Building(dynamic_component.DynamicComponent):
                                                         self.TemperatureMean,
                                                         lt.LoadTypes.TEMPERATURE,
                                                         lt.Units.CELSIUS)
-        
-        self.phi_mC: cp.ComponentOutput = self.add_output(self.component_name,
-                                                          self.HeatFluxThermalMassNode,
-                                                          lt.LoadTypes.HEATING,
-                                                          lt.Units.WATT)
-        self.phi_stC: cp.ComponentOutput = self.add_output(self.component_name,
-                                                          self.HeatFluxWallNode,
-                                                          lt.LoadTypes.HEATING,
-                                                          lt.Units.WATT)
-
         self.total_power_to_residenceC: cp.ComponentOutput = self.add_output(self.component_name,
                                                                              self.TotalEnergyToResidence,
                                                                              lt.LoadTypes.HEATING,
@@ -347,17 +328,30 @@ class Building(dynamic_component.DynamicComponent):
                                                                                    self.ReferenceMaxHeatBuildingDemand,
                                                                                    lt.LoadTypes.HEATING,
                                                                                    lt.Units.WATT)
+        self.cooling_energyC: cp.ComponentOutput = self.add_output(self.component_name,
+                                                                           self.CoolingEnergy,
+                                                                           lt.LoadTypes.HEATING,
+                                                                           lt.Units.WATT_PER_SQUARE_METER)
+        self.phi_mC: cp.ComponentOutput = self.add_output(self.component_name,
+                                                          self.HeatFluxThermalMassNode,
+                                                          lt.LoadTypes.HEATING,
+                                                          lt.Units.WATT)
+        self.phi_stC: cp.ComponentOutput = self.add_output(self.component_name,
+                                                          self.HeatFluxWallNode,
+                                                          lt.LoadTypes.HEATING,
+                                                          lt.Units.WATT)
+        
         self.add_default_connections(Weather, self.get_weather_default_connections())
         self.add_default_connections(Occupancy, self.get_occupancy_default_connections())
 
-        self.t_airC : cp.ComponentOutput = self.add_output(self.component_name,
-                                                        self.TemperatureAir,
-                                                        lt.LoadTypes.TEMPERATURE,
-                                                        lt.Units.CELSIUS)
-        self.internal_lossC : cp.ComponentOutput = self.add_output(self.component_name,
-                                                                self.InternalLoss,
-                                                                lt.LoadTypes.HEATING,
-                                                                lt.Units.WATT)
+        # self.t_airC : cp.ComponentOutput = self.add_output(self.ComponentName,
+        #                                                self.TemperatureAir,
+        #                                                lt.LoadTypes.Temperature,
+        #                                                lt.Units.Celsius)
+        # self.internal_lossC : cp.ComponentOutput = self.add_output(self.ComponentName,
+        #                                                        self.InternalLoss,
+        #                                                        lt.LoadTypes.Heating,
+        #                                                        lt.Units.Watt)
         # self.old_stored_energyC : cp.ComponentOutput = self.add_output(self.ComponentName,
         #                                                        self.OldStoredEnergy,
         #                                                        lt.LoadTypes.Any,
@@ -380,14 +374,7 @@ class Building(dynamic_component.DynamicComponent):
         #                                                           lt.LoadTypes.WarmWater,
         #                                                           lt.Units.Celsius)
 
-    @staticmethod
-    def get_default_config():
-        config = BuildingConfig(
-            building_code="DE.N.SFH.05.Gen.ReEx.001.002",
-            bClass="medium",
-            initial_temperature=23,
-            heating_reference_temperature=-14)
-        return config
+
 
     def get_weather_default_connections(self):
         log.information("setting weather default connections")
@@ -434,7 +421,6 @@ class Building(dynamic_component.DynamicComponent):
 
         occupancy_heat_gain = stsv.get_input_value(self.occupancy_heat_gainC)
         t_out = stsv.get_input_value(self.t_outC)
-        disturbance_rejection_signal= stsv.get_input_value(self.disturbance_rejection_signalC)
 
         # With TES [In Development]
         if self.mass_inputC.source_output is not None:
@@ -492,22 +478,15 @@ class Building(dynamic_component.DynamicComponent):
         elif self.thermal_energy_deliveredC.source_output is not None:
             # the name thermal_energy_delivered might be misleading, because it is actually power in W
             thermal_energy_delivered = stsv.get_input_value(self.thermal_energy_deliveredC)  # W
-            
-            actual_energy=(thermal_energy_delivered*self.seconds_per_timestep)/(3600*self.A_f*1000)
-            if actual_energy < 0:
-                stsv.set_output_value(self.actual_energyC, actual_energy)
-        # elif (self.thermal_energy_deliveredC.source_output is None) and  (self.disturbance_rejection_signalC.source_output is not None):
-        #     thermal_energy_delivered=disturbance_rejection_signal
-            
+            cooling_energy=(thermal_energy_delivered*self.seconds_per_timestep)/(3600*self.A_f*1000)
+            if cooling_energy < 0:
+                stsv.set_output_value(self.cooling_energyC, cooling_energy)
+                
         else:
             thermal_energy_delivered = sum(self.get_dynamic_inputs(stsv=stsv, tags=[lt.InandOutputType.HEAT_TO_BUILDING]))
         t_m_prev = self.state.t_m
-        
-        
 
         # old_stored_energy = self.state.cal_stored_energy()
-        
-        
 
         # Performs calculations
         if hasattr(self, "solar_gain_through_windows") is False:
@@ -521,29 +500,12 @@ class Building(dynamic_component.DynamicComponent):
                                                                              apparent_zenith=apparent_zenith)
         else:
             solar_gain_through_windows = self.solar_gain_through_windows[timestep]
-            
-        if timestep == 20000:
-            sol=9000
-        else:
-            sol=1000
-        # if timestep == 23000:
-        #     t_amb=40
-        # else:
-        #     t_amb=5
-        # if timestep== 26000:
-        #     occup=300
-        # else:
-        #     occup=0
-            
-        
-        t_m, t_air, t_s, phi_loss,phi_st,phi_m,t_m_next = self.calc_temperatures_crank_nicolson(energy_demand=thermal_energy_delivered,
+
+        t_m, t_air, t_s, phi_loss,phi_st,phi_m = self.calc_temperatures_crank_nicolson(energy_demand=thermal_energy_delivered,
                                                                           internal_gains=occupancy_heat_gain,
                                                                           solar_gains=solar_gain_through_windows,
                                                                           t_out=t_out,
                                                                           t_m_prev=t_m_prev)
-        
-        # log.information("building_temperature_t_m_nextc {}".format(t_m))
-        # log.information("thermal_energy_delivered {}".format(thermal_energy_delivered))
 
         self.state.t_m = t_m
         # self.state.t_m = t_m
@@ -556,7 +518,7 @@ class Building(dynamic_component.DynamicComponent):
         # Returns outputs
         # stsv.set_output_value(self.t_mC, t_air)
         stsv.set_output_value(self.t_mC, t_m)
-        stsv.set_output_value(self.t_airC, t_air)
+        # stsv.set_output_value(self.t_airC, t_air)
         stsv.set_output_value(self.total_power_to_residenceC,
                               phi_loss)  # phi_loss is already given in W, time correction factor applied to thermal transmittance h_tr
         stsv.set_output_value(self.phi_mC, phi_m)
@@ -576,14 +538,12 @@ class Building(dynamic_component.DynamicComponent):
             if timestep + 1 == self.my_simulation_parameters.timesteps:
                 database = pd.DataFrame(self.cache, columns=["solar_gain_through_windows"])
                 database.to_csv(self.cache_file_path, sep=",", decimal=".", index=False)
-                
-        self.simulation_repository.set_entry(self.Heat_flux_thermal_mass_node, self.phi_m)
-        self.simulation_repository.set_entry(self.Heat_flux_surface_node, self.phi_st)
-        self.simulation_repository.set_entry(self.Heat_flux_indoor_air_node, self.phi_ia)
 
     def i_save_state(self)-> None:
         self.previous_state = self.state.self_copy()
-
+    def i_prepare_simulation(self) -> None:
+        """ Prepares the simulation. """
+        pass
     def i_restore_state(self)-> None:
         self.state = self.previous_state.self_copy()
 
@@ -833,7 +793,6 @@ class Building(dynamic_component.DynamicComponent):
 
         # Internal heat capacity [Wh/(m^2.K)] (TABULA: Internal heat capacity)
         self.c_m_ref = float(self.buildingdata["c_m"].values[0])  # internal heat capacity per m2 reference area
-        
 
         # References properties
         self.h_ve_adj_ref = float(self.buildingdata["h_Ventilation"].values[0]) * self.A_f
@@ -967,7 +926,7 @@ class Building(dynamic_component.DynamicComponent):
         self.calc_phi_m_tot(t_out)
 
         # calculates the new bulk temperature POINT from the old one # CHECKED Requires t_m_prev
-        t_m_next=self.calc_t_m_next(t_m_prev)
+        self.calc_t_m_next(t_m_prev)
 
         # calculates the AVERAGE bulk temperature used for the remaining
         t_m = self.calc_t_m(t_m_prev)
@@ -978,7 +937,7 @@ class Building(dynamic_component.DynamicComponent):
         # Updates t_w
         t_air = self.calc_t_air(t_out, t_s)
 
-        return t_m, t_air, t_s, phi_loss,phi_st,phi_m,t_m_next
+        return t_m, t_air, t_s, phi_loss,phi_st,phi_m
         # return t_m, t_air, t_s
         # return self.t_m, self.t_air, self.t_opperative, self.t_s
 
@@ -1019,7 +978,6 @@ class Building(dynamic_component.DynamicComponent):
         # changed 3600s per hour to seconds per timestep, which solves all problems and makes time correction redundant
         self.t_m_next = ((t_m_prev * ((self.c_m / self.seconds_per_timestep) - 0.5 * (self.h_tr_3 + self.h_tr_em))) +
                          self.phi_m_tot) / ((self.c_m / self.seconds_per_timestep) + 0.5 * (self.h_tr_3 + self.h_tr_em))
-        return self.t_m_next
 
     def calc_phi_m_tot(self, t_out):
         """
@@ -1231,13 +1189,13 @@ class BuildingController(cp.Component):
     LevelOfUtilization = "LevelOfUtilization"
 
     def __init__(self,
-                  my_simulation_parameters: SimulationParameters,
-                  config: BuildingControllerConfig):
+                 my_simulation_parameters: SimulationParameters,
+                 config: BuildingControllerConfig):
         super().__init__(name="BuildingController", my_simulation_parameters=my_simulation_parameters)
         self.minimal_building_temperature = config.minimal_building_temperature
         self.stop_heating_building_temperature = config.stop_heating_building_temperature
         self.state = BuildingControllerState(temperature_building_target_C=config.minimal_building_temperature,
-                                              level_of_utilization=0)
+                                             level_of_utilization=0)
         self.previous_state = self.state.clone()
 
         # ===================================================================================================================
@@ -1247,14 +1205,14 @@ class BuildingController(cp.Component):
                                                                               lt.Units.WATT,
                                                                               True)
         self.residence_temperature: cp.ComponentInput = self.add_input(self.component_name,
-                                                                        self.ResidenceTemperature,
-                                                                        lt.LoadTypes.TEMPERATURE,
-                                                                        lt.Units.CELSIUS,
-                                                                        True)
+                                                                       self.ResidenceTemperature,
+                                                                       lt.LoadTypes.TEMPERATURE,
+                                                                       lt.Units.CELSIUS,
+                                                                       True)
         self.real_heat_building_demand: cp.ComponentOutput = self.add_output(self.component_name,
-                                                                              self.RealHeatBuildingDemand,
-                                                                              lt.LoadTypes.HEATING,
-                                                                              lt.Units.WATT)
+                                                                             self.RealHeatBuildingDemand,
+                                                                             lt.LoadTypes.HEATING,
+                                                                             lt.Units.WATT)
         self.level_of_utilization: cp.ComponentOutput = self.add_output(self.component_name,
                                                                         self.LevelOfUtilization,
                                                                         lt.LoadTypes.ANY,
@@ -1280,6 +1238,10 @@ class BuildingController(cp.Component):
         self.state = self.previous_state.clone()
 
     def i_doublecheck(self, timestep: int, stsv: cp.SingleTimeStepValues) -> None:
+        pass
+
+    def i_prepare_simulation(self) -> None:
+        """ Prepares the simulation. """
         pass
 
     def i_simulate(self, timestep: int, stsv: cp.SingleTimeStepValues, force_convergence: bool) -> None:
