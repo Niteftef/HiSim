@@ -295,5 +295,5 @@ def modular_household_explicit(my_sim: Any, my_simulation_parameters: Optional[S
         injection=injection,
         autarky_rate=autarky_rate,
         self_consumption_rate=self_consumption_rate,
-        terminationflag=lt.Termination
+        terminationflag=lt.Termination.SUCCESSFUL
         )
