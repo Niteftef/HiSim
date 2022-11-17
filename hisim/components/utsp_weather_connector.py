@@ -1,10 +1,10 @@
 """ Retrieves weather data from the UTSP """
 
-import datetime
 import io
 import math
 import os
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, List
 
 import numpy as np
@@ -16,6 +16,9 @@ from hisim import loadtypes as lt
 from hisim import log, utils, utsp_utils
 from hisim.component import Component, ComponentOutput, ConfigBase, SingleTimeStepValues
 from hisim.simulationparameters import SimulationParameters
+
+# time zone used for calculation
+TIME_ZONE = "Europe/Berlin"
 
 
 @dataclass
@@ -401,34 +404,28 @@ class UtspWeather(Component):
                 self.Weather_WindSpeed_yearly_forecast, self.wind_speed_list
             )
 
-    def interpolate(self, pd_database: Any, year: int) -> Any:
-        """Interpolates a timeseries to 1-minute resolution and ensures that there is data
-        for all time steps in the simulation time frame."""
-        # if the data starts after the start of the simulation time frame or ends before the
-        # end of the simulation time frame, add the dates for start/end of the simulation and
-        # interpolate the missing parts
-        start_date = datetime.datetime(year - 1, 12, 31, 23, 0)
-        if start_date > pd_database.index[0]:
+    def interpolate(self, data: Any, year: int) -> Any:
+        """Interpolates a timeseries to 1-minute resolution and interpolates missing data
+        in the beginning or end of the simulation time frame."""
+        # if the data starts after the simulation start date or ends before the simulation
+        # end date, add the respective date to interpolate the missing parts
+        start_date = pd.Timestamp(datetime(year, 1, 1, 0, 0), tz=TIME_ZONE)
+        if start_date < data.index[0]:
             firstday = pd.Series(
                 [0.0],
-                index=[
-                    pd.to_datetime(start_date, utc=True).tz_convert(tz="Europe/Berlin")
-                ],
+                index=[start_date],
             )
-            pd_database = pd_database.append(firstday)
-        end_date = datetime.datetime(year, 12, 31, 22, 59)
-        if end_date > pd_database.index[-1]:
+            data = pd.concat([firstday, data])
+        end_date = pd.Timestamp(datetime(year, 12, 31, 23, 59), tz=TIME_ZONE)
+        if end_date > data.index[-1]:
             lastday = pd.Series(
-                pd_database[-1],
-                index=[
-                    pd.to_datetime(end_date, utc=True).tz_convert(tz="Europe/Berlin")
-                ],
+                data[-1],
+                index=[end_date],
             )
-            pd_database = pd_database.append(lastday)
-        pd_database = pd_database.sort_index()
-        # resample to 1 minute resolution between firstday and lastday
+            data = pd.concat([data, lastday])
+        # resample to 1 minute resolution
         # TODO: why always resample to 1 Minute and not directly to the simulation resolution
-        return pd_database.resample("1T").asfreq().interpolate(method="linear")
+        return data.resample("1T").asfreq().interpolate(method="linear")
 
 
 def read_data(raw_data: str) -> pd.DataFrame:
@@ -442,7 +439,7 @@ def read_data(raw_data: str) -> pd.DataFrame:
         parse_dates=[0],
     )
     # convert to datetime index (needs to be done in UTC), and then change the time zone back to utc+1
-    data.index = pd.to_datetime(data.index, utc=True).tz_convert(tz="Europe/Berlin")
+    data.index = pd.to_datetime(data.index, utc=True).tz_convert(tz=TIME_ZONE)
 
     "temperature [degC]", "pressure [hPa]", "wind direction [deg]",
     "wind speed [m/s]", "cloud coverage [1/8]", "humidity [%]",
@@ -480,13 +477,13 @@ def read_dwd_data(filepath: str, year: int) -> Any:
         data = pd.read_csv(
             filepath + ".csv", index_col=0, parse_dates=True, sep=";", decimal=","
         )
-        data.index = pd.to_datetime(data.index, utc=True).tz_convert("Europe/Berlin")
+        data.index = pd.to_datetime(data.index, utc=True).tz_convert(TIME_ZONE)
     # else read from .dat and calculate DNI etc.
     else:
         # get data
         data = pd.read_csv(filepath + ".dat", sep=r"\s+", skiprows=list(range(0, 31)))
         data.index = pd.date_range(
-            f"{year}-01-01 00:30:00", periods=8760, freq="H", tz="Europe/Berlin"
+            f"{year}-01-01 00:30:00", periods=8760, freq="H", tz=TIME_ZONE
         )
         data["GHI"] = data["D"] + data["B"]
         data = data.rename(
@@ -523,7 +520,7 @@ def read_nsrdb_data(filepath, year):
     data = pd.read_csv(filepath + ".dat", sep=",", skiprows=list(range(0, 11)))
     data = data.drop(data.index[8761:8772])
     data.index = pd.date_range(
-        f"{year}-01-01 00:30:00", periods=8760, freq="H", tz="Europe/Berlin"
+        f"{year}-01-01 00:30:00", periods=8760, freq="H", tz=TIME_ZONE
     )
     data = data.rename(
         columns={
