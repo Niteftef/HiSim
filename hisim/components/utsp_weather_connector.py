@@ -241,8 +241,12 @@ class UtspWeather(Component):
         seconds_per_timestep = self.my_simulation_parameters.seconds_per_timestep
         log.information(self.weather_config.to_json())
         # TODO: somehow provide the used weather location
-        # location_dict = get_coordinates(self.weather_config.source_path)
-        # self.simulation_repository.set_entry("weather_location", location_dict)
+        location = {
+            "name": "Bremerhaven",
+            "latitude": 53.5591,
+            "longitude": 8.5872,
+        }
+        self.simulation_repository.set_entry("weather_location", location)
         cachefound, cache_filepath = utils.get_cache_file(
             "Weather", self.weather_config, self.my_simulation_parameters
         )
@@ -275,7 +279,9 @@ class UtspWeather(Component):
                 tmy_data["T"], self.my_simulation_parameters.year
             )
             DHI = self.interpolate(tmy_data["DHI"], self.my_simulation_parameters.year)
-            GHI = self.interpolate(tmy_data["GHI"], self.my_simulation_parameters.year)
+            GHI = self.interpolate(
+                tmy_data["DHI"], self.my_simulation_parameters.year
+            )  # TODO: wrong column for testing (GHI column is missing)
             solpos = pvlib.solarposition.get_solarposition(DNI.index, location["latitude"], location["longitude"])  # type: ignore
             altitude = solpos["elevation"]
             azimuth = solpos["azimuth"]
@@ -285,6 +291,7 @@ class UtspWeather(Component):
             )
 
             if seconds_per_timestep != 60:
+                # resample to simulation resolution
                 self.temperature_list = (
                     temperature.resample(str(seconds_per_timestep) + "S")
                     .mean()
@@ -298,10 +305,9 @@ class UtspWeather(Component):
                 self.DHI_list = (
                     DHI.resample(str(seconds_per_timestep) + "S").mean().tolist()
                 )
-                # np.float64( ## not sure what this is fore. python float and npfloat 64 are the same.
                 self.DNI_list = (
                     DNI.resample(str(seconds_per_timestep) + "S").mean().tolist()
-                )  # )  # type: ignore
+                )
                 self.DNIextra_list = (
                     dni_extra.resample(str(seconds_per_timestep) + "S").mean().tolist()
                 )
@@ -323,6 +329,7 @@ class UtspWeather(Component):
                     wind_speed.resample(str(seconds_per_timestep) + "S").mean().tolist()
                 )
             else:
+                # data already has the correct resolution (1 minute)
                 self.temperature_list = temperature.tolist()
                 self.dry_bulb_list = temperature.to_list()
                 self.DHI_list = DHI.tolist()
@@ -336,7 +343,7 @@ class UtspWeather(Component):
                     wind_speed.resample(str(seconds_per_timestep) + "S").mean().tolist()
                 )
 
-            solardata = [
+            resampled_data = [
                 self.DNI_list,
                 self.DHI_list,
                 self.GHI_list,
@@ -350,7 +357,7 @@ class UtspWeather(Component):
             ]
 
             database = pd.DataFrame(
-                np.transpose(solardata),
+                np.transpose(resampled_data),
                 columns=[
                     "DNI",
                     "DHI",
@@ -395,130 +402,39 @@ class UtspWeather(Component):
             )
 
     def interpolate(self, pd_database: Any, year: int) -> Any:
-        """Interpolates a time series."""
-        # firstday = pd.Series(
-        #     [0.0],
-        #     index=[
-        #         pd.to_datetime(
-        #             datetime.datetime(year - 1, 12, 31, 23, 0), utc=True
-        #         ).tz_convert(tz="Europe/Berlin")
-        #     ],
-        # )
-        lastday = pd.Series(
-            pd_database[-1],
-            index=[
-                pd.to_datetime(
-                    datetime.datetime(year, 12, 31, 22, 59), utc=True
-                ).tz_convert(tz="Europe/Berlin")
-            ],
-        )
-        # pd_database = pd_database.append(firstday)
-        pd_database = pd_database.append(lastday)
+        """Interpolates a timeseries to 1-minute resolution and ensures that there is data
+        for all time steps in the simulation time frame."""
+        # if the data starts after the start of the simulation time frame or ends before the
+        # end of the simulation time frame, add the dates for start/end of the simulation and
+        # interpolate the missing parts
+        start_date = datetime.datetime(year - 1, 12, 31, 23, 0)
+        if start_date > pd_database.index[0]:
+            firstday = pd.Series(
+                [0.0],
+                index=[
+                    pd.to_datetime(start_date, utc=True).tz_convert(tz="Europe/Berlin")
+                ],
+            )
+            pd_database = pd_database.append(firstday)
+        end_date = datetime.datetime(year, 12, 31, 22, 59)
+        if end_date > pd_database.index[-1]:
+            lastday = pd.Series(
+                pd_database[-1],
+                index=[
+                    pd.to_datetime(end_date, utc=True).tz_convert(tz="Europe/Berlin")
+                ],
+            )
+            pd_database = pd_database.append(lastday)
         pd_database = pd_database.sort_index()
+        # resample to 1 minute resolution between firstday and lastday
+        # TODO: why always resample to 1 Minute and not directly to the simulation resolution
         return pd_database.resample("1T").asfreq().interpolate(method="linear")
-
-    def calc_sun_position(self, latitude_deg, longitude_deg, year, hoy):
-        """Calculates the Sun Position for a specific hour and location.
-
-        :param latitude_deg: Geographical Latitude in Degrees
-        :type latitude_deg: float
-        :param longitude_deg: Geographical Longitude in Degrees
-        :type longitude_deg: float
-        :param year: year
-        :type year: int
-        :param hoy: Hour of the year from the start. The first hour of January is 1
-        :type hoy: int
-        :return: altitude, azimuth: Sun position in altitude and azimuth degrees [degrees]
-        :rtype: tuple
-        """
-        # Convert to Radians
-        latitude_rad = math.radians(latitude_deg)
-        # longitude_rad = math.radians(longitude_deg)  # Note: this is never used
-
-        # Set the date in UTC based off the hour of year and the year itself
-        start_of_year = datetime.datetime(year, 1, 1, 0, 0, 0, 0)
-        utc_datetime = start_of_year + datetime.timedelta(hours=hoy)
-
-        # Angular distance of the sun north or south of the earths equator
-        # Determine the day of the year.
-        day_of_year = utc_datetime.timetuple().tm_yday
-
-        # Calculate the declination angle: The variation due to the earths tilt
-        # http://www.pveducation.org/pvcdrom/properties-of-sunlight/declination-angle
-        declination_rad = math.radians(
-            23.45 * math.sin((2 * math.pi / 365.0) * (day_of_year - 81))
-        )
-
-        # Normalise the day to 2*pi
-        # There is some reason as to why it is 364 and not 365.26
-        angle_of_day = (day_of_year - 81) * (2 * math.pi / 364)
-
-        # The deviation between local standard time and true solar time
-        equation_of_time = (
-            (9.87 * math.sin(2 * angle_of_day))
-            - (7.53 * math.cos(angle_of_day))
-            - (1.5 * math.sin(angle_of_day))
-        )
-
-        # True Solar Time
-        solar_time = (
-            (utc_datetime.hour * 60)
-            + utc_datetime.minute
-            + (4 * longitude_deg)
-            + equation_of_time
-        ) / 60.0
-
-        # Angle between the local longitude and longitude where the sun is at
-        # higher altitude
-        hour_angle_rad = math.radians(15 * (12 - solar_time))
-
-        # Altitude Position of the Sun in Radians
-        altitude_rad = math.asin(
-            math.cos(latitude_rad)
-            * math.cos(declination_rad)
-            * math.cos(hour_angle_rad)
-            + math.sin(latitude_rad) * math.sin(declination_rad)
-        )
-
-        # Azimuth Position fo the sun in radians
-        azimuth_rad = math.asin(
-            math.cos(declination_rad)
-            * math.sin(hour_angle_rad)
-            / math.cos(altitude_rad)
-        )
-
-        # I don't really know what this code does, it has been imported from
-        # PySolar
-        if math.cos(hour_angle_rad) >= (
-            math.tan(declination_rad) / math.tan(latitude_rad)
-        ):
-            return math.degrees(altitude_rad), math.degrees(azimuth_rad)
-        return math.degrees(altitude_rad), (180 - math.degrees(azimuth_rad))
-
-    def calc_sun_position2(self, hoy: Any) -> Any:
-        """Calculates the sun position."""
-        return self.altitude_list[hoy], self.azimuth_list[hoy]
-
-
-def get_coordinates(filepath: str) -> Any:
-    """Reads a test reference year file and gets the GHI, DHI and DNI from it.
-
-    Based on the tsib project @[tsib-kotzur] (Check header)
-    """
-    # get the correct file path
-    # filepath = os.path.join(utils.HISIMPATH["weather"][location])
-
-    # get the geoposition
-    with open(filepath + ".dat", encoding="utf-8") as file_stream:
-        lines = file_stream.readlines()
-        location_name = lines[0].split(maxsplit=2)[2].replace("\n", "")
-        lat = float(lines[1][20:37])
-        lon = float(lines[2][15:30])
-    return {"name": location_name, "latitude": lat, "longitude": lon}
-    # self.index = pd.date_range(f"{year}-01-01 00:00:00", periods=60 * 24 * 365, freq="T", tz="Europe/Berlin")
 
 
 def read_data(raw_data: str) -> pd.DataFrame:
+    """
+    Parses weather data from the UTSP weather_provider.
+    """
     data_buffer = io.StringIO(raw_data)
     data = pd.read_csv(
         data_buffer,
@@ -548,21 +464,6 @@ def read_data(raw_data: str) -> pd.DataFrame:
         }
     )
     return data
-
-
-def read_test_reference_year_data(weatherconfig: UtspWeatherConfig, year: int) -> Any:
-    """Reads a test reference year file and gets the GHI, DHI and DNI from it.
-
-    Based on the tsib project @[tsib-kotzur] (Check header)
-    """
-    # get the correct file path
-    filepath = os.path.join(weatherconfig.source_path)
-    if weatherconfig.data_source == WeatherDataSourceEnum.NSRDB:
-        data, location_dict = read_nsrdb_data(filepath, year)
-    elif weatherconfig.data_source == WeatherDataSourceEnum.DWD:
-        data, location_dict = read_dwd_data(filepath, year)
-
-    return data, location_dict
 
 
 def read_dwd_data(filepath: str, year: int) -> Any:
