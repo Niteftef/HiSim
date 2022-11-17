@@ -1,98 +1,55 @@
-""" Handles all the weather data processing. """
+""" Retrieves weather data from the UTSP """
 
 import datetime
+import io
 import math
 import os
 from dataclasses import dataclass
-from typing import List, Any
-from enum import Enum
+from typing import Any, List
+
 import numpy as np
 import pandas as pd
 import pvlib
+from utspclient import client, datastructures
 
 from hisim import loadtypes as lt
-from hisim import log
-from hisim import utils
-
-from hisim.component import Component, SingleTimeStepValues, ComponentOutput, ConfigBase
+from hisim import log, utils, utsp_utils
+from hisim.component import Component, ComponentOutput, ConfigBase, SingleTimeStepValues
 from hisim.simulationparameters import SimulationParameters
-
-__authors__ = "Vitor Hugo Bellotto Zago, Noah Pflugradt"
-__copyright__ = "Copyright 2021, the House Infrastructure Project"
-__credits__ = ["Noah Pflugradt"]
-__license__ = "MIT"
-__version__ = "0.1"
-__maintainer__ = "Noah Pflugradt"
-
-""" The functions cited in this module are at some degree based on the tsib project:
-
-[tsib-kotzur]: Kotzur, Leander, Detlef Stolten, and Hermann-Josef Wagner. Future grid load of the residential building sector.
-No. RWTH-2018-231872. Lehrstuhl für Brennstoffzellen (FZ Jülich), 2019.
-ID: http://hdl.handle.net/2128/21115
-    http://nbn-resolving.org/resolver?verb=redirect&identifier=urn:nbn:de:0001-2019020614
-
-The implementation of the tsib project can be found under the following repository:
-https://github.com/FZJ-IEK3-VSA/tsib
-"""
-
-
-class WeatherDataSourceEnum(Enum):
-
-    """ Describes where the weather data is from. Used to choose the correct reading function. """
-
-    DWD = 1
-    NSRDB = 2
-
-
-class LocationEnum(Enum):
-
-    """ contains all the locations and their corresponding directories. """
-
-    Aachen = ("Aachen", "test-reference-years_1995-2012_1-location", "data_processed", "aachen_center", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Bremerhaven = ("01_Bremerhaven", "test-reference-years_2015-2045_15-locations", "data_processed",  "weather_region_01", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Rostock = ("02_Rostock", "test-reference-years_2015-2045_15-locations", "data_processed", "weather_region_02", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Hamburg = ("03Hamburg", "test-reference-years_2015-2045_15-locations", "data_processed", "weather_region_03", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Potsdam = ("04Potsdam", "test-reference-years_2015-2045_15-locations", "data_processed", "weather_region_04", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Essen = ("05Essen", "test-reference-years_2015-2045_15-locations", "data_processed", "weather_region_05", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Bad_Marienburg = ("06Bad Marienburg", "test-reference-years_2015-2045_15-locations", "data_processed", "weather_region_06", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Kassel = ("07Kassel", "test-reference-years_2015-2045_15-locations", "data_processed", "weather_region_07", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Braunlage = ("08Braunlage", "test-reference-years_2015-2045_15-locations", "data_processed", "weather_region_08", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Chemnitz = ("09Chemnitz", "test-reference-years_2015-2045_15-locations", "data_processed", "weather_region_09", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Hof = ("10Hof", "test-reference-years_2015-2045_15-locations", "data_processed", "weather_region_10", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Fichtelberg = ("11Fichtelberg", "test-reference-years_2015-2045_15-locations", "data_processed", "weather_region_11", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Mannheim = ("12Mannheim", "test-reference-years_2015-2045_15-locations", "data_processed", "weather_region_12", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Muehldorf = ("13Muehldorf", "test-reference-years_2015-2045_15-locations", "data_processed", "weather_region_13", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Stoetten = ("14Stoetten", "test-reference-years_2015-2045_15-locations", "data_processed", "weather_region_14", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Garmisch_Partenkirchen = ("15Garmisch Partenkirchen", "test-reference-years_2015-2045_15-locations", "data_processed", "weather_region_15", WeatherDataSourceEnum.DWD)  # noqa: invalid-name
-    Madrid = ("Madrid", "test-reference-years_2015-2045_15-locations", "NSRDB", "Madrid", WeatherDataSourceEnum.NSRDB)  # noqa: invalid-name
-    Seville = ("Seville", "test-reference-years_2015-2045_15-locations", "NSRDB", "Seville", WeatherDataSourceEnum.NSRDB)  # noqa: invalid-name
 
 
 @dataclass
-class WeatherConfig(ConfigBase):
+class UtspWeatherConfig(ConfigBase, utsp_utils.UtspConfig):
+    """Configuration class for Weather."""
 
-    """ Configuration class for Weather. """
-
-    location: str
-    source_path: str
-    data_source: WeatherDataSourceEnum
+    weather_request: str
 
     @classmethod
     def get_main_classname(cls):
-        """ Get the name of the main class. """
-        return Weather.get_full_classname()
+        """Get the name of the main class."""
+        return UtspWeather.get_full_classname()
 
     @classmethod
-    def get_default(cls, location_entry: Any) -> Any:
-        """ Gets the default configuration for Aachen. """
-        path = os.path.join(utils.get_input_directory(), "weather", location_entry.value[1], location_entry.value[2], location_entry.value[3])
-        config = WeatherConfig(name="Weather_1", location=location_entry.value[0], source_path=path, data_source=location_entry.value[4])
+    def get_default_config(
+        cls, url: str = "http://localhost:443/api/v1/profilerequest", api_key: str = ""
+    ) -> "UtspWeatherConfig":
+        config = UtspWeatherConfig(
+            url,
+            api_key,
+            name="UtspWeather_1",
+            weather_request="""{
+            "reference_region": 1,
+            "reference_condition": "a",
+            "reference_projection": 2015,
+            "resolution_in_min": 60
+        }""",
+        )
         return config
 
 
-class Weather(Component):
+class UtspWeather(Component):
 
-    """ Provide thermal and solar conditions of local weather. """
+    """Provide thermal and solar conditions of local weather."""
 
     # Inputs
     # None
@@ -109,47 +66,92 @@ class Weather(Component):
     WindSpeed = "WindSpeed"
     Weather_Temperature_Forecast_24h = "Weather_Temperature_Forecast_24h"
 
-    Weather_TemperatureOutside_yearly_forecast = "Weather_TemperatureOutside_yearly_forecast"
-    Weather_DirectNormalIrradiance_yearly_forecast = "Weather_DirectNormalIrradiance_yearly_forecast"
-    Weather_DiffuseHorizontalIrradiance_yearly_forecast = "Weather_DiffuseHorizontalIrradiance_yearly_forecast"
-    Weather_DirectNormalIrradianceExtra_yearly_forecast = "Weather_DirectNormalIrradianceExtra_yearly_forecast"
-    Weather_GlobalHorizontalIrradiance_yearly_forecast = "Weather_GlobalHorizontalIrradiance_yearly_forecast"
+    Weather_TemperatureOutside_yearly_forecast = (
+        "Weather_TemperatureOutside_yearly_forecast"
+    )
+    Weather_DirectNormalIrradiance_yearly_forecast = (
+        "Weather_DirectNormalIrradiance_yearly_forecast"
+    )
+    Weather_DiffuseHorizontalIrradiance_yearly_forecast = (
+        "Weather_DiffuseHorizontalIrradiance_yearly_forecast"
+    )
+    Weather_DirectNormalIrradianceExtra_yearly_forecast = (
+        "Weather_DirectNormalIrradianceExtra_yearly_forecast"
+    )
+    Weather_GlobalHorizontalIrradiance_yearly_forecast = (
+        "Weather_GlobalHorizontalIrradiance_yearly_forecast"
+    )
     Weather_Azimuth_yearly_forecast = "Weather_Azimuth_yearly_forecast"
     Weather_ApparentZenith_yearly_forecast = "Weather_ApparentZenith_yearly_forecast"
     Weather_WindSpeed_yearly_forecast = "Weather_WindSpeed_yearly_forecast"
 
     @utils.measure_execution_time
-    def __init__(self, my_simulation_parameters: SimulationParameters, config: WeatherConfig):
-        """ Initializes the entire class. """
-        super().__init__(name="Weather", my_simulation_parameters=my_simulation_parameters)
+    def __init__(
+        self, my_simulation_parameters: SimulationParameters, config: UtspWeatherConfig
+    ):
+        """Initializes the entire class."""
+        super().__init__(
+            name="Weather", my_simulation_parameters=my_simulation_parameters
+        )
         if my_simulation_parameters is None:
             raise Exception("Simparameters was none")
         self.last_timestep_with_update = -1
         self.weather_config = config
         self.parameter_string = my_simulation_parameters.get_unique_key()
 
-        self.air_temperature_output: ComponentOutput = self.add_output(self.component_name, self.TemperatureOutside, lt.LoadTypes.TEMPERATURE,
-                                                                       lt.Units.CELSIUS)
+        self.air_temperature_output: ComponentOutput = self.add_output(
+            self.component_name,
+            self.TemperatureOutside,
+            lt.LoadTypes.TEMPERATURE,
+            lt.Units.CELSIUS,
+        )
 
-        self.DNI_output: ComponentOutput = self.add_output(self.component_name, self.DirectNormalIrradiance, lt.LoadTypes.IRRADIANCE,
-                                                           lt.Units.WATT_PER_SQUARE_METER)
+        self.DNI_output: ComponentOutput = self.add_output(
+            self.component_name,
+            self.DirectNormalIrradiance,
+            lt.LoadTypes.IRRADIANCE,
+            lt.Units.WATT_PER_SQUARE_METER,
+        )
 
-        self.DNI_extra_output: ComponentOutput = self.add_output(self.component_name, self.DirectNormalIrradianceExtra, lt.LoadTypes.IRRADIANCE,
-                                                                 lt.Units.WATT_PER_SQUARE_METER)
+        self.DNI_extra_output: ComponentOutput = self.add_output(
+            self.component_name,
+            self.DirectNormalIrradianceExtra,
+            lt.LoadTypes.IRRADIANCE,
+            lt.Units.WATT_PER_SQUARE_METER,
+        )
 
-        self.DHI_output: ComponentOutput = self.add_output(self.component_name, self.DiffuseHorizontalIrradiance, lt.LoadTypes.IRRADIANCE,
-                                                           lt.Units.WATT_PER_SQUARE_METER)
+        self.DHI_output: ComponentOutput = self.add_output(
+            self.component_name,
+            self.DiffuseHorizontalIrradiance,
+            lt.LoadTypes.IRRADIANCE,
+            lt.Units.WATT_PER_SQUARE_METER,
+        )
 
-        self.GHI_output: ComponentOutput = self.add_output(self.component_name, self.GlobalHorizontalIrradiance, lt.LoadTypes.IRRADIANCE,
-                                                           lt.Units.WATT_PER_SQUARE_METER)
+        self.GHI_output: ComponentOutput = self.add_output(
+            self.component_name,
+            self.GlobalHorizontalIrradiance,
+            lt.LoadTypes.IRRADIANCE,
+            lt.Units.WATT_PER_SQUARE_METER,
+        )
 
-        self.altitude_output: ComponentOutput = self.add_output(self.component_name, self.Altitude, lt.LoadTypes.ANY, lt.Units.DEGREES)
+        self.altitude_output: ComponentOutput = self.add_output(
+            self.component_name, self.Altitude, lt.LoadTypes.ANY, lt.Units.DEGREES
+        )
 
-        self.azimuth_output: ComponentOutput = self.add_output(self.component_name, self.Azimuth, lt.LoadTypes.ANY, lt.Units.DEGREES)
+        self.azimuth_output: ComponentOutput = self.add_output(
+            self.component_name, self.Azimuth, lt.LoadTypes.ANY, lt.Units.DEGREES
+        )
 
-        self.apparent_zenith_output: ComponentOutput = self.add_output(self.component_name, self.ApparentZenith, lt.LoadTypes.ANY, lt.Units.DEGREES)
+        self.apparent_zenith_output: ComponentOutput = self.add_output(
+            self.component_name, self.ApparentZenith, lt.LoadTypes.ANY, lt.Units.DEGREES
+        )
 
-        self.wind_speed_output: ComponentOutput = self.add_output(self.component_name, self.WindSpeed, lt.LoadTypes.SPEED, lt.Units.METER_PER_SECOND)
+        self.wind_speed_output: ComponentOutput = self.add_output(
+            self.component_name,
+            self.WindSpeed,
+            lt.LoadTypes.SPEED,
+            lt.Units.METER_PER_SECOND,
+        )
         self.temperature_list: List[float]
         self.DNI_list: List[float]
         self.DNIextra_list: List[float]
@@ -162,32 +164,36 @@ class Weather(Component):
         self.dry_bulb_list: List[float]
 
     def write_to_report(self):
-        """ Write configuration to the report. """
+        """Write configuration to the report."""
         lines = []
         lines.append("Weather")
         lines.append(self.weather_config.get_string_dict())  # type: ignore
         return lines
 
     def i_save_state(self) -> None:
-        """ Saves the current state. """
+        """Saves the current state."""
         pass
 
     def i_restore_state(self) -> None:
-        """ Restores the previous state. Not needed for weather. """
+        """Restores the previous state. Not needed for weather."""
         pass
 
     def i_doublecheck(self, timestep: int, stsv: SingleTimeStepValues) -> None:
-        """ Double chekc. """
+        """Double chekc."""
         pass
 
-    def i_simulate(self, timestep: int, stsv: SingleTimeStepValues, force_convergence: bool) -> None:
-        """ Performs the simulation. """
+    def i_simulate(
+        self, timestep: int, stsv: SingleTimeStepValues, force_convergence: bool
+    ) -> None:
+        """Performs the simulation."""
         if self.last_timestep_with_update == timestep:
             return
         if force_convergence:
             return
         """ Performs the simulation. """
-        stsv.set_output_value(self.air_temperature_output, self.temperature_list[timestep])
+        stsv.set_output_value(
+            self.air_temperature_output, self.temperature_list[timestep]
+        )
         stsv.set_output_value(self.DNI_output, self.DNI_list[timestep])
         stsv.set_output_value(self.DNI_extra_output, self.DNIextra_list[timestep])
         stsv.set_output_value(self.DHI_output, self.DHI_list[timestep])
@@ -195,67 +201,127 @@ class Weather(Component):
         stsv.set_output_value(self.altitude_output, self.altitude_list[timestep])
         stsv.set_output_value(self.azimuth_output, self.azimuth_list[timestep])
         stsv.set_output_value(self.wind_speed_output, self.wind_speed_list[timestep])
-        stsv.set_output_value(self.apparent_zenith_output, self.apparent_zenith_list[timestep])
+        stsv.set_output_value(
+            self.apparent_zenith_output, self.apparent_zenith_list[timestep]
+        )
 
         # set the temperature forecast
         if self.my_simulation_parameters.system_config.predictive:
-            timesteps_24h = 24 * 3600 / self.my_simulation_parameters.seconds_per_timestep
+            timesteps_24h = (
+                24 * 3600 / self.my_simulation_parameters.seconds_per_timestep
+            )
             last_forecast_timestep = int(timestep + timesteps_24h)
             if last_forecast_timestep > len(self.temperature_list):
                 last_forecast_timestep = len(self.temperature_list)
             # log.information( type(self.temperature))
             temperatureforecast = self.temperature_list[timestep:last_forecast_timestep]
-            self.simulation_repository.set_entry(self.Weather_Temperature_Forecast_24h, temperatureforecast)
+            self.simulation_repository.set_entry(
+                self.Weather_Temperature_Forecast_24h, temperatureforecast
+            )
         self.last_timestep_with_update = timestep
 
+    def get_data_from_utsp(self) -> str:
+
+        # Prepare the time series request
+        request = datastructures.TimeSeriesRequest(
+            self.weather_config.weather_request, "weather_provider"
+        )
+
+        log.information("Requesting weather profiles from the UTSP.")
+        # Request the time series
+        result = client.request_time_series_and_wait_for_delivery(
+            self.weather_config.url, request, self.weather_config.api_key
+        )
+
+        data: str = result.data["weather_data.csv"].decode()
+        return data
+
     def i_prepare_simulation(self) -> None:
-        """ Generates the lists to be used later. """
+        """Generates the lists to be used later."""
         seconds_per_timestep = self.my_simulation_parameters.seconds_per_timestep
-        log.information(self.weather_config.location)
-        log.information(self.weather_config.to_json())  # type: ignore
-        location_dict = get_coordinates(self.weather_config.source_path)
-        self.simulation_repository.set_entry("weather_location", location_dict)
-        cachefound, cache_filepath = utils.get_cache_file("Weather", self.weather_config, self.my_simulation_parameters)
+        log.information(self.weather_config.to_json())
+        # TODO: somehow provide the used weather location
+        # location_dict = get_coordinates(self.weather_config.source_path)
+        # self.simulation_repository.set_entry("weather_location", location_dict)
+        cachefound, cache_filepath = utils.get_cache_file(
+            "Weather", self.weather_config, self.my_simulation_parameters
+        )
         if cachefound:
             # read cached files
-            my_weather = pd.read_csv(cache_filepath, sep=",", decimal=".", encoding="cp1252")
-            self.temperature_list = my_weather['t_out'].tolist()
+            my_weather = pd.read_csv(
+                cache_filepath, sep=",", decimal=".", encoding="cp1252"
+            )
+            self.temperature_list = my_weather["t_out"].tolist()
             self.dry_bulb_list = self.temperature_list
-            self.DHI_list = my_weather['DHI'].tolist()
-            self.DNI_list = my_weather['DNI'].tolist()  # self np.float64( maybe not needed? - Noah
-            self.DNIextra_list = my_weather['DNIextra'].tolist()
-            self.GHI_list = my_weather['GHI'].tolist()
-            self.altitude_list = my_weather['altitude'].tolist()
-            self.azimuth_list = my_weather['azimuth'].tolist()
-            self.apparent_zenith_list = my_weather['apparent_zenith'].tolist()
-            self.wind_speed_list = my_weather['Wspd'].tolist()
+            self.DHI_list = my_weather["DHI"].tolist()
+            self.DNI_list = my_weather[
+                "DNI"
+            ].tolist()  # self np.float64( maybe not needed? - Noah
+            self.DNIextra_list = my_weather["DNIextra"].tolist()
+            self.GHI_list = my_weather["GHI"].tolist()
+            self.altitude_list = my_weather["altitude"].tolist()
+            self.azimuth_list = my_weather["azimuth"].tolist()
+            self.apparent_zenith_list = my_weather["apparent_zenith"].tolist()
+            self.wind_speed_list = my_weather["Wspd"].tolist()
         else:
-            tmy_data, location = read_test_reference_year_data(weatherconfig=self.weather_config, year=self.my_simulation_parameters.year)
-            DNI = self.interpolate(tmy_data['DNI'], self.my_simulation_parameters.year)
+            raw_data = self.get_data_from_utsp()
+            tmy_data = read_data(raw_data)
+
+            DNI = self.interpolate(tmy_data["DNI"], self.my_simulation_parameters.year)
             # calculate extra terrestrial radiation- n eeded for perez array diffuse irradiance models
             dni_extra = pd.Series(pvlib.irradiance.get_extra_radiation(DNI.index), index=DNI.index)  # type: ignore
             # DNI_data = self.interpolate(tmy_data['DNI'], 2015)
-            temperature = self.interpolate(tmy_data['T'], self.my_simulation_parameters.year)
-            DHI = self.interpolate(tmy_data['DHI'], self.my_simulation_parameters.year)
-            GHI = self.interpolate(tmy_data['GHI'], self.my_simulation_parameters.year)
-            solpos = pvlib.solarposition.get_solarposition(DNI.index, location['latitude'], location['longitude'])  # type: ignore
-            altitude = solpos['elevation']
-            azimuth = solpos['azimuth']
-            apparent_zenith = solpos['apparent_zenith']
-            wind_speed = self.interpolate(tmy_data['Wspd'], self.my_simulation_parameters.year)
+            temperature = self.interpolate(
+                tmy_data["T"], self.my_simulation_parameters.year
+            )
+            DHI = self.interpolate(tmy_data["DHI"], self.my_simulation_parameters.year)
+            GHI = self.interpolate(tmy_data["GHI"], self.my_simulation_parameters.year)
+            solpos = pvlib.solarposition.get_solarposition(DNI.index, location["latitude"], location["longitude"])  # type: ignore
+            altitude = solpos["elevation"]
+            azimuth = solpos["azimuth"]
+            apparent_zenith = solpos["apparent_zenith"]
+            wind_speed = self.interpolate(
+                tmy_data["Wspd"], self.my_simulation_parameters.year
+            )
 
             if seconds_per_timestep != 60:
-                self.temperature_list = temperature.resample(str(seconds_per_timestep) + "S").mean().tolist()
-                self.dry_bulb_list = temperature.resample(str(seconds_per_timestep) + "S").mean().to_list()
-                self.DHI_list = DHI.resample(str(seconds_per_timestep) + "S").mean().tolist()
+                self.temperature_list = (
+                    temperature.resample(str(seconds_per_timestep) + "S")
+                    .mean()
+                    .tolist()
+                )
+                self.dry_bulb_list = (
+                    temperature.resample(str(seconds_per_timestep) + "S")
+                    .mean()
+                    .to_list()
+                )
+                self.DHI_list = (
+                    DHI.resample(str(seconds_per_timestep) + "S").mean().tolist()
+                )
                 # np.float64( ## not sure what this is fore. python float and npfloat 64 are the same.
-                self.DNI_list = DNI.resample(str(seconds_per_timestep) + "S").mean().tolist()  # )  # type: ignore
-                self.DNIextra_list = dni_extra.resample(str(seconds_per_timestep) + "S").mean().tolist()
-                self.GHI_list = GHI.resample(str(seconds_per_timestep) + "S").mean().tolist()
-                self.altitude_list = altitude.resample(str(seconds_per_timestep) + "S").mean().tolist()
-                self.azimuth_list = azimuth.resample(str(seconds_per_timestep) + "S").mean().tolist()
-                self.apparent_zenith_list = apparent_zenith.resample(str(seconds_per_timestep) + "S").mean().tolist()
-                self.wind_speed_list = wind_speed.resample(str(seconds_per_timestep) + "S").mean().tolist()
+                self.DNI_list = (
+                    DNI.resample(str(seconds_per_timestep) + "S").mean().tolist()
+                )  # )  # type: ignore
+                self.DNIextra_list = (
+                    dni_extra.resample(str(seconds_per_timestep) + "S").mean().tolist()
+                )
+                self.GHI_list = (
+                    GHI.resample(str(seconds_per_timestep) + "S").mean().tolist()
+                )
+                self.altitude_list = (
+                    altitude.resample(str(seconds_per_timestep) + "S").mean().tolist()
+                )
+                self.azimuth_list = (
+                    azimuth.resample(str(seconds_per_timestep) + "S").mean().tolist()
+                )
+                self.apparent_zenith_list = (
+                    apparent_zenith.resample(str(seconds_per_timestep) + "S")
+                    .mean()
+                    .tolist()
+                )
+                self.wind_speed_list = (
+                    wind_speed.resample(str(seconds_per_timestep) + "S").mean().tolist()
+                )
             else:
                 self.temperature_list = temperature.tolist()
                 self.dry_bulb_list = temperature.to_list()
@@ -266,37 +332,93 @@ class Weather(Component):
                 self.altitude_list = altitude.tolist()
                 self.azimuth_list = azimuth.tolist()
                 self.apparent_zenith_list = apparent_zenith.tolist()
-                self.wind_speed_list = wind_speed.resample(str(seconds_per_timestep) + "S").mean().tolist()
+                self.wind_speed_list = (
+                    wind_speed.resample(str(seconds_per_timestep) + "S").mean().tolist()
+                )
 
-            solardata = [self.DNI_list, self.DHI_list, self.GHI_list, self.temperature_list, self.altitude_list, self.azimuth_list,
-                         self.apparent_zenith_list, self.dry_bulb_list, self.wind_speed_list, self.DNIextra_list]
+            solardata = [
+                self.DNI_list,
+                self.DHI_list,
+                self.GHI_list,
+                self.temperature_list,
+                self.altitude_list,
+                self.azimuth_list,
+                self.apparent_zenith_list,
+                self.dry_bulb_list,
+                self.wind_speed_list,
+                self.DNIextra_list,
+            ]
 
-            database = pd.DataFrame(np.transpose(solardata),
-                                    columns=['DNI', 'DHI', 'GHI', 't_out', 'altitude', 'azimuth', 'apparent_zenith', 'DryBulb', 'Wspd', 'DNIextra'])
+            database = pd.DataFrame(
+                np.transpose(solardata),
+                columns=[
+                    "DNI",
+                    "DHI",
+                    "GHI",
+                    "t_out",
+                    "altitude",
+                    "azimuth",
+                    "apparent_zenith",
+                    "DryBulb",
+                    "Wspd",
+                    "DNIextra",
+                ],
+            )
             database.to_csv(cache_filepath)
 
         # write one year forecast to simulation repository for PV processing -> if PV forecasts are needed
         if self.my_simulation_parameters.system_config.predictive:
-            self.simulation_repository.set_entry(self.Weather_TemperatureOutside_yearly_forecast, self.temperature_list)
-            self.simulation_repository.set_entry(self.Weather_DiffuseHorizontalIrradiance_yearly_forecast, self.DHI_list)
-            self.simulation_repository.set_entry(self.Weather_DirectNormalIrradiance_yearly_forecast, self.DNI_list)
-            self.simulation_repository.set_entry(self.Weather_DirectNormalIrradianceExtra_yearly_forecast, self.DNIextra_list)
-            self.simulation_repository.set_entry(self.Weather_GlobalHorizontalIrradiance_yearly_forecast, self.GHI_list)
-            self.simulation_repository.set_entry(self.Weather_Azimuth_yearly_forecast, self.azimuth_list)
-            self.simulation_repository.set_entry(self.Weather_ApparentZenith_yearly_forecast, self.apparent_zenith_list)
-            self.simulation_repository.set_entry(self.Weather_WindSpeed_yearly_forecast, self.wind_speed_list)
+            self.simulation_repository.set_entry(
+                self.Weather_TemperatureOutside_yearly_forecast, self.temperature_list
+            )
+            self.simulation_repository.set_entry(
+                self.Weather_DiffuseHorizontalIrradiance_yearly_forecast, self.DHI_list
+            )
+            self.simulation_repository.set_entry(
+                self.Weather_DirectNormalIrradiance_yearly_forecast, self.DNI_list
+            )
+            self.simulation_repository.set_entry(
+                self.Weather_DirectNormalIrradianceExtra_yearly_forecast,
+                self.DNIextra_list,
+            )
+            self.simulation_repository.set_entry(
+                self.Weather_GlobalHorizontalIrradiance_yearly_forecast, self.GHI_list
+            )
+            self.simulation_repository.set_entry(
+                self.Weather_Azimuth_yearly_forecast, self.azimuth_list
+            )
+            self.simulation_repository.set_entry(
+                self.Weather_ApparentZenith_yearly_forecast, self.apparent_zenith_list
+            )
+            self.simulation_repository.set_entry(
+                self.Weather_WindSpeed_yearly_forecast, self.wind_speed_list
+            )
 
     def interpolate(self, pd_database: Any, year: int) -> Any:
-        """ Interpolates a time series. """
-        firstday = pd.Series([0.0], index=[pd.to_datetime(datetime.datetime(year - 1, 12, 31, 23, 0), utc=True).tz_convert(tz="Europe/Berlin")])
-        lastday = pd.Series(pd_database[-1], index=[pd.to_datetime(datetime.datetime(year, 12, 31, 22, 59), utc=True).tz_convert(tz="Europe/Berlin")])
-        pd_database = pd_database.append(firstday)
+        """Interpolates a time series."""
+        # firstday = pd.Series(
+        #     [0.0],
+        #     index=[
+        #         pd.to_datetime(
+        #             datetime.datetime(year - 1, 12, 31, 23, 0), utc=True
+        #         ).tz_convert(tz="Europe/Berlin")
+        #     ],
+        # )
+        lastday = pd.Series(
+            pd_database[-1],
+            index=[
+                pd.to_datetime(
+                    datetime.datetime(year, 12, 31, 22, 59), utc=True
+                ).tz_convert(tz="Europe/Berlin")
+            ],
+        )
+        # pd_database = pd_database.append(firstday)
         pd_database = pd_database.append(lastday)
         pd_database = pd_database.sort_index()
-        return pd_database.resample('1T').asfreq().interpolate(method='linear')
+        return pd_database.resample("1T").asfreq().interpolate(method="linear")
 
     def calc_sun_position(self, latitude_deg, longitude_deg, year, hoy):
-        """ Calculates the Sun Position for a specific hour and location.
+        """Calculates the Sun Position for a specific hour and location.
 
         :param latitude_deg: Geographical Latitude in Degrees
         :type latitude_deg: float
@@ -323,17 +445,28 @@ class Weather(Component):
 
         # Calculate the declination angle: The variation due to the earths tilt
         # http://www.pveducation.org/pvcdrom/properties-of-sunlight/declination-angle
-        declination_rad = math.radians(23.45 * math.sin((2 * math.pi / 365.0) * (day_of_year - 81)))
+        declination_rad = math.radians(
+            23.45 * math.sin((2 * math.pi / 365.0) * (day_of_year - 81))
+        )
 
         # Normalise the day to 2*pi
         # There is some reason as to why it is 364 and not 365.26
         angle_of_day = (day_of_year - 81) * (2 * math.pi / 364)
 
         # The deviation between local standard time and true solar time
-        equation_of_time = (9.87 * math.sin(2 * angle_of_day)) - (7.53 * math.cos(angle_of_day)) - (1.5 * math.sin(angle_of_day))
+        equation_of_time = (
+            (9.87 * math.sin(2 * angle_of_day))
+            - (7.53 * math.cos(angle_of_day))
+            - (1.5 * math.sin(angle_of_day))
+        )
 
         # True Solar Time
-        solar_time = ((utc_datetime.hour * 60) + utc_datetime.minute + (4 * longitude_deg) + equation_of_time) / 60.0
+        solar_time = (
+            (utc_datetime.hour * 60)
+            + utc_datetime.minute
+            + (4 * longitude_deg)
+            + equation_of_time
+        ) / 60.0
 
         # Angle between the local longitude and longitude where the sun is at
         # higher altitude
@@ -341,24 +474,34 @@ class Weather(Component):
 
         # Altitude Position of the Sun in Radians
         altitude_rad = math.asin(
-            math.cos(latitude_rad) * math.cos(declination_rad) * math.cos(hour_angle_rad) + math.sin(latitude_rad) * math.sin(declination_rad))
+            math.cos(latitude_rad)
+            * math.cos(declination_rad)
+            * math.cos(hour_angle_rad)
+            + math.sin(latitude_rad) * math.sin(declination_rad)
+        )
 
         # Azimuth Position fo the sun in radians
-        azimuth_rad = math.asin(math.cos(declination_rad) * math.sin(hour_angle_rad) / math.cos(altitude_rad))
+        azimuth_rad = math.asin(
+            math.cos(declination_rad)
+            * math.sin(hour_angle_rad)
+            / math.cos(altitude_rad)
+        )
 
         # I don't really know what this code does, it has been imported from
         # PySolar
-        if math.cos(hour_angle_rad) >= (math.tan(declination_rad) / math.tan(latitude_rad)):
+        if math.cos(hour_angle_rad) >= (
+            math.tan(declination_rad) / math.tan(latitude_rad)
+        ):
             return math.degrees(altitude_rad), math.degrees(azimuth_rad)
         return math.degrees(altitude_rad), (180 - math.degrees(azimuth_rad))
 
     def calc_sun_position2(self, hoy: Any) -> Any:
-        """ Calculates the sun position. """
+        """Calculates the sun position."""
         return self.altitude_list[hoy], self.azimuth_list[hoy]
 
 
 def get_coordinates(filepath: str) -> Any:
-    """ Reads a test reference year file and gets the GHI, DHI and DNI from it.
+    """Reads a test reference year file and gets the GHI, DHI and DNI from it.
 
     Based on the tsib project @[tsib-kotzur] (Check header)
     """
@@ -368,15 +511,47 @@ def get_coordinates(filepath: str) -> Any:
     # get the geoposition
     with open(filepath + ".dat", encoding="utf-8") as file_stream:
         lines = file_stream.readlines()
-        location_name = lines[0].split(maxsplit=2)[2].replace('\n', '')
+        location_name = lines[0].split(maxsplit=2)[2].replace("\n", "")
         lat = float(lines[1][20:37])
         lon = float(lines[2][15:30])
     return {"name": location_name, "latitude": lat, "longitude": lon}
     # self.index = pd.date_range(f"{year}-01-01 00:00:00", periods=60 * 24 * 365, freq="T", tz="Europe/Berlin")
 
 
-def read_test_reference_year_data(weatherconfig: WeatherConfig, year: int) -> Any:
-    """ Reads a test reference year file and gets the GHI, DHI and DNI from it.
+def read_data(raw_data: str) -> pd.DataFrame:
+    data_buffer = io.StringIO(raw_data)
+    data = pd.read_csv(
+        data_buffer,
+        index_col=0,
+        parse_dates=[0],
+    )
+    # convert to datetime index (needs to be done in UTC), and then change the time zone back to utc+1
+    data.index = pd.to_datetime(data.index, utc=True).tz_convert(tz="Europe/Berlin")
+
+    "temperature [degC]", "pressure [hPa]", "wind direction [deg]",
+    "wind speed [m/s]", "cloud coverage [1/8]", "humidity [%]",
+    "direct irradiance [W/m^2]", "diffuse irradiance [W/m^2]",
+    "synthetic global irradiance [W/m^2]",
+    "synthetic diffuse irradiance [W/m^2]", "clear sky irradiance [W/m^2]"
+
+    data = data.rename(
+        columns={
+            "diffuse irradiance [W/m^2]": "DHI",
+            "direct irradiance [W/m^2]": "DNI",
+            "temperature [degC]": "T",
+            "wind speed [m/s]": "Wspd",
+            "MM": "Month",
+            "DD": "Day",
+            "HH": "Hour",
+            "pressure [hPa]": "Pressure",
+            "wind direction [deg]": "Wdir",
+        }
+    )
+    return data
+
+
+def read_test_reference_year_data(weatherconfig: UtspWeatherConfig, year: int) -> Any:
+    """Reads a test reference year file and gets the GHI, DHI and DNI from it.
 
     Based on the tsib project @[tsib-kotzur] (Check header)
     """
@@ -391,53 +566,85 @@ def read_test_reference_year_data(weatherconfig: WeatherConfig, year: int) -> An
 
 
 def read_dwd_data(filepath: str, year: int) -> Any:
-    """ Reads the DWD data. """
+    """Reads the DWD data."""
     # get the geoposition
     with open(filepath + ".dat", encoding="utf-8") as file_stream:
         lines = file_stream.readlines()
-        location_name = lines[0].split(maxsplit=2)[2].replace('\n', '')
+        location_name = lines[0].split(maxsplit=2)[2].replace("\n", "")
         lat = float(lines[1][20:37])
         lon = float(lines[2][15:30])
     location_dict = {"name": location_name, "latitude": lat, "longitude": lon}
     # check if time series data already exists as .csv with DNI
     if os.path.isfile(filepath + ".csv"):
-        data = pd.read_csv(filepath + ".csv", index_col=0, parse_dates=True, sep=";", decimal=",")
+        data = pd.read_csv(
+            filepath + ".csv", index_col=0, parse_dates=True, sep=";", decimal=","
+        )
         data.index = pd.to_datetime(data.index, utc=True).tz_convert("Europe/Berlin")
     # else read from .dat and calculate DNI etc.
     else:
         # get data
         data = pd.read_csv(filepath + ".dat", sep=r"\s+", skiprows=list(range(0, 31)))
-        data.index = pd.date_range(f"{year}-01-01 00:30:00", periods=8760, freq="H", tz="Europe/Berlin")
+        data.index = pd.date_range(
+            f"{year}-01-01 00:30:00", periods=8760, freq="H", tz="Europe/Berlin"
+        )
         data["GHI"] = data["D"] + data["B"]
-        data = data.rename(columns={"D": "DHI", "t": "T", "WG": "Wspd", "MM": "Month", "DD": "Day", "HH": "Hour", "p": "Pressure", "WR": "Wdir"})
+        data = data.rename(
+            columns={
+                "D": "DHI",
+                "t": "T",
+                "WG": "Wspd",
+                "MM": "Month",
+                "DD": "Day",
+                "HH": "Hour",
+                "p": "Pressure",
+                "WR": "Wdir",
+            }
+        )
 
         # calculate direct normal
-        data["DNI"] = calculate_direct_normal_radiation(data["B"], lon, lat)  # data["DNI"] = data["B"]
+        data["DNI"] = calculate_direct_normal_radiation(
+            data["B"], lon, lat
+        )  # data["DNI"] = data["B"]
 
         # save as .csv  # data.to_csv(filepath + ".csv",sep=";",decimal=",")
     return data, location_dict
 
 
 def read_nsrdb_data(filepath, year):
-    """ Reads a set of NSRDB data. """
+    """Reads a set of NSRDB data."""
     with open(filepath + ".dat", encoding="utf-8") as file_stream:
         lines = file_stream.readlines()
-        location_name = lines[0].split(maxsplit=2)[2].replace('\n', '')
+        location_name = lines[0].split(maxsplit=2)[2].replace("\n", "")
         lat = float(lines[1][20:25])
         lon = float(lines[2][15:20])
     location_dict = {"name": location_name, "latitude": lat, "longitude": lon}
     # get data
     data = pd.read_csv(filepath + ".dat", sep=",", skiprows=list(range(0, 11)))
     data = data.drop(data.index[8761:8772])
-    data.index = pd.date_range(f"{year}-01-01 00:30:00", periods=8760, freq="H", tz="Europe/Berlin")
+    data.index = pd.date_range(
+        f"{year}-01-01 00:30:00", periods=8760, freq="H", tz="Europe/Berlin"
+    )
     data = data.rename(
-        columns={"DHI": "DHI", "Temperature": "T", "Wind Speed": "Wspd", "MM": "Month", "DD": "Day", "HH": "Hour", "Pressure": "Pressure",
-                 "Wind Direction": "Wdir", "GHI": "GHI", "DNI": "DNI"})
+        columns={
+            "DHI": "DHI",
+            "Temperature": "T",
+            "Wind Speed": "Wspd",
+            "MM": "Month",
+            "DD": "Day",
+            "HH": "Hour",
+            "Pressure": "Pressure",
+            "Wind Direction": "Wdir",
+            "GHI": "GHI",
+            "DNI": "DNI",
+        }
+    )
     return data, location_dict
 
 
-def calculate_direct_normal_radiation(direct_horizontal_irradation, lon, lat, zenith_tol=87.0):
-    """ Calculates the direct NORMAL irradiance from the direct horizontal irradiance with the help of the PV lib.
+def calculate_direct_normal_radiation(
+    direct_horizontal_irradation, lon, lat, zenith_tol=87.0
+):
+    """Calculates the direct NORMAL irradiance from the direct horizontal irradiance with the help of the PV lib.
 
     Based on the tsib project @[tsib-kotzur] (Check header)
 
@@ -458,9 +665,13 @@ def calculate_direct_normal_radiation(direct_horizontal_irradation, lon, lat, ze
 
     """
 
-    solar_pos = pvlib.solarposition.get_solarposition(direct_horizontal_irradation.index, lat, lon)
+    solar_pos = pvlib.solarposition.get_solarposition(
+        direct_horizontal_irradation.index, lat, lon
+    )
     solar_pos["apparent_zenith"][solar_pos.apparent_zenith > zenith_tol] = zenith_tol
-    DNI = direct_horizontal_irradation.div(solar_pos["apparent_zenith"].apply(math.radians).apply(math.cos))
+    DNI = direct_horizontal_irradation.div(
+        solar_pos["apparent_zenith"].apply(math.radians).apply(math.cos)
+    )
     if DNI.isnull().values.any():
         raise ValueError("Something went wrong...")
     return DNI

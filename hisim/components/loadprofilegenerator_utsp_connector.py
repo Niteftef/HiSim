@@ -27,19 +27,16 @@ from utspclient.helpers.lpgpythonbindings import CalcOption, JsonReference
 # Owned
 from hisim import component as cp
 from hisim import loadtypes as lt
-from hisim import log, utils
+from hisim import log, utils, utsp_utils
 from hisim.components.configuration import HouseholdWarmWaterDemandConfig, PhysicsConfig
 from hisim.simulationparameters import SimulationParameters
 
 
 @dataclass_json
 @dataclass
-class UtspLpgConnectorConfig:
+class UtspLpgConfig(utsp_utils.UtspConfig):
+    """Config class for UtspLpgConnector. Contains LPG parameters."""
 
-    """Config class for UtspLpgConnector. Contains LPG parameters and UTSP connection parameters."""
-
-    url: str
-    api_key: str
     household: JsonReference
     result_path: str
     travel_route_set: JsonReference
@@ -49,10 +46,10 @@ class UtspLpgConnectorConfig:
     @staticmethod
     def get_default_config(
         url: str = "http://localhost:443/api/v1/profilerequest", api_key: str = ""
-    ) -> "UtspLpgConnectorConfig":
+    ) -> "UtspLpgConfig":
         """Creates a default configuration. Chooses default values for the LPG parameters."""
         result_path = os.path.join(utils.get_input_directory(), "lpg_profiles")
-        config = UtspLpgConnectorConfig(
+        config = UtspConnectorConfig(
             url,
             api_key,
             Households.CHR01_Couple_both_at_Work,
@@ -99,7 +96,7 @@ class UtspLpgConnector(cp.Component):
     def __init__(
         self,
         my_simulation_parameters: SimulationParameters,
-        config: UtspLpgConnectorConfig,
+        config: UtspConnectorConfig,
     ) -> None:
         """Initializes the component and retrieves the LPG data."""
         super().__init__(
@@ -167,7 +164,9 @@ class UtspLpgConnector(cp.Component):
         """Gets called after the iterations are finished at each time step for potential debugging purposes."""
         pass
 
-    def i_simulate(self, timestep: int, stsv: cp.SingleTimeStepValues, force_convergence: bool) -> None:
+    def i_simulate(
+        self, timestep: int, stsv: cp.SingleTimeStepValues, force_convergence: bool
+    ) -> None:
         """Sets the current output values with data retrieved during initialization."""
         if self.ww_mass_input.source_output is not None:
             # ww demand
