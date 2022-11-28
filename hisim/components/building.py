@@ -40,10 +40,7 @@ The module contains the following classes:
 # clean
 
 # Generic/Built-in
-from typing import (
-    List,
-    Any
-)
+from typing import List, Any
 from functools import (
     lru_cache,
 )
@@ -71,6 +68,7 @@ from hisim import (
 from hisim import (
     log,
 )
+
 # from hisim.components.configuration import (
 #     PhysicsConfig,
 # )
@@ -334,23 +332,37 @@ class Building(dynamic_component.DynamicComponent):
         )
         # labeled as C_m in the paper [1] (** Check header), before c_m
         self.thermal_capacity_of_building_thermal_mass_in_joule_per_kelvin: float = 0
-        self.thermal_capacity_of_building_thermal_mass_reference_in_joule_per_kelvin: float = 0
+        self.thermal_capacity_of_building_thermal_mass_reference_in_watthour_per_m2_per_kelvin: float = (
+            0
+        )
         # labeled as H_w in the paper [2] (*** Check header), before h_tr_w
         self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin: float
         self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin: float
         # labeled as H_tr_em in paper [2] (*** Check header)
-        self.external_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin: float = 0
+        self.external_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin: float = (
+            0
+        )
         # labeled as H_tr_ms in paper [2] (*** Check header)
-        self.internal_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin: float = 0
+        self.internal_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin: float = (
+            0
+        )
         # labeled as h_ms in paper [2] (*** Check header)
-        self.heat_transfer_coefficient_between_thermal_mass_and_internal_surface_with_fixed_value_in_watt_per_m2_per_kelvin: float = 0
+        self.heat_transfer_coefficient_between_thermal_mass_and_internal_surface_with_fixed_value_in_watt_per_m2_per_kelvin: float = (
+            0
+        )
         # labeled as H_tr_is in paper [2] (** Check header)
-        self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_in_watt_per_kelvin: float = 0
+        self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_in_watt_per_kelvin: float = (
+            0
+        )
         # labeled as h_is in paper [2] (** Check header)
-        self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_with_fixed_value_in_watt_per_m2_per_kelvin: float = 0
+        self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_with_fixed_value_in_watt_per_m2_per_kelvin: float = (
+            0
+        )
         # labeled as H_ve in paper [2] (*** Check header), before h_ve_adj
         self.thermal_conductance_by_ventilation_in_watt_per_kelvin: float = 0
-        self.thermal_conductance_by_ventilation_reference_in_watt_per_kelvin: float = 0
+        self.heat_transfer_coefficient_by_ventilation_reference_in_watt_per_kelvin: float = (
+            0
+        )
         # before labeled as a_f
         self.conditioned_floor_area_in_m2: float = 0
         # before labeled as a_m
@@ -363,9 +375,13 @@ class Building(dynamic_component.DynamicComponent):
         # reference taken from TABULA (* Check header) as Q_int [kWh/m2.a], before q_int_ref
         self.internal_heat_sources_reference_in_kilowatthour_per_m2_per_year: float = 0
         # reference taken from TABULA (* Check header) Q_sol [kWh/m2.a], before q_sol_ref (or solar heat sources?)
-        self.solar_heat_load_during_heating_seasons_reference_in_kilowatthour_per_m2_per_year: float = 0
+        self.solar_heat_load_during_heating_seasons_reference_in_kilowatthour_per_m2_per_year: float = (
+            0
+        )
         # reference taken from TABULA (* Check header) as Q_H_ind [kWh/m2.a], before q_h_nd_ref
-        self.energy_need_for_heating_reference_in_kilowatthour_per_m2_per_year: float = 0
+        self.energy_need_for_heating_reference_in_kilowatthour_per_m2_per_year: float = (
+            0
+        )
         self.test_new_temperature_in_celsius: float
         self.buildingdata: Any
         self.buildingcode: str
@@ -640,15 +656,29 @@ class Building(dynamic_component.DynamicComponent):
         if hasattr(self, "solar_gain_through_windows") is False:
             # altitude = stsv.get_input_value(self.altitude_channel)
             azimuth = stsv.get_input_value(self.azimuth_channel)
-            direct_normal_irradiance = stsv.get_input_value(self.direct_normal_irradiance_channel)
-            direct_horizontal_irradiance = stsv.get_input_value(self.direct_horizontal_irradiance_channel)
-            global_horizontal_irradiance = stsv.get_input_value(self.global_horizontal_irradiance_channel)
-            direct_normal_irradiance_extra = stsv.get_input_value(self.direct_normal_irradiance_extra_channel)
+            direct_normal_irradiance = stsv.get_input_value(
+                self.direct_normal_irradiance_channel
+            )
+            direct_horizontal_irradiance = stsv.get_input_value(
+                self.direct_horizontal_irradiance_channel
+            )
+            global_horizontal_irradiance = stsv.get_input_value(
+                self.global_horizontal_irradiance_channel
+            )
+            direct_normal_irradiance_extra = stsv.get_input_value(
+                self.direct_normal_irradiance_extra_channel
+            )
             apparent_zenith = stsv.get_input_value(self.apparent_zenith_channel)
 
-        occupancy_heat_gain_in_watt = stsv.get_input_value(self.occupancy_heat_gain_channel)
-        temperature_outside_in_celsius = stsv.get_input_value(self.temperature_outside_channel)
-        thermal_power_delivered_in_watt = stsv.get_input_value(self.thermal_power_delivered_channel)
+        occupancy_heat_gain_in_watt = stsv.get_input_value(
+            self.occupancy_heat_gain_channel
+        )
+        temperature_outside_in_celsius = stsv.get_input_value(
+            self.temperature_outside_channel
+        )
+        thermal_power_delivered_in_watt = stsv.get_input_value(
+            self.thermal_power_delivered_channel
+        )
 
         # # With Thermal Energy Storage (TES) [In Development]
         # if self.mass_input_channel.source_output is not None:
@@ -756,16 +786,26 @@ class Building(dynamic_component.DynamicComponent):
             outside_temperature_in_celsius=temperature_outside_in_celsius,
             thermal_mass_temperature_prev_in_celsius=previous_thermal_mass_temperature_in_celsius,
         )
-        self.state.thermal_mass_temperature_in_celsius = thermal_mass_average_bulk_temperature_in_celsius
+        self.state.thermal_mass_temperature_in_celsius = (
+            thermal_mass_average_bulk_temperature_in_celsius
+        )
 
         # Returns outputs
 
-        stsv.set_output_value(self.thermal_mass_temperature_channel, thermal_mass_average_bulk_temperature_in_celsius)
+        stsv.set_output_value(
+            self.thermal_mass_temperature_channel,
+            thermal_mass_average_bulk_temperature_in_celsius,
+        )
         # stsv.set_output_value(self.t_airC, t_air)
         # phi_loss is already given in W, time correction factor applied to thermal transmittance h_tr
         stsv.set_output_value(self.total_power_to_residence_channel, heat_loss_in_watt)
-        stsv.set_output_value(self.solar_gain_through_windows_channel, solar_heat_gain_through_windows)
-        stsv.set_output_value(self.var_max_thermal_building_demand_channel, self.max_thermal_building_demand_in_watt)
+        stsv.set_output_value(
+            self.solar_gain_through_windows_channel, solar_heat_gain_through_windows
+        )
+        stsv.set_output_value(
+            self.var_max_thermal_building_demand_channel,
+            self.max_thermal_building_demand_in_watt,
+        )
 
         # Saves solar gains cache
         if not self.is_in_cache:
@@ -828,11 +868,15 @@ class Building(dynamic_component.DynamicComponent):
 
         # CONSTANTS
         # Heat transfer coefficient between nodes "m" and "s" (12.2.2 E64 P79); labeled as h_ms in paper [2] (*** Check header)
-        self.heat_transfer_coefficient_between_thermal_mass_and_internal_surface_with_fixed_value_in_watt_per_m2_per_kelvin = 9.1
+        self.heat_transfer_coefficient_between_thermal_mass_and_internal_surface_with_fixed_value_in_watt_per_m2_per_kelvin = (
+            9.1
+        )
         # Dimensionless ratio between surfaces and the useful surfaces (7.2.2.2 E9 P36); labeled as A_at in paper [2] (*** Check header); before lambda_at
         self.ratio_between_internal_surface_area_and_floor_area = 4.5
         # Heat transfer coefficient between nodes "air" and "s" (7.2.2.2 E9 P35); labeled as h_is in paper [2] (*** Check header)
-        self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_with_fixed_value_in_watt_per_m2_per_kelvin = 3.45
+        self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_with_fixed_value_in_watt_per_m2_per_kelvin = (
+            3.45
+        )
 
         self.building_heat_capacity_class_f_a = {
             "very light": 2.5,
@@ -864,11 +908,15 @@ class Building(dynamic_component.DynamicComponent):
     ) -> Any:
         """Calculate maximal thermal building demand using TABULA data."""
 
-        vals1_in_watt_per_m2_per_kelvin = float(self.buildingdata["h_Transmission"].values[0])
+        vals1_in_watt_per_m2_per_kelvin = float(
+            self.buildingdata["h_Transmission"].values[0]
+        )
 
         if vals1_in_watt_per_m2_per_kelvin is None:
             raise ValueError("h_Transmission was none.")
-        vals2_in_watt_per_m2_per_kelvin = float(self.buildingdata["h_Ventilation"].values[0])
+        vals2_in_watt_per_m2_per_kelvin = float(
+            self.buildingdata["h_Ventilation"].values[0]
+        )
         conditioned_floor_area_in_m2 = float(self.buildingdata["A_C_Ref"].values[0])
 
         # dQ/dt = h * (T2-T1) * A -> [W]
@@ -924,7 +972,7 @@ class Building(dynamic_component.DynamicComponent):
             f"H_ve_adj [W/K]: {self.thermal_conductance_by_ventilation_in_watt_per_kelvin:4.2f}"
         )
         lines.append(
-            f"H_Ventilation [kWh/a]: {self.thermal_conductance_by_ventilation_reference_in_watt_per_kelvin}"
+            f"h_Ventilation [W/K]: {self.heat_transfer_coefficient_by_ventilation_reference_in_watt_per_kelvin}"
         )
 
         lines.append(" ")
@@ -947,13 +995,13 @@ class Building(dynamic_component.DynamicComponent):
         )
 
         lines.append(
-            f"Capacitance Ref [Wh/m^2.K]: {self.thermal_capacity_of_building_thermal_mass_reference_in_joule_per_kelvin:4.2f}"
+            f"Capacitance Ref [Wh/m^2.K]: {self.thermal_capacity_of_building_thermal_mass_reference_in_watthour_per_m2_per_kelvin:4.2f}"
         )
         lines.append(
-            f"Capacitance Ref [Wh/K]: {(self.thermal_capacity_of_building_thermal_mass_reference_in_joule_per_kelvin * self.conditioned_floor_area_in_m2):4.2f}"
+            f"Capacitance Ref [Wh/K]: {(self.thermal_capacity_of_building_thermal_mass_reference_in_watthour_per_m2_per_kelvin * self.conditioned_floor_area_in_m2):4.2f}"
         )
         lines.append(
-            f"Capacitance Ref [J/K]: {(self.thermal_capacity_of_building_thermal_mass_reference_in_joule_per_kelvin * self.conditioned_floor_area_in_m2 / 3600):4.2f}"
+            f"Capacitance Ref [J/K]:{(self.thermal_capacity_of_building_thermal_mass_reference_in_watthour_per_m2_per_kelvin * self.conditioned_floor_area_in_m2 / 3600):4.2f}"
         )
 
         lines.append(" ")
@@ -1045,7 +1093,9 @@ class Building(dynamic_component.DynamicComponent):
             "Door_1",
         ]
 
-        self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin = 0.0
+        self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin = (
+            0.0
+        )
         for w_i in w_s:
             self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin += float(
                 self.buildingdata["H_Transmission_" + w_i].values[0]
@@ -1083,7 +1133,9 @@ class Building(dynamic_component.DynamicComponent):
         #    self.h_tr_em += float(self.buildingdata["H_Transmission_" + ow].values[0])
 
         # Version 2
-        self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin = 0.0
+        self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin = (
+            0.0
+        )
         for o_w in opaque_walls:
             self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin += float(
                 self.buildingdata["H_Transmission_" + o_w].values[0]
@@ -1130,7 +1182,9 @@ class Building(dynamic_component.DynamicComponent):
             )
 
             # Fraction of the considered air flow that goes through the heat recovery system
-            fraction_of_air_flow_through_heat_recovery_system = air_changes_per_hour_through_ventilation / total_air_changes_per_hour
+            fraction_of_air_flow_through_heat_recovery_system = (
+                air_changes_per_hour_through_ventilation / total_air_changes_per_hour
+            )
 
             # Temperature adjustment factor taking ventilation and infiltration
             # [ISO: 9.3.2.8]
@@ -1224,12 +1278,12 @@ class Building(dynamic_component.DynamicComponent):
             self.buildingdata["q_h_nd"].values[0]
         )
         # Internal heat capacity per m2 reference area [Wh/(m^2.K)] (TABULA: Internal heat capacity)
-        self.thermal_capacity_of_building_thermal_mass_reference_in_joule_per_kelvin = (
-            float(self.buildingdata["c_m"].values[0])
+        self.thermal_capacity_of_building_thermal_mass_reference_in_watthour_per_m2_per_kelvin = float(
+            self.buildingdata["c_m"].values[0]
         )
 
         # Heat transfer coefficient by ventilation
-        self.thermal_conductance_by_ventilation_reference_in_watt_per_kelvin = (
+        self.heat_transfer_coefficient_by_ventilation_reference_in_watt_per_kelvin = (
             float(self.buildingdata["h_Ventilation"].values[0])
             * self.conditioned_floor_area_in_m2
         )
@@ -1247,9 +1301,13 @@ class Building(dynamic_component.DynamicComponent):
         )
 
         # Gets parameters from chosen building
-        self.buildingdata = d_f.loc[d_f["Code_BuildingVariant"] == self.buildingconfig.building_code]
+        self.buildingdata = d_f.loc[
+            d_f["Code_BuildingVariant"] == self.buildingconfig.building_code
+        ]
         self.buildingcode = self.buildingconfig.building_code
-        self.building_heat_capacity_class = self.buildingconfig.building_heat_capacity_class
+        self.building_heat_capacity_class = (
+            self.buildingconfig.building_heat_capacity_class
+        )
 
     def get_windows(
         self,
@@ -1441,7 +1499,9 @@ class Building(dynamic_component.DynamicComponent):
             )
         )
 
-    def calc_equivalent_heat_flux_in_watt(self, temperature_outside_in_celsius, thermal_power_delivered_in_watt):
+    def calc_equivalent_heat_flux_in_watt(
+        self, temperature_outside_in_celsius, thermal_power_delivered_in_watt
+    ):
         """Calculates a global heat transfer: Phi_m_tot.
 
         This is a definition used to simplify equation calc_t_m_next so it's not so long to write out
@@ -1465,7 +1525,10 @@ class Building(dynamic_component.DynamicComponent):
                 + self.transmission_heat_transfer_coeffcient_1_in_watt_per_kelvin
                 * (
                     (
-                        (self.heat_flux_indoor_air_in_watt + thermal_power_delivered_in_watt)
+                        (
+                            self.heat_flux_indoor_air_in_watt
+                            + thermal_power_delivered_in_watt
+                        )
                         / self.thermal_conductance_by_ventilation_in_watt_per_kelvin
                     )
                     + t_supply
@@ -1492,7 +1555,7 @@ class Building(dynamic_component.DynamicComponent):
         self,
         temperature_outside_in_celsius,
         thermal_mass_temperature_in_celsius,
-        thermal_power_delivered_in_watt
+        thermal_power_delivered_in_watt,
     ):
         """Calculate the temperature of the inside room surfaces: T_s.
 
@@ -1526,7 +1589,7 @@ class Building(dynamic_component.DynamicComponent):
         self,
         temperature_outside_in_celsius,
         temperature_internal_room_surfaces_in_celsius,
-        thermal_power_delivered_in_watt
+        thermal_power_delivered_in_watt,
     ):
         """Calculate the temperature of the air node: T_air.
 
@@ -1555,7 +1618,7 @@ class Building(dynamic_component.DynamicComponent):
         solar_heat_gains_in_watt,
         outside_temperature_in_celsius,
         thermal_mass_temperature_prev_in_celsius,
-        thermal_power_delivered_in_watt
+        thermal_power_delivered_in_watt,
     ):
         """Determines node temperatures and computes derivation to determine the new node temperatures.
 
@@ -1572,7 +1635,9 @@ class Building(dynamic_component.DynamicComponent):
         )
 
         # Updates total flow
-        self.calc_equivalent_heat_flux_in_watt(outside_temperature_in_celsius, thermal_power_delivered_in_watt)
+        self.calc_equivalent_heat_flux_in_watt(
+            outside_temperature_in_celsius, thermal_power_delivered_in_watt
+        )
 
         # calculates the new bulk temperature POINT from the old one # CHECKED Requires t_m_prev
         self.calc_next_thermal_mass_temperature_in_celsius(
@@ -1580,10 +1645,8 @@ class Building(dynamic_component.DynamicComponent):
         )
 
         # calculates the AVERAGE bulk temperature used for the remaining
-        thermal_mass_average_bulk_temperature_in_celsius = (
-            self.calc_thermal_mass_averag_bulk_temperature_in_celsius_used_for_calculations(
-                thermal_mass_temperature_prev_in_celsius
-            )
+        thermal_mass_average_bulk_temperature_in_celsius = self.calc_thermal_mass_averag_bulk_temperature_in_celsius_used_for_calculations(
+            thermal_mass_temperature_prev_in_celsius
         )
 
         # # Updates internal surface temperature (t_s)
@@ -1927,5 +1990,9 @@ class BuildingController(cp.Component):
             * stsv.get_input_value(self.ref_max_thermal_build_demand_channel)
         )
         self.state.level_of_utilization = level_of_utilization
-        stsv.set_output_value(self.level_of_utilization_channel, self.state.level_of_utilization)
-        stsv.set_output_value(self.real_heat_building_demand_channel, real_heat_building_demand_in_watt)
+        stsv.set_output_value(
+            self.level_of_utilization_channel, self.state.level_of_utilization
+        )
+        stsv.set_output_value(
+            self.real_heat_building_demand_channel, real_heat_building_demand_in_watt
+        )
