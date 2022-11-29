@@ -1,0 +1,106 @@
+"""Test for scalability in building module.
+
+The aim is to implement scalability in the building module by scaling up the area and volume of the building. 
+Therefore some functions must be adjusted which are tested here before."""
+
+# clean
+
+import numpy as np
+from hisim.components import building
+from hisim.simulationparameters import SimulationParameters
+from hisim import utils
+
+building_code = "DE.N.SFH.05.Gen.ReEx.001.001"
+building_heat_capacity_class = "medium"
+seconds_per_timestep = 60
+my_simulation_parameters = SimulationParameters.full_year(
+    year=2021, seconds_per_timestep=seconds_per_timestep
+)
+
+# Set Residence
+my_residence_config = (
+    building.BuildingConfig.get_default_german_single_family_home()
+)
+my_residence_config.building_code = building_code
+my_residence_config.building_heat_capacity_class = building_heat_capacity_class
+
+my_residence = building.Building(
+    config=my_residence_config, my_simulation_parameters=my_simulation_parameters
+)
+
+@utils.measure_execution_time
+def test_building_scalability():
+    """Test function for some functions of the building module."""
+
+    # Test calculation of the thermal conductances H_Transmission (H_tr) given by TABULA
+    # building function: get_thermal_conductance_between_exterior_and_windows_and_door_in_watt_per_kelvin
+    w_s = [
+        "Window_1",
+        "Window_2",
+        "Door_1",
+    ]
+    list_H_tr_window = []
+    list_H_tr_window_calculated = []
+
+    k = 0
+    for w_i in w_s:
+        list_H_tr_window.append(
+            my_residence.buildingdata["H_Transmission_" + w_i].values[0]
+        )
+        # H_Tr = U * A * b_tr [W/K] -> by calculating H_tr manually one can later scale this up by scaling up A_Calc
+        if "b_Transmission_" + w_i in my_residence.buildingdata.columns:
+            H_tr_i = np.around(
+                my_residence.buildingdata["U_Actual_" + w_i].values[0]
+                * my_residence.buildingdata["A_Calc_" + w_i].values[0]
+                * my_residence.buildingdata["b_Transmission_" + w_i].values[0],
+                2,
+            )
+        else:
+            H_tr_i = np.around(
+                my_residence.buildingdata["U_Actual_" + w_i].values[0]
+                * my_residence.buildingdata["A_Calc_" + w_i].values[0]
+                * 1.0,
+                2,
+            )
+        list_H_tr_window_calculated.append(H_tr_i)
+        k = k + 1
+    # check if calculated H_tr is equal to H_tr which was read from buildingdata directly
+    assert list_H_tr_window == list_H_tr_window_calculated
+
+    # builing function: get_thermal_conductance_of_opaque_surfaces_in_watt_per_kelvin
+    opaque_walls = [
+        "Wall_1",
+        "Wall_2",
+        "Wall_3",
+        "Roof_1",
+        "Roof_2",
+        "Floor_1",
+        "Floor_2",
+    ]
+    list_H_tr_opaque = []
+    list_H_tr_opaque_calculated = []
+    k = 0
+    for o_p in opaque_walls:
+        list_H_tr_opaque.append(
+            my_residence.buildingdata["H_Transmission_" + o_p].values[0]
+        )
+        # H_Tr = U * A * b_tr [W/K] -> by calculating H_tr manually one can later scale this up by scaling up A_Calc
+        if "b_Transmission_" + o_p in my_residence.buildingdata.columns:
+            H_tr_i = np.around(
+                my_residence.buildingdata["U_Actual_" + o_p].values[0]
+                * my_residence.buildingdata["A_Calc_" + o_p].values[0]
+                * my_residence.buildingdata["b_Transmission_" + o_p].values[0],
+                2,
+            )
+        else:
+            H_tr_i = np.around(
+                my_residence.buildingdata["U_Actual_" + o_p].values[0]
+                * my_residence.buildingdata["A_Calc_" + o_p].values[0]
+                * 1.0,
+                2,
+            )
+        list_H_tr_opaque_calculated.append(H_tr_i)
+        k = k + 1
+
+    # check if calculated H_tr is equal to H_tr which was read from buildingdata directly
+    assert list_H_tr_opaque == list_H_tr_opaque_calculated

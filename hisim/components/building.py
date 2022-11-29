@@ -972,7 +972,7 @@ class Building(dynamic_component.DynamicComponent):
             f"H_ve_adj [W/K]: {self.thermal_conductance_by_ventilation_in_watt_per_kelvin:4.2f}"
         )
         lines.append(
-            f"h_Ventilation [W/K]: {self.heat_transfer_coefficient_by_ventilation_reference_in_watt_per_kelvin}"
+            f"H_Ventilation [W/K]: {self.heat_transfer_coefficient_by_ventilation_reference_in_watt_per_kelvin}"
         )
 
         lines.append(" ")
@@ -1096,9 +1096,31 @@ class Building(dynamic_component.DynamicComponent):
         self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin = (
             0.0
         )
+        # for w_i in w_s:
+        #     self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin += float(
+        #         self.buildingdata["H_Transmission_" + w_i].values[0]
+        #     )
+
+        # modification for scalability: instead of reading H_Transmission from buildingdata it will be calculated manually using
+        #  input values U_Actual, A_Calc and b_Transmission also given by TABULA buildingdata
         for w_i in w_s:
+            # H_Tr = U * A * b_tr [W/K]
+            if "b_Transmission_" + w_i in self.buildingdata.columns:
+                h_tr_i = np.around(
+                    self.buildingdata["U_Actual_" + w_i].values[0]
+                    * self.buildingdata["A_Calc_" + w_i].values[0]
+                    * self.buildingdata["b_Transmission_" + w_i].values[0],
+                    2,
+                )
+            else:
+                h_tr_i = np.around(
+                    self.buildingdata["U_Actual_" + w_i].values[0]
+                    * self.buildingdata["A_Calc_" + w_i].values[0]
+                    * 1.0,
+                    2,
+                )
             self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin += float(
-                self.buildingdata["H_Transmission_" + w_i].values[0]
+                h_tr_i
             )
 
     def get_thermal_conductance_between_thermal_mass_and_internal_surface_in_watt_per_kelvin(
@@ -1127,18 +1149,34 @@ class Building(dynamic_component.DynamicComponent):
             "Floor_2",
         ]
 
-        # Version 1
-        # self.h_tr_em = 0.0
-        # for ow in opaque_walls:
-        #    self.h_tr_em += float(self.buildingdata["H_Transmission_" + ow].values[0])
-
-        # Version 2
         self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin = (
             0.0
         )
+        # for o_w in opaque_walls:
+        #     self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin += float(
+        #         self.buildingdata["H_Transmission_" + o_w].values[0]
+        #     )
+
+        # modification for scalability: instead of reading H_Transmission from buildingdata it will be calculated manually using
+        # input values U_Actual, A_Calc and b_Transmission also given by TABULA buildingdata
         for o_w in opaque_walls:
+            # H_Tr = U * A * b_tr [W/K]
+            if "b_Transmission_" + o_w in self.buildingdata.columns:
+                h_tr_i = np.around(
+                    self.buildingdata["U_Actual_" + o_w].values[0]
+                    * self.buildingdata["A_Calc_" + o_w].values[0]
+                    * self.buildingdata["b_Transmission_" + o_w].values[0],
+                    2,
+                )
+            else:
+                h_tr_i = np.around(
+                    self.buildingdata["U_Actual_" + o_w].values[0]
+                    * self.buildingdata["A_Calc_" + o_w].values[0]
+                    * 1.0,
+                    2,
+                )
             self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin += float(
-                self.buildingdata["H_Transmission_" + o_w].values[0]
+                h_tr_i
             )
 
         self.external_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin = 1 / (
