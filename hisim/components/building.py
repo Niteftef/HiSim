@@ -1371,6 +1371,7 @@ class Building(dynamic_component.DynamicComponent):
             "East",
             "North",
             "West",
+            "Horizontal",
         ]
         reduction_factor_for_non_perpedicular_radiation = self.buildingdata["F_w"].values[0]
         reduction_factor_for_frame_area_fraction_of_window = self.buildingdata["F_f"].values[0]
