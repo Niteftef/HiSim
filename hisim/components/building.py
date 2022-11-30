@@ -69,12 +69,6 @@ from hisim import (
     log,
 )
 
-# from hisim.components.configuration import (
-#     PhysicsConfig,
-# )
-# from hisim.components.configuration import (
-#     LoadConfig,
-# )
 from hisim.components.loadprofilegenerator_utsp_connector import (
     UtspLpgConnector,
 )
@@ -180,29 +174,6 @@ class BuildingState:
         )
 
 
-class BuildingControllerState:
-
-    """BuildingControllerState class."""
-
-    def __init__(
-        self,
-        temperature_building_target_in_celsius: float,
-        level_of_utilization: float,
-    ):
-        """Constructs all the neccessary attributes for the BuildingControllerState object."""
-        self.temperature_building_target_in_celsius: float = (
-            temperature_building_target_in_celsius
-        )
-        self.level_of_utilization: float = level_of_utilization
-
-    def clone(self):
-        """Copies the BuildingControllerState."""
-        return BuildingControllerState(
-            temperature_building_target_in_celsius=self.temperature_building_target_in_celsius,
-            level_of_utilization=self.level_of_utilization,
-        )
-
-
 @dataclass_json
 @dataclass
 class BuildingConfig(cp.ConfigBase):
@@ -235,16 +206,6 @@ class BuildingConfig(cp.ConfigBase):
         return config
 
 
-@dataclass_json
-@dataclass
-class BuildingControllerConfig:
-
-    """Configuration of the Building Controller class."""
-
-    minimal_building_temperature_in_celsius: float
-    stop_heating_building_temperature_in_celsius: float
-
-
 class Building(dynamic_component.DynamicComponent):
 
     """Building class.
@@ -272,11 +233,7 @@ class Building(dynamic_component.DynamicComponent):
     """
 
     # Inputs -> heating device
-    # either thermal energy delivered from heat pump
     ThermalEnergyDelivered = "ThermalEnergyDelivered"
-    # or mass input and temperature input delivered from Thermal Energy Storage (TES)
-    MassInput = "MassInput"
-    TemperatureInput = "TemperatureInput"
 
     # Inputs -> occupancy
     HeatingByResidents = "HeatingByResidents"
@@ -293,16 +250,16 @@ class Building(dynamic_component.DynamicComponent):
 
     # Outputs
     TemperatureMean = "Residence Temperature"
-    TemperatureAir = "TemperatureAir"
     TotalEnergyToResidence = "TotalEnergyToResidence"
     SolarGainThroughWindows = "SolarGainThroughWindows"
-    StoredEnergyVariation = "StoredEnergyVariation"
-    InternalLoss = "InternalLoss"
-    OldStoredEnergy = "OldStoredEnergy"
-    CurrentStoredEnergy = "CurrentStoredEnergy"
-    MassOutput = "MassOutput"
-    TemperatureOutput = "TemperatureOutput"
     ReferenceMaxHeatBuildingDemand = "ReferenceMaxHeatBuildingDemand"
+    # TemperatureAir = "TemperatureAir"
+    # StoredEnergyVariation = "StoredEnergyVariation"
+    # InternalLoss = "InternalLoss"
+    # OldStoredEnergy = "OldStoredEnergy"
+    # CurrentStoredEnergy = "CurrentStoredEnergy"
+    # MassOutput = "MassOutput"
+    # TemperatureOutput = "TemperatureOutput"
 
     @utils.measure_execution_time
     def __init__(
@@ -382,7 +339,6 @@ class Building(dynamic_component.DynamicComponent):
         self.energy_need_for_heating_reference_in_kilowatthour_per_m2_per_year: float = (
             0
         )
-        self.test_new_temperature_in_celsius: float
         self.buildingdata: Any
         self.buildingcode: str
         self.windows: List[Window]
@@ -414,7 +370,7 @@ class Building(dynamic_component.DynamicComponent):
         self.previous_state = self.state.self_copy()
 
         # =================================================================================================================================
-        # Input and Output channels
+        # Input channels
 
         self.thermal_power_delivered_channel: cp.ComponentInput = self.add_input(
             self.component_name,
@@ -423,21 +379,6 @@ class Building(dynamic_component.DynamicComponent):
             lt.Units.WATT,
             False,
         )
-        self.mass_input_channel: cp.ComponentInput = self.add_input(
-            self.component_name,
-            self.MassInput,
-            lt.LoadTypes.WARM_WATER,
-            lt.Units.KG_PER_SEC,
-            False,
-        )
-        self.temperature_input_channel: cp.ComponentInput = self.add_input(
-            self.component_name,
-            self.TemperatureInput,
-            lt.LoadTypes.WARM_WATER,
-            lt.Units.CELSIUS,
-            False,
-        )
-
         self.altitude_channel: cp.ComponentInput = self.add_input(
             self.component_name,
             self.Altitude,
@@ -503,6 +444,8 @@ class Building(dynamic_component.DynamicComponent):
             lt.Units.WATT,
             True,
         )
+
+        # Output channels
 
         self.thermal_mass_temperature_channel: cp.ComponentOutput = self.add_output(
             self.component_name,
@@ -654,7 +597,6 @@ class Building(dynamic_component.DynamicComponent):
 
         # Gets inputs
         if hasattr(self, "solar_gain_through_windows") is False:
-            # altitude = stsv.get_input_value(self.altitude_channel)
             azimuth = stsv.get_input_value(self.azimuth_channel)
             direct_normal_irradiance = stsv.get_input_value(
                 self.direct_normal_irradiance_channel
@@ -679,81 +621,6 @@ class Building(dynamic_component.DynamicComponent):
         thermal_power_delivered_in_watt = stsv.get_input_value(
             self.thermal_power_delivered_channel
         )
-
-        # # With Thermal Energy Storage (TES) [In Development]
-        # if self.mass_input_channel.source_output is not None:
-        #     if force_convergence:
-        #         return
-
-        #     thermal_power_delivered_in_watt = stsv.get_input_value(self.thermal_power_delivered_channel)
-        #     mass_input_in_kilogram_per_second = stsv.get_input_value(self.mass_input_channel)
-
-        #     temperature_input_in_celsius = stsv.get_input_value(self.temperature_input_channel)
-
-        #     if thermal_power_delivered_in_watt > 0 and (
-        #         mass_input_in_kilogram_per_second == 0
-        #         and temperature_input_in_celsius == 0
-        #     ):
-        #         """first iteration --> random numbers"""
-        #         temperature_input_in_celsius = 40.456
-        #         mass_input_in_kilogram_per_second = 0.0123
-
-        #     if thermal_power_delivered_in_watt > 0:
-
-        #         massflows_possible_in_kilogram_per_second = (
-        #             LoadConfig.possible_massflows_load
-        #         )
-        #         mass_flow_level = 0
-        #         # K = W / (J/kgK * kg/s); delta T in Kelvin = delta T in Celsius; heat capacity J/kgK = J/kg°C
-        #         temperature_delta_heat_in_kelvin = thermal_power_delivered_in_watt / (
-        #             PhysicsConfig.water_specific_heat_capacity_in_joule_per_kilogram_per_kelvin
-        #             * massflows_possible_in_kilogram_per_second[mass_flow_level]
-        #         )
-        #         while temperature_delta_heat_in_kelvin > LoadConfig.delta_T:
-        #             mass_flow_level += 1
-        #             temperature_delta_heat_in_kelvin = thermal_power_delivered_in_watt / (
-        #                 PhysicsConfig.water_specific_heat_capacity_in_joule_per_kilogram_per_kelvin
-        #                 * massflows_possible_in_kilogram_per_second[mass_flow_level]
-        #             )
-
-        #         mass_input_load_in_kilogram_per_timestep = (
-        #             massflows_possible_in_kilogram_per_second[mass_flow_level]
-        #             * self.seconds_per_timestep
-        #         )
-
-        #         energy_demand_in_joule_per_timestep = (
-        #             thermal_power_delivered_in_watt * self.seconds_per_timestep
-        #         )
-        #         enthalpy_slice_in_joule_per_timestep = (
-        #             mass_input_load_in_kilogram_per_timestep
-        #             * temperature_input_in_celsius
-        #             * PhysicsConfig.water_specific_heat_capacity_in_joule_per_kilogram_per_kelvin
-        #         )
-        #         enthalpy_new_in_joule_per_timestep = (
-        #             enthalpy_slice_in_joule_per_timestep
-        #             - energy_demand_in_joule_per_timestep
-        #         )
-        #         temperature_new_in_celsius = enthalpy_new_in_joule_per_timestep / (
-        #             mass_input_load_in_kilogram_per_timestep
-        #             * PhysicsConfig.water_specific_heat_capacity_in_joule_per_kilogram_per_kelvin
-        #         )
-
-        #     else:
-        #         # no water is flowing
-        #         temperature_new_in_celsius = temperature_input_in_celsius
-        #         mass_input_load_in_kilogram_per_timestep = 0
-
-        #     self.test_new_temperature_in_celsius = temperature_new_in_celsius
-
-        # # Only with HeatPump
-        # elif self.thermal_power_delivered_channel.source_output is not None:
-        #     thermal_power_delivered_in_watt = stsv.get_input_value(self.thermal_power_delivered_channel)
-        # else:
-        #     thermal_power_delivered_in_watt = sum(
-        #         self.get_dynamic_inputs(
-        #             stsv=stsv, tags=[lt.InandOutputType.HEAT_TO_BUILDING]
-        #         )
-        #     )
 
         previous_thermal_mass_temperature_in_celsius = (
             self.state.thermal_mass_temperature_in_celsius
@@ -1757,81 +1624,6 @@ class Window:
 
         self.reduction_factor_with_area = self.reduction_factor * area
 
-    # # @cached(cache=LRUCache(maxsize=5))
-    # # @lru_cache
-    # def calc_solar_gains(
-    #     self,
-    #     sun_azimuth,
-    #     direct_normal_irradiance,
-    #     direct_horizontal_irradiance,
-    #     global_horizontal_irradiance,
-    #     direct_normal_irradiance_extra,
-    #     apparent_zenith,
-    # ):
-    #     """Calculates the Solar Gains in the building zone through the set Window.
-
-    #     :param sun_altitude: Altitude Angle of the Sun in Degrees
-    #     :type sun_altitude: float
-    #     :param sun_azimuth: Azimuth angle of the sun in degrees
-    #     :type sun_azimuth: float
-    #     :param normal_direct_radiation: Normal Direct Radiation from weather file
-    #     :type normal_direct_radiation: float
-    #     :param horizontal_diffuse_radiation: Horizontal Diffuse Radiation from weather file
-    #     :type horizontal_diffuse_radiation: float
-    #     :return: self.incident_solar, Incident Solar Radiation on window
-    #     :return: self.solar_gains - Solar gains in building after transmitting through the window
-    #     :rtype: float
-    #     """
-    #     albedo = 0.4
-    #     # automatic pd time series in future pvlib version
-    #     # calculate airmass
-    #     airmass = pvlib.atmosphere.get_relative_airmass(apparent_zenith)
-    #     # use perez model to calculate the plane of array diffuse sky radiation
-    #     poa_sky_diffuse = pvlib.irradiance.perez(
-    #         self.altitude_tilt,
-    #         self.azimuth_tilt,
-    #         direct_horizontal_irradiance,
-    #         np.float64(direct_normal_irradiance),
-    #         direct_normal_irradiance_extra,
-    #         apparent_zenith,
-    #         sun_azimuth,
-    #         airmass,
-    #     )
-    #     # calculate ground diffuse with specified albedo
-    #     poa_ground_diffuse = pvlib.irradiance.get_ground_diffuse(
-    #         self.altitude_tilt,
-    #         global_horizontal_irradiance,
-    #         albedo=albedo,
-    #     )
-    #     # calculate angle of incidence
-    #     aoi = pvlib.irradiance.aoi(
-    #         self.altitude_tilt,
-    #         self.azimuth_tilt,
-    #         apparent_zenith,
-    #         sun_azimuth,
-    #     )
-    #     # calculate plane of array irradiance
-    #     poa_irrad = pvlib.irradiance.poa_components(
-    #         aoi,
-    #         np.float64(direct_normal_irradiance),
-    #         poa_sky_diffuse,
-    #         poa_ground_diffuse,
-    #     )
-
-    #     if math.isnan(poa_irrad["poa_direct"]):
-    #         self.incident_solar = 0
-    #     else:
-    #         self.incident_solar = (poa_irrad["poa_direct"]) * self.area
-
-    #     solar_gains = (
-    #         self.incident_solar
-    #         * self.glass_solar_transmittance
-    #         * self.nonperpendicular_reduction_factor
-    #         * self.external_shading_vertical_reduction_factor
-    #         * (1 - self.frame_area_fraction_reduction_factor)
-    #     )
-    #     return solar_gains
-
     def calc_direct_solar_factor(
         self,
         sun_altitude,
@@ -1870,168 +1662,3 @@ class Window:
         """
         # Proportion of incident light on the window surface
         return (1 + math.cos(self.window_tilt_angle_rad)) / 2
-
-
-class BuildingController(cp.Component):
-
-    """BuildingController class.
-
-    It calculates on base of the maximal Building
-    Thermal Demand and the difference of the actual Building Tempreature
-    to the Target/Minimal Building Tempreature how much the building is suppose
-    to be heated up. This Output is called "RealBuildingHeatDemand".
-
-    Parameters
-    ----------
-    sim_params : Simulator
-        Simulator object used to carry the simulation using this class
-
-    """
-
-    # Inputs
-    ReferenceMaxHeatBuildingDemand = "ReferenceMaxHeatBuildingDemand"
-    ResidenceTemperature = "ResidenceTemperature"
-    # Outputs
-    RealHeatBuildingDemand = "RealHeatBuildingDemand"
-    LevelOfUtilization = "LevelOfUtilization"
-
-    def __init__(
-        self,
-        my_simulation_parameters: SimulationParameters,
-        config: BuildingControllerConfig,
-    ):
-        """Constructs all the neccessary attributes of the Building Controller object."""
-        super().__init__(
-            name="BuildingController",
-            my_simulation_parameters=my_simulation_parameters,
-        )
-        self.minimal_building_temperature_in_celsius = (
-            config.minimal_building_temperature_in_celsius
-        )
-        self.stop_heating_building_temperature_in_celsius = (
-            config.stop_heating_building_temperature_in_celsius
-        )
-        self.state = BuildingControllerState(
-            temperature_building_target_in_celsius=config.minimal_building_temperature_in_celsius,
-            level_of_utilization=0,
-        )
-        self.previous_state = self.state.clone()
-
-        # =================================================================================================================================
-        # Inputs and Output channels
-
-        self.ref_max_thermal_build_demand_channel: cp.ComponentInput = self.add_input(
-            self.component_name,
-            self.ReferenceMaxHeatBuildingDemand,
-            lt.LoadTypes.HEATING,
-            lt.Units.WATT,
-            True,
-        )
-        self.residence_temperature_channel: cp.ComponentInput = self.add_input(
-            self.component_name,
-            self.ResidenceTemperature,
-            lt.LoadTypes.TEMPERATURE,
-            lt.Units.CELSIUS,
-            True,
-        )
-        self.real_heat_building_demand_channel: cp.ComponentOutput = self.add_output(
-            self.component_name,
-            self.RealHeatBuildingDemand,
-            lt.LoadTypes.HEATING,
-            lt.Units.WATT,
-        )
-        self.level_of_utilization_channel: cp.ComponentOutput = self.add_output(
-            self.component_name,
-            self.LevelOfUtilization,
-            lt.LoadTypes.ANY,
-            lt.Units.PERCENT,
-        )
-        # =================================================================================================================================
-
-    @staticmethod
-    def get_default_config():
-        """Gets a default configuration of the building controller."""
-        config = BuildingControllerConfig(
-            minimal_building_temperature_in_celsius=20,
-            stop_heating_building_temperature_in_celsius=21,
-        )
-        return config
-
-    def build(self):
-        """Build load profile for entire simulation duration."""
-        pass
-
-    def write_to_report(
-        self,
-    ):
-        """Writes a report."""
-        pass
-
-    def i_save_state(
-        self,
-    ):
-        """Saves the current state."""
-        self.previous_state = self.state.clone()
-
-    def i_restore_state(
-        self,
-    ):
-        """Restores previous state."""
-        self.state = self.previous_state.clone()
-
-    def i_doublecheck(
-        self,
-        timestep: int,
-        stsv: cp.SingleTimeStepValues,
-    ) -> None:
-        """Doublechecks."""
-        pass
-
-    def i_prepare_simulation(
-        self,
-    ) -> None:
-        """Prepares the simulation."""
-        pass
-
-    def i_simulate(
-        self,
-        timestep: int,
-        stsv: cp.SingleTimeStepValues,
-        force_convergence: bool,
-    ) -> None:
-        """Simulates the building controller."""
-        building_temperature_in_celsius = stsv.get_input_value(
-            self.residence_temperature_channel
-        )
-        minimal_building_temperature_in_celsius = (
-            self.minimal_building_temperature_in_celsius
-        )
-        delta_temp_for_level_of_utilization = 0.4
-
-        # Building is warm enough
-        if building_temperature_in_celsius > minimal_building_temperature_in_celsius:
-            level_of_utilization: float = 0
-        # Building get heated up, when temperature is underneath target temperature
-        elif (
-            building_temperature_in_celsius
-            < minimal_building_temperature_in_celsius
-            - delta_temp_for_level_of_utilization
-        ):
-            level_of_utilization = 1
-        else:
-            level_of_utilization = (
-                minimal_building_temperature_in_celsius
-                - building_temperature_in_celsius
-            )
-
-        real_heat_building_demand_in_watt = (
-            self.state.level_of_utilization
-            * stsv.get_input_value(self.ref_max_thermal_build_demand_channel)
-        )
-        self.state.level_of_utilization = level_of_utilization
-        stsv.set_output_value(
-            self.level_of_utilization_channel, self.state.level_of_utilization
-        )
-        stsv.set_output_value(
-            self.real_heat_building_demand_channel, real_heat_building_demand_in_watt
-        )
