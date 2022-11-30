@@ -107,8 +107,8 @@ def calc_solar_heat_gains(
     global_horizontal_irradiance,
     direct_normal_irradiance_extra,
     apparent_zenith,
-    altitude_tilt,
-    azimuth_tilt,
+    window_tilt_angle,
+    window_azimuth_angle,
     reduction_factor_with_area,
 ):
     """Calculates the Solar Gains in the building zone through the set Window.
@@ -126,8 +126,8 @@ def calc_solar_heat_gains(
     :rtype: float
     """
     poa_irrad = pvlib.irradiance.get_total_irradiance(
-        altitude_tilt,
-        azimuth_tilt,
+        window_tilt_angle,
+        window_azimuth_angle,
         apparent_zenith,
         sun_azimuth,
         direct_normal_irradiance,
@@ -1382,7 +1382,7 @@ class Building(dynamic_component.DynamicComponent):
             if area != 0.0:
                 self.windows.append(
                     Window(
-                        azimuth_tilt=windows_angles[windows_direction],
+                        window_azimuth_angle=windows_angles[windows_direction],
                         area=area,
                         frame_area_fraction_reduction_factor=reduction_factor_for_frame_area_fraction_of_window,
                         glass_solar_transmittance=total_solar_energy_transmittance_for_perpedicular_radiation,
@@ -1437,8 +1437,8 @@ class Building(dynamic_component.DynamicComponent):
                     global_horizontal_irradiance=global_horizontal_irradiance,
                     direct_normal_irradiance_extra=direct_normal_irradiance_extra,
                     apparent_zenith=apparent_zenith,
-                    altitude_tilt=window.altitude_tilt,
-                    azimuth_tilt=window.azimuth_tilt,
+                    window_tilt_angle=window.window_tilt_angle,
+                    window_azimuth_angle=window.window_azimuth_angle,
                     reduction_factor_with_area=window.reduction_factor_with_area,
                 )
                 solar_heat_gains += solar_heat_gain
@@ -1717,8 +1717,8 @@ class Window:
 
     def __init__(
         self,
-        azimuth_tilt=None,
-        altitude_tilt=90,
+        window_azimuth_angle=None,
+        window_tilt_angle=90,
         area=None,
         glass_solar_transmittance=0.6,
         frame_area_fraction_reduction_factor=0.3,
@@ -1727,10 +1727,10 @@ class Window:
     ):
         """Constructs all the neccessary attributes."""
         # Angles
-        self.altitude_tilt = altitude_tilt
-        self.azimuth_tilt = azimuth_tilt
-        self.altitude_tilt_rad = math.radians(altitude_tilt)
-        self.azimuth_tilt_rad = math.radians(azimuth_tilt)
+        self.window_tilt_angle = window_tilt_angle
+        self.window_azimuth_angle = window_azimuth_angle
+        self.window_tilt_angle_rad = math.radians(window_tilt_angle)
+        self.window_azimuth_angle_rad = math.radians(window_azimuth_angle)
 
         # Area
         self.area = area
@@ -1851,8 +1851,8 @@ class Window:
         sun_altitude_rad = math.radians(sun_altitude)
 
         aoi = pvlib.irradiance.aoi(
-            self.altitude_tilt,
-            self.azimuth_tilt,
+            self.window_tilt_angle,
+            self.window_azimuth_angle,
             apparent_zenith,
             sun_azimuth,
         )
@@ -1869,7 +1869,7 @@ class Window:
         Based on the RC_BuildingSimulator project @[rc_buildingsimulator-jayathissa] (** Check header)
         """
         # Proportion of incident light on the window surface
-        return (1 + math.cos(self.altitude_tilt_rad)) / 2
+        return (1 + math.cos(self.window_tilt_angle_rad)) / 2
 
 
 class BuildingController(cp.Component):

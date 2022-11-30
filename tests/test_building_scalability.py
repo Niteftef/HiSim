@@ -9,6 +9,7 @@ import numpy as np
 from hisim.components import building
 from hisim.simulationparameters import SimulationParameters
 from hisim import utils
+from hisim import log
 
 building_code = "DE.N.SFH.05.Gen.ReEx.001.001"
 building_heat_capacity_class = "medium"
@@ -104,3 +105,9 @@ def test_building_scalability():
 
     # check if calculated H_tr is equal to H_tr which was read from buildingdata directly
     assert list_H_tr_opaque == list_H_tr_opaque_calculated
+
+    # compare TABULA conditioned volume V_C and conditioned floor area A_C_ref * room height h_room -> not the same!
+    V1=my_residence.buildingdata["A_C_Ref"].values[0] * my_residence.buildingdata["h_room"].values[0]
+    V2=my_residence.buildingdata["V_C"].values[0]
+    log.information(str(V1))
+    log.information(str(V2))
