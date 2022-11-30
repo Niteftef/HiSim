@@ -63,7 +63,7 @@ def get_thermal_conductance_ventilation_in_watt_per_kelvin(
         )
 
 
-class Window:
+class WindowObsolete:
 
     """Based on the RC_BuildingSimulator project @[rc_buildingsimulator-jayathissa] (** Check header)."""
 
