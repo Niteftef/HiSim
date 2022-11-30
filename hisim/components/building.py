@@ -628,9 +628,7 @@ class Building(dynamic_component.DynamicComponent):
 
         # Performs calculations
         if hasattr(self, "solar_gain_through_windows") is False:
-            # @JG I guess you wanted to transfer W to Wh
             solar_heat_gain_through_windows = self.get_solar_heat_gain_through_windows(
-                # altitude=altitude,
                 azimuth=azimuth,
                 direct_normal_irradiance=direct_normal_irradiance,
                 direct_horizontal_irradiance=direct_horizontal_irradiance,
@@ -1070,52 +1068,20 @@ class Building(dynamic_component.DynamicComponent):
     def get_thermal_conductance_ventilation_in_watt_per_kelvin(
         self,
     ):
-        """Based on the RC_BuildingSimulator project @[rc_buildingsimulator-jayathissa] (** Check header)."""
+        """Based on the EPISCOPE TABULA (* Check header)."""
         # Long from for H_ve_adj: Ventilation
         # Determine the ventilation conductance
-        if self.ven_method == "RC_BuildingSimulator":
-            """Based on the RC_BuildingSimulator project @[rc_buildingsimulator-jayathissa] (** Check header)."""
-            air_changes_per_hour_through_ventilation = 1.5
-            air_changes_per_hour_through_infiltration = 0.5
-            # The efficiency of the heat recovery system for ventilation. Set to 0 if there is no heat recovery
-            ventilation_efficiency_of_the_heat_recovery_system = 0.6
-            heat_capacity_of_air_per_volume_in_joule_per_m3_per_kelvin = 1200
 
-            total_air_changes_per_hour = (
-                air_changes_per_hour_through_infiltration
-                + air_changes_per_hour_through_ventilation
+        heat_capacity_of_air_per_volume_in_watt_hour_per_m3_per_kelvin = 0.34
+        self.thermal_conductance_by_ventilation_in_watt_per_kelvin = (
+            heat_capacity_of_air_per_volume_in_watt_hour_per_m3_per_kelvin
+            * float(
+                self.buildingdata["n_air_use"]
+                + self.buildingdata["n_air_infiltration"]
             )
-
-            # Fraction of the considered air flow that goes through the heat recovery system
-            fraction_of_air_flow_through_heat_recovery_system = (
-                air_changes_per_hour_through_ventilation / total_air_changes_per_hour
-            )
-
-            # Temperature adjustment factor taking ventilation and infiltration
-            # [ISO: 9.3.2.8]
-            temperature_adjustment_factor_for_air_flow_from_a_heat_recovery_system = (
-                1
-                - fraction_of_air_flow_through_heat_recovery_system
-                * ventilation_efficiency_of_the_heat_recovery_system
-            )
-            # [ISO: 9.3.1]
-            self.thermal_conductance_by_ventilation_in_watt_per_kelvin = float(
-                heat_capacity_of_air_per_volume_in_joule_per_m3_per_kelvin
-                * temperature_adjustment_factor_for_air_flow_from_a_heat_recovery_system
-                * self.room_volume_in_m3
-                * (total_air_changes_per_hour / 3600)
-            )
-        elif self.ven_method == "EPISCOPE":
-            heat_capacity_of_air_per_volume_in_watt_hour_per_m3_per_kelvin = 0.34
-            self.thermal_conductance_by_ventilation_in_watt_per_kelvin = (
-                heat_capacity_of_air_per_volume_in_watt_hour_per_m3_per_kelvin
-                * float(
-                    self.buildingdata["n_air_use"]
-                    + self.buildingdata["n_air_infiltration"]
-                )
-                * self.conditioned_floor_area_in_m2
-                * float(self.buildingdata["h_room"])
-            )
+            * self.conditioned_floor_area_in_m2
+            * float(self.buildingdata["h_room"])
+        )
 
     def get_conductances(
         self,
@@ -1283,7 +1249,7 @@ class Building(dynamic_component.DynamicComponent):
         global_horizontal_irradiance,
         direct_normal_irradiance_extra,
         apparent_zenith,
-    ):  # altitude,
+    ):
         """Calculates the thermal solar gain passed to the building through the windows.
 
         Based on the RC_BuildingSimulator project @[rc_buildingsimulator-jayathissa] (** Check header)
