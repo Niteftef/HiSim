@@ -2,6 +2,7 @@
 from hisim.component import Component, SingleTimeStepValues, ComponentInput, ComponentOutput
 from hisim.simulationparameters import SimulationParameters
 from hisim import loadtypes as lt
+from hisim import utils
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from typing import List
@@ -45,6 +46,7 @@ class GasHeater(Component):
     GasDemand = "GasDemand"
     ThermalOutputPower="ThermalOutputPower"
 
+    @utils.graph_call_path_factory(max_depth=2,memory_flag=True, file_name='call_path')
     def __init__(self, my_simulation_parameters: SimulationParameters, config : GenericGasHeaterConfig) -> None:
         super().__init__(name="GasHeater", my_simulation_parameters=my_simulation_parameters)
         self.control_signal: ComponentInput = self.add_input(self.component_name, GasHeater.ControlSignal, lt.LoadTypes.ANY, lt.Units.PERCENT, True)
