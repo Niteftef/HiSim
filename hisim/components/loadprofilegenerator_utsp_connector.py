@@ -49,7 +49,7 @@ class UtspLpgConfig(utsp_utils.UtspConfig):
     ) -> "UtspLpgConfig":
         """Creates a default configuration. Chooses default values for the LPG parameters."""
         result_path = os.path.join(utils.get_input_directory(), "lpg_profiles")
-        config = UtspConnectorConfig(
+        config = UtspLpgConfig(
             url,
             api_key,
             Households.CHR01_Couple_both_at_Work,
@@ -96,7 +96,7 @@ class UtspLpgConnector(cp.Component):
     def __init__(
         self,
         my_simulation_parameters: SimulationParameters,
-        config: UtspConnectorConfig,
+        config: UtspLpgConfig,
     ) -> None:
         """Initializes the component and retrieves the LPG data."""
         super().__init__(
