@@ -12,13 +12,16 @@ from functools import wraps
 
 import psutil
 
-from hisim.simulationparameters import SimulationParameters
-from hisim import log
-
 from pycallgraph2 import PyCallGraph
 from pycallgraph2.output import GraphvizOutput
 from pycallgraph2 import memory_profiler as pycallgraph_Profiler
 from pycallgraph2 import Config as pycallgraph_Config
+
+from hisim.simulationparameters import SimulationParameters
+from hisim import log
+
+
+
 __authors__ = "Noah Pflugradt, Vitor Hugo Bellotto Zago"
 __copyright__ = "Copyright 2021-2022, FZJ-IEK-3 "
 __license__ = "MIT"
@@ -222,6 +225,7 @@ def measure_memory_leak_with_error(my_function):  # noqa
 
     return function_wrapper_for_measuring_memory_leak
 
+# check pycallgraph/pycallgraph.py for more information
 def graph_call_path_factory(max_depth, memory_flag, file_name):
     def graph_call_path(my_function):
         """ Utility function that works as decorator for graphing single function call path. """

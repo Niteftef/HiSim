@@ -1,3 +1,16 @@
+"""Module for call graph visualization using PyCallGraph.
+
+The idea was to create a decorator to visualize the code structure.
+
+Requirements:
+-install pycallgraph2
+-install graphviz according to https://forum.graphviz.org/t/new-simplified-installation-procedure-on-windows/224
+and add graphviz path ("C:/Program Files/Graphviz/bin") to System Path in Environment Variables.
+
+You can specify the maximum depth your visualization, the memory record
+and the file name of your output .png file.
+
+"""
 
 from functools import wraps
 import psutil
@@ -6,7 +19,6 @@ from pycallgraph2 import PyCallGraph
 from pycallgraph2.output import GraphvizOutput
 from pycallgraph2 import memory_profiler as pycallgraph_Profiler
 from pycallgraph2 import Config as pycallgraph_Config
-
 
 def graph_call_path_factory(max_depth, memory_flag, file_name):
     def graph_call_path(my_function):

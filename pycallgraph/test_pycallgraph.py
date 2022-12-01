@@ -1,3 +1,5 @@
+"""Test for pycallgraph decorator used in hisim.utils.py."""
+
 import os
 
 from hisim import hisim_main
