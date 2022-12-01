@@ -93,6 +93,7 @@ from hisim.components.configuration import LoadConfig
 from hisim.components.loadprofilegenerator_utsp_connector import UtspLpgConnector
 from hisim.simulationparameters import SimulationParameters
 from hisim.components.weather import Weather
+from hisim.components.utsp_weather_connector import UtspWeather
 from hisim.components.loadprofilegenerator_connector import Occupancy
 
 __authors__ = "Vitor Hugo Bellotto Zago"
@@ -603,6 +604,71 @@ class Building(dynamic_component.DynamicComponent):
                 Building.TemperatureOutside,
                 weather_classname,
                 Weather.TemperatureOutside,
+            )
+        )
+        return connections
+
+    def get_default_connections_from_utsp_weather(
+        self,
+    ):
+        """Get utsp weather default connnections."""
+        log.information("setting weather default connections")
+        connections = []
+        weather_classname = UtspWeather.get_classname()
+        connections.append(
+            cp.ComponentConnection(
+                Building.Altitude,
+                weather_classname,
+                UtspWeather.Altitude,
+            )
+        )
+        connections.append(
+            cp.ComponentConnection(
+                Building.Azimuth,
+                weather_classname,
+                UtspWeather.Azimuth,
+            )
+        )
+        connections.append(
+            cp.ComponentConnection(
+                Building.ApparentZenith,
+                weather_classname,
+                UtspWeather.ApparentZenith,
+            )
+        )
+        connections.append(
+            cp.ComponentConnection(
+                Building.DirectNormalIrradiance,
+                weather_classname,
+                UtspWeather.DirectNormalIrradiance,
+            )
+        )
+        connections.append(
+            cp.ComponentConnection(
+                Building.DirectNormalIrradianceExtra,
+                weather_classname,
+                UtspWeather.DirectNormalIrradianceExtra,
+            )
+        )
+        connections.append(
+            cp.ComponentConnection(
+                Building.DiffuseHorizontalIrradiance,
+                weather_classname,
+                UtspWeather.DiffuseHorizontalIrradiance,
+            )
+        )
+        connections.append(
+            cp.ComponentConnection(
+                Building.GlobalHorizontalIrradiance,
+                weather_classname,
+                UtspWeather.GlobalHorizontalIrradiance,
+            )
+        )
+        connections.append(
+            cp.ComponentConnection(
+                Building.TemperatureOutside,
+                weather_classname,
+                UtspWeather.TemperatureOutside,
             )
         )
         return connections
