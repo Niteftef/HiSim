@@ -53,7 +53,6 @@ from dataclasses_json import (
 )
 import pvlib
 import pandas as pd
-import numpy as np
 
 from hisim import (
     dynamic_component,
@@ -967,23 +966,14 @@ class Building(dynamic_component.DynamicComponent):
         #     )
 
         # modification for scalability: instead of reading H_Transmission from buildingdata it will be calculated manually using
-        #  input values U_Actual, A_Calc and b_Transmission also given by TABULA buildingdata
+        # input values U_Actual, A_Calc and b_Transmission also given by TABULA buildingdata
         for w_i in w_s:
-            # H_Tr = U * A * b_tr [W/K]
-            if "b_Transmission_" + w_i in self.buildingdata.columns:
-                h_tr_i = np.around(
-                    self.buildingdata["U_Actual_" + w_i].values[0]
-                    * self.buildingdata["A_Calc_" + w_i].values[0]
-                    * self.buildingdata["b_Transmission_" + w_i].values[0],
-                    2,
-                )
-            else:
-                h_tr_i = np.around(
-                    self.buildingdata["U_Actual_" + w_i].values[0]
-                    * self.buildingdata["A_Calc_" + w_i].values[0]
-                    * 1.0,
-                    2,
-                )
+            # H_Tr = U * A * b_tr [W/K], here b_tr is not given in TABULA data, so it is chosen 1.0
+            h_tr_i = (
+                self.buildingdata["U_Actual_" + w_i].values[0]
+                * self.buildingdata["A_" + w_i].values[0]
+                * 1.0
+            )
             self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin += float(
                 h_tr_i
             )
@@ -1026,34 +1016,26 @@ class Building(dynamic_component.DynamicComponent):
         # input values U_Actual, A_Calc and b_Transmission also given by TABULA buildingdata
         for o_w in opaque_walls:
             # H_Tr = U * A * b_tr [W/K]
-            if "b_Transmission_" + o_w in self.buildingdata.columns:
-                h_tr_i = np.around(
-                    self.buildingdata["U_Actual_" + o_w].values[0]
-                    * self.buildingdata["A_Calc_" + o_w].values[0]
-                    * self.buildingdata["b_Transmission_" + o_w].values[0],
-                    2,
-                )
-            else:
-                h_tr_i = np.around(
-                    self.buildingdata["U_Actual_" + o_w].values[0]
-                    * self.buildingdata["A_Calc_" + o_w].values[0]
-                    * 1.0,
-                    2,
-                )
+            h_tr_i = (
+                self.buildingdata["U_Actual_" + o_w].values[0]
+                * self.buildingdata["A_" + o_w].values[0]
+                * self.buildingdata["b_Transmission_" + o_w].values[0]
+            )
             self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin += float(
                 h_tr_i
             )
-
-        self.external_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin = 1 / (
-            (
-                1
-                / self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin
+        if (self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin != 0 and
+        self.internal_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin != 0):
+            self.external_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin = 1 / (
+                (
+                    1
+                    / self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin
+                )
+                - (
+                    1
+                    / self.internal_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin
+                )
             )
-            - (
-                1
-                / self.internal_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin
-            )
-        )
 
     def get_thermal_conductance_between_indoor_air_and_internal_surface_in_watt_per_kelvin(
         self,

@@ -6,15 +6,18 @@ Therefore some functions must be adjusted which are tested here before."""
 # clean
 
 import numpy as np
+from numpy import testing
+import pandas as pd
 from hisim.components import building
 from hisim.simulationparameters import SimulationParameters
 from hisim import utils
 from hisim import log
 
 building_code = "DE.N.SFH.05.Gen.ReEx.001.001"
+# building_code = "SI.N.SFH-TH.05-06.Gen.SyAv.001.001"
 building_heat_capacity_class = "medium"
 seconds_per_timestep = 60
-my_simulation_parameters = SimulationParameters.full_year(
+my_simulation_parameters = SimulationParameters.one_day_only(
     year=2021, seconds_per_timestep=seconds_per_timestep
 )
 
@@ -24,10 +27,25 @@ my_residence_config = (
 )
 my_residence_config.building_code = building_code
 my_residence_config.building_heat_capacity_class = building_heat_capacity_class
-
 my_residence = building.Building(
-    config=my_residence_config, my_simulation_parameters=my_simulation_parameters
-)
+            config=my_residence_config, my_simulation_parameters=my_simulation_parameters)
+
+# # check on all TABULA buildings -> run test over all building_codes
+# d_f = pd.read_csv(
+#     utils.HISIMPATH["housing"],
+#     decimal=",",
+#     sep=";",
+#     encoding="cp1252",
+#     low_memory=False,
+# )
+
+# for building_code in d_f["Code_BuildingVariant"]:
+#     if type(building_code)==str:
+#         my_residence_config.building_code = building_code
+
+#         my_residence = building.Building(
+#             config=my_residence_config, my_simulation_parameters=my_simulation_parameters)
+#         log.information(building_code)
 
 @utils.measure_execution_time
 def test_building_scalability():
@@ -49,24 +67,17 @@ def test_building_scalability():
             my_residence.buildingdata["H_Transmission_" + w_i].values[0]
         )
         # H_Tr = U * A * b_tr [W/K] -> by calculating H_tr manually one can later scale this up by scaling up A_Calc
-        if "b_Transmission_" + w_i in my_residence.buildingdata.columns:
-            H_tr_i = np.around(
-                my_residence.buildingdata["U_Actual_" + w_i].values[0]
-                * my_residence.buildingdata["A_Calc_" + w_i].values[0]
-                * my_residence.buildingdata["b_Transmission_" + w_i].values[0],
-                2,
-            )
-        else:
-            H_tr_i = np.around(
-                my_residence.buildingdata["U_Actual_" + w_i].values[0]
-                * my_residence.buildingdata["A_Calc_" + w_i].values[0]
-                * 1.0,
-                2,
-            )
+        H_tr_i = (
+            my_residence.buildingdata["U_Actual_" + w_i].values[0]
+            * my_residence.buildingdata["A_" + w_i].values[0]
+            * 1.0
+        )
         list_H_tr_window_calculated.append(H_tr_i)
         k = k + 1
+
     # check if calculated H_tr is equal to H_tr which was read from buildingdata directly
-    assert list_H_tr_window == list_H_tr_window_calculated
+    # assert list_H_tr_window == list_H_tr_window_calculated
+    np.testing.assert_allclose(list_H_tr_window, list_H_tr_window_calculated, atol=0.02)
 
     # builing function: get_thermal_conductance_of_opaque_surfaces_in_watt_per_kelvin
     opaque_walls = [
@@ -86,28 +97,14 @@ def test_building_scalability():
             my_residence.buildingdata["H_Transmission_" + o_p].values[0]
         )
         # H_Tr = U * A * b_tr [W/K] -> by calculating H_tr manually one can later scale this up by scaling up A_Calc
-        if "b_Transmission_" + o_p in my_residence.buildingdata.columns:
-            H_tr_i = np.around(
-                my_residence.buildingdata["U_Actual_" + o_p].values[0]
-                * my_residence.buildingdata["A_Calc_" + o_p].values[0]
-                * my_residence.buildingdata["b_Transmission_" + o_p].values[0],
-                2,
-            )
-        else:
-            H_tr_i = np.around(
-                my_residence.buildingdata["U_Actual_" + o_p].values[0]
-                * my_residence.buildingdata["A_Calc_" + o_p].values[0]
-                * 1.0,
-                2,
-            )
+        H_tr_i = (my_residence.buildingdata["U_Actual_" + o_p].values[0]
+            * my_residence.buildingdata["A_" + o_p].values[0]
+            * my_residence.buildingdata["b_Transmission_" + o_p].values[0]
+        )
+
         list_H_tr_opaque_calculated.append(H_tr_i)
         k = k + 1
 
     # check if calculated H_tr is equal to H_tr which was read from buildingdata directly
-    assert list_H_tr_opaque == list_H_tr_opaque_calculated
-
-    # compare TABULA conditioned volume V_C and conditioned floor area A_C_ref * room height h_room -> not the same!
-    V1=my_residence.buildingdata["A_C_Ref"].values[0] * my_residence.buildingdata["h_room"].values[0]
-    V2=my_residence.buildingdata["V_C"].values[0]
-    log.information(str(V1))
-    log.information(str(V2))
+    # assert list_H_tr_opaque == list_H_tr_opaque_calculated
+    np.testing.assert_allclose(list_H_tr_window, list_H_tr_window_calculated, atol=0.02)
