@@ -1197,6 +1197,7 @@ class Building(dynamic_component.DynamicComponent):
             "East": south_angle - 90,
             "North": south_angle - 180,
             "West": south_angle + 90,
+            "Horizontal": None
         }
 
         windows_directions = [
@@ -1210,11 +1211,14 @@ class Building(dynamic_component.DynamicComponent):
         reduction_factor_for_frame_area_fraction_of_window = self.buildingdata["F_f"].values[0]
         reduction_factor_for_external_vertical_shading = self.buildingdata["F_sh_vert"].values[0]
         total_solar_energy_transmittance_for_perpedicular_radiation = self.buildingdata["g_gl_n"].values[0]
+
         for windows_direction in windows_directions:
             area = float(self.buildingdata["A_Window_" + windows_direction])
             if area != 0.0:
-                self.windows.append(
+                if windows_direction == "Horizontal":
+                    self.windows.append(
                     Window(
+                        window_tilt_angle=0,
                         window_azimuth_angle=windows_angles[windows_direction],
                         area=area,
                         frame_area_fraction_reduction_factor=reduction_factor_for_frame_area_fraction_of_window,
@@ -1222,6 +1226,18 @@ class Building(dynamic_component.DynamicComponent):
                         nonperpendicular_reduction_factor=reduction_factor_for_non_perpedicular_radiation,
                         external_shading_vertical_reduction_factor=reduction_factor_for_external_vertical_shading,
                     )
+                )
+                else:
+                    self.windows.append(
+                        Window(
+                            window_tilt_angle=90,
+                            window_azimuth_angle=windows_angles[windows_direction],
+                            area=area,
+                            frame_area_fraction_reduction_factor=reduction_factor_for_frame_area_fraction_of_window,
+                            glass_solar_transmittance=total_solar_energy_transmittance_for_perpedicular_radiation,
+                            nonperpendicular_reduction_factor=reduction_factor_for_non_perpedicular_radiation,
+                            external_shading_vertical_reduction_factor=reduction_factor_for_external_vertical_shading,
+                        )
                 )
                 self.windows_area += area
         # if nothing exists, initialize the empty arrays for caching, else read stuff
@@ -1551,26 +1567,24 @@ class Window:
     def __init__(
         self,
         window_azimuth_angle=None,
-        window_tilt_angle=90,
+        window_tilt_angle=None,
         area=None,
-        glass_solar_transmittance=0.6,
-        frame_area_fraction_reduction_factor=0.3,
-        external_shading_vertical_reduction_factor=1.0,
-        nonperpendicular_reduction_factor=0.9,
+        glass_solar_transmittance=None,
+        frame_area_fraction_reduction_factor=None,
+        external_shading_vertical_reduction_factor=None,
+        nonperpendicular_reduction_factor=None,
     ):
         """Constructs all the neccessary attributes."""
         # Angles
         self.window_tilt_angle = window_tilt_angle
         self.window_azimuth_angle = window_azimuth_angle
-        self.window_tilt_angle_rad = math.radians(window_tilt_angle)
-        self.window_azimuth_angle_rad = math.radians(window_azimuth_angle)
+        self.window_tilt_angle_rad: float = 0
 
         # Area
         self.area = area
 
         # Transmittance
         self.glass_solar_transmittance = glass_solar_transmittance
-
         # Incident Solar Radiation
         self.incident_solar: int
 
@@ -1626,5 +1640,6 @@ class Window:
 
         Based on the RC_BuildingSimulator project @[rc_buildingsimulator-jayathissa] (** Check header)
         """
+        self.window_tilt_angle_rad = math.radians(self.window_tilt_angle)
         # Proportion of incident light on the window surface
         return (1 + math.cos(self.window_tilt_angle_rad)) / 2
