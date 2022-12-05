@@ -59,7 +59,7 @@ def test_building():
 
 
     # check building test with different absolute conditioned floor areas
-    abs_floor_areas = [121.2, 121.2, 10*121.2]
+    abs_floor_areas = [121.2, 5*121.2, 10*121.2]
 
     for absolute_conditioned_floor_area_in_m2 in abs_floor_areas:
             # Set Occupancy
