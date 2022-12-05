@@ -1365,11 +1365,6 @@ class Building(dynamic_component.DynamicComponent):
             self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin
             / (9.1 * self.total_internal_surface_area_in_m2)
         ) * (0.5 * internal_heat_gains_in_watt + solar_heat_gains_in_watt)
-        log.information("transmission heat transfer coeff for windows and door " + str(self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin))
-        log.information("total internal surface area " + str(self.total_internal_surface_area_in_m2))
-        log.information("internal_heat_gains_in_watt " + str(internal_heat_gains_in_watt))
-        log.information("solar_heat_gains " + str(solar_heat_gains_in_watt))
-        log.information("heat loss in watt " + str(self.heat_loss_in_watt))
         return self.heat_loss_in_watt
 
     # =====================================================================================================================================

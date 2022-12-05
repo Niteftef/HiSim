@@ -2,6 +2,8 @@
 
 import datetime
 import time
+import numpy as np
+import pandas as pd
 from hisim import component
 from hisim.components import loadprofilegenerator_connector
 from hisim.components import weather
@@ -38,8 +40,6 @@ def test_building():
     t_two = time.perf_counter()
     log.profile(f"T2: {t_two - t_one}")
 
-
-    
     # # check on all TABULA buildings -> run test over all building_codes
     # d_f = pd.read_csv(
     #     utils.HISIMPATH["housing"],
@@ -57,17 +57,17 @@ def test_building():
     #             config=my_residence_config, my_simulation_parameters=my_simulation_parameters)
     #         log.information(building_code)
 
-
     # check building test with different absolute conditioned floor areas
-    abs_floor_areas = [121.2, 5*121.2, 10*121.2]
-
+    abs_floor_areas = [121.2, 5 * 121.2, 10 * 121.2]
+    max_thermal_heat_demand_in_watt_without_scaling = 20628.239999999998
     for absolute_conditioned_floor_area_in_m2 in abs_floor_areas:
-            # Set Occupancy
+        # Set Occupancy
         my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig(
             profile_name=my_occupancy_profile, name="Occupancy-1"
         )
         my_occupancy = loadprofilegenerator_connector.Occupancy(
-            config=my_occupancy_config, my_simulation_parameters=my_simulation_parameters
+            config=my_occupancy_config,
+            my_simulation_parameters=my_simulation_parameters,
         )
         my_occupancy.set_sim_repo(repo)
         my_occupancy.i_prepare_simulation()
@@ -92,16 +92,22 @@ def test_building():
         )
         my_residence_config.building_heat_capacity_class = building_heat_capacity_class
         my_residence_config.building_code = building_code
-        my_residence_config.absolute_conditioned_floor_area_in_m2 = absolute_conditioned_floor_area_in_m2
+        my_residence_config.absolute_conditioned_floor_area_in_m2 = (
+            absolute_conditioned_floor_area_in_m2
+        )
         my_residence = building.Building(
-            config=my_residence_config, my_simulation_parameters=my_simulation_parameters
+            config=my_residence_config,
+            my_simulation_parameters=my_simulation_parameters,
         )
         my_residence.set_sim_repo(repo)
         my_residence.i_prepare_simulation()
 
         # Fake power delivered
         thermal_power_delivered_output = component.ComponentOutput(
-            "FakeThermalDeliveryMachine", "ThermalDelivery", LoadTypes.HEATING, Units.WATT
+            "FakeThermalDeliveryMachine",
+            "ThermalDelivery",
+            LoadTypes.HEATING,
+            Units.WATT,
         )
         t_five = time.perf_counter()
         log.profile(f"T2: {t_four - t_five}")
@@ -117,7 +123,9 @@ def test_building():
         )
         my_residence.altitude_channel.source_output = my_weather.altitude_output
         my_residence.azimuth_channel.source_output = my_weather.azimuth_output
-        my_residence.direct_normal_irradiance_channel.source_output = my_weather.DNI_output
+        my_residence.direct_normal_irradiance_channel.source_output = (
+            my_weather.DNI_output
+        )
         my_residence.direct_horizontal_irradiance_channel.source_output = (
             my_weather.DHI_output
         )
@@ -139,31 +147,43 @@ def test_building():
         t_six = time.perf_counter()
         log.profile(f"T2: {t_six - t_five}")
 
-        for seconds_per_timestep in [60, 60 * 15, 60 * 60]:
+        # for seconds_per_timestep in [60, 60 * 15, 60 * 60]:
+        seconds_per_timestep = 60
 
-            log.trace("Seconds per Timestep: " + str(seconds_per_timestep))
-            log.information("Seconds per Timestep: " + str(seconds_per_timestep))
-            log.information("Absolute conditioned floor area " + str (my_residence_config.absolute_conditioned_floor_area_in_m2))
-            my_residence.seconds_per_timestep = seconds_per_timestep
+        log.trace("Seconds per Timestep: " + str(seconds_per_timestep))
+        log.information("Seconds per Timestep: " + str(seconds_per_timestep))
+        log.information(
+            "Absolute conditioned floor area "
+            + str(my_residence_config.absolute_conditioned_floor_area_in_m2)
+        )
+        my_residence.seconds_per_timestep = seconds_per_timestep
 
-            # Simulates
-            stsv.values[my_residence.thermal_mass_temperature_channel.global_index] = 23
+        # Simulates
+        stsv.values[my_residence.thermal_mass_temperature_channel.global_index] = 23
 
-            my_occupancy.i_simulate(0, stsv, False)
-            my_weather.i_simulate(0, stsv, False)
-            my_residence.i_simulate(0, stsv, False)
+        my_occupancy.i_simulate(0, stsv, False)
+        my_weather.i_simulate(0, stsv, False)
+        my_residence.i_simulate(0, stsv, False)
 
-            log.information(
-                f"Fake Residence Thermal Power Delivery Output: {stsv.values[0]}"
-            )
-            log.information(f"Occupancy Outputs: {stsv.values[1:5]}")
-            log.information(f"Weather Outputs: {stsv.values[5:14]}")
-            log.information(f"Residence Outputs: {stsv.values[14:18]}\n")
+        log.information(
+            f"Fake Residence Thermal Power Delivery Output: {stsv.values[0]}"
+        )
+        log.information(f"Occupancy Outputs: {stsv.values[1:5]}")
+        log.information(f"Weather Outputs: {stsv.values[5:14]}")
+        log.information(f"Residence Outputs: {stsv.values[14:18]}\n")
 
-            assert (
-                stsv.values[my_residence.thermal_mass_temperature_channel.global_index]
-                - 23.0
-                ) > -0.1 * (seconds_per_timestep / 60)
+        assert (
+            stsv.values[my_residence.thermal_mass_temperature_channel.global_index]
+            - 23.0
+        ) > -0.1 * (seconds_per_timestep / 60)
+
+    # test if max heat demand of building scales with conditioned floor area
+    np.testing.assert_allclose(
+        max_thermal_heat_demand_in_watt_without_scaling
+        * my_residence.factor_of_absolute_floor_area_to_tabula_floor_area,
+        stsv.values[my_residence.var_max_thermal_building_demand_channel.global_index],
+        rtol=0.01,
+    )
 
     t_seven = time.perf_counter()
     log.profile(f"T2: {t_seven - t_six}")
