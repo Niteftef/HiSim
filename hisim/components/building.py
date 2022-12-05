@@ -327,7 +327,7 @@ class Building(dynamic_component.DynamicComponent):
         self.effective_mass_area_in_m2: float = 0
         # before labeled as a_t
         self.total_internal_surface_area_in_m2: float = 0
-        self.room_volume_in_m3: float = 0
+        # self.room_volume_in_m3: float = 0
         # scaling factor for the building
         self.factor_of_absolute_floor_area_to_tabula_floor_area: float = 1.0
         # reference taken from TABULA (* Check header) as Q_ht [kWh/m2.a], before q_ht_ref
@@ -848,7 +848,7 @@ class Building(dynamic_component.DynamicComponent):
         lines.append(f"A_f [m^2]: {self.conditioned_floor_area_in_m2:4.1f}")
         lines.append(f"A_m [m^2]: {self.effective_mass_area_in_m2:4.1f}")
         lines.append(f"A_t [m^2]: {self.total_internal_surface_area_in_m2:4.1f}")
-        lines.append(f"Room volume [m^3]: {self.room_volume_in_m3}")
+        # lines.append(f"Room volume [m^3]: {self.room_volume_in_m3}")
 
         lines.append(" ")
         lines.append("Capacitance:")
@@ -1108,10 +1108,7 @@ class Building(dynamic_component.DynamicComponent):
                 self.buildingconfig.absolute_conditioned_floor_area_in_m2
             )
         # this is for scaling up the building via the conditioned_floor_area
-        elif (
-            self.conditioned_floor_area_in_m2
-            != self.buildingconfig.absolute_conditioned_floor_area_in_m2
-        ):
+        else:
             self.factor_of_absolute_floor_area_to_tabula_floor_area = (
                 self.buildingconfig.absolute_conditioned_floor_area_in_m2
                 / self.conditioned_floor_area_in_m2
@@ -1137,17 +1134,9 @@ class Building(dynamic_component.DynamicComponent):
         )
 
         # Building volume (TABULA: Conditioned building volume)
-        self.room_volume_in_m3 = float(self.buildingdata["V_C"].values[0])
-        # this is for scaling up the building via the conditioned floor area
-        # (but only approximation because V_C is not equal to A_C_ref * h_room, so the scaling factor is not really correct here!)
-        if (
-            self.conditioned_floor_area_in_m2
-            != self.buildingconfig.absolute_conditioned_floor_area_in_m2
-        ):
-            self.room_volume_in_m3 = (
-                self.room_volume_in_m3
-                * self.factor_of_absolute_floor_area_to_tabula_floor_area
-            )
+        # its commented out because it's not used for the calculations
+        # and V_C is not scalable with factor_of_absolute_floor_area_to_tabula_floor_area either
+        # self.room_volume_in_m3 = float(self.buildingdata["V_C"].values[0])
 
         # Reference properties from TABULA, but not used in the model
         # Floor area related heat load during heating season
@@ -1242,8 +1231,6 @@ class Building(dynamic_component.DynamicComponent):
             area = float(self.buildingdata["A_Window_" + windows_direction])
             if (
                 area != 0.0
-                and self.conditioned_floor_area_in_m2
-                != self.buildingconfig.absolute_conditioned_floor_area_in_m2
             ):
                 if windows_direction == "Horizontal":
                     self.windows.append(
@@ -1323,6 +1310,7 @@ class Building(dynamic_component.DynamicComponent):
                     reduction_factor_with_area=window.reduction_factor_with_area,
                 )
                 solar_heat_gains += solar_heat_gain
+                log.information("solar heat gains " + str(solar_heat_gains))
         return solar_heat_gains
 
     # =====================================================================================================================================

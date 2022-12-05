@@ -139,32 +139,31 @@ def test_building():
         t_six = time.perf_counter()
         log.profile(f"T2: {t_six - t_five}")
 
-        # for seconds_per_timestep in [60, 60 * 15, 60 * 60]:
-        seconds_per_timestep = 60
+        for seconds_per_timestep in [60, 60 * 15, 60 * 60]:
 
-        log.trace("Seconds per Timestep: " + str(seconds_per_timestep))
-        log.information("Seconds per Timestep: " + str(seconds_per_timestep))
-        log.information("absolute conditioned floor area " + str (my_residence_config.absolute_conditioned_floor_area_in_m2))
-        my_residence.seconds_per_timestep = seconds_per_timestep
+            log.trace("Seconds per Timestep: " + str(seconds_per_timestep))
+            log.information("Seconds per Timestep: " + str(seconds_per_timestep))
+            log.information("Absolute conditioned floor area " + str (my_residence_config.absolute_conditioned_floor_area_in_m2))
+            my_residence.seconds_per_timestep = seconds_per_timestep
 
-        # Simulates
-        stsv.values[my_residence.thermal_mass_temperature_channel.global_index] = 23
+            # Simulates
+            stsv.values[my_residence.thermal_mass_temperature_channel.global_index] = 23
 
-        my_occupancy.i_simulate(0, stsv, False)
-        my_weather.i_simulate(0, stsv, False)
-        my_residence.i_simulate(0, stsv, False)
+            my_occupancy.i_simulate(0, stsv, False)
+            my_weather.i_simulate(0, stsv, False)
+            my_residence.i_simulate(0, stsv, False)
 
-        log.information(
-            f"Fake Residence Thermal Power Delivery Output: {stsv.values[0]}"
-        )
-        log.information(f"Occupancy Outputs: {stsv.values[1:5]}")
-        log.information(f"Weather Outputs: {stsv.values[5:14]}")
-        log.information(f"Residence Outputs: {stsv.values[14:18]}\n")
+            log.information(
+                f"Fake Residence Thermal Power Delivery Output: {stsv.values[0]}"
+            )
+            log.information(f"Occupancy Outputs: {stsv.values[1:5]}")
+            log.information(f"Weather Outputs: {stsv.values[5:14]}")
+            log.information(f"Residence Outputs: {stsv.values[14:18]}\n")
 
-        assert (
-            stsv.values[my_residence.thermal_mass_temperature_channel.global_index]
-            - 23.0
-            ) > -0.1 * (seconds_per_timestep / 60)
+            assert (
+                stsv.values[my_residence.thermal_mass_temperature_channel.global_index]
+                - 23.0
+                ) > -0.1 * (seconds_per_timestep / 60)
 
     t_seven = time.perf_counter()
     log.profile(f"T2: {t_seven - t_six}")
