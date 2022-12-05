@@ -189,6 +189,7 @@ class BuildingConfig(cp.ConfigBase):
     building_code: str
     building_heat_capacity_class: str
     initial_internal_temperature_in_celsius: float
+    absolute_conditioned_floor_area: float
 
     @classmethod
     def get_default_german_single_family_home(
@@ -201,6 +202,7 @@ class BuildingConfig(cp.ConfigBase):
             building_heat_capacity_class="medium",
             initial_internal_temperature_in_celsius=23,
             heating_reference_temperature_in_celsius=-14,
+            absolute_conditioned_floor_area=121.2,
         )
         return config
 
@@ -307,7 +309,9 @@ class Building(dynamic_component.DynamicComponent):
             0
         )
         # labeled as H_tr_is in paper [2] (** Check header)
-        self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_in_watt_per_kelvin: float = 0
+        self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_in_watt_per_kelvin: float = (
+            0
+        )
         # labeled as h_is in paper [2] (** Check header)
         self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_with_fixed_value_in_watt_per_m2_per_kelvin: float = (
             0
@@ -324,6 +328,8 @@ class Building(dynamic_component.DynamicComponent):
         # before labeled as a_t
         self.total_internal_surface_area_in_m2: float = 0
         self.room_volume_in_m3: float = 0
+        # scaling factor for the building
+        self.factor_of_absolute_floor_area_to_tabula_floor_area: float = 1.0
         # reference taken from TABULA (* Check header) as Q_ht [kWh/m2.a], before q_ht_ref
         self.total_heat_transfer_reference_in_kilowatthour_per_m2_per_year: float = 0
         # reference taken from TABULA (* Check header) as Q_int [kWh/m2.a], before q_int_ref
@@ -777,7 +783,8 @@ class Building(dynamic_component.DynamicComponent):
         if vals1_in_watt_per_m2_per_kelvin is None:
             raise ValueError("h_Transmission was none.")
         vals2_in_watt_per_m2_per_kelvin = float(
-            self.buildingdata["h_Ventilation"].values[0])
+            self.buildingdata["h_Ventilation"].values[0]
+        )
 
         # dQ/dt = h * (T2-T1) * A -> [W]
         max_thermal_building_demand_in_watt = (
@@ -1020,8 +1027,12 @@ class Building(dynamic_component.DynamicComponent):
             self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin += float(
                 h_tr_i
             )
-        if (self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin != 0 and
-        self.internal_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin != 0):
+        if (
+            self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin
+            != 0
+            and self.internal_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin
+            != 0
+        ):
             self.external_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin = 1 / (
                 (
                     1
@@ -1054,8 +1065,7 @@ class Building(dynamic_component.DynamicComponent):
         self.thermal_conductance_by_ventilation_in_watt_per_kelvin = (
             heat_capacity_of_air_per_volume_in_watt_hour_per_m3_per_kelvin
             * float(
-                self.buildingdata["n_air_use"]
-                + self.buildingdata["n_air_infiltration"]
+                self.buildingdata["n_air_use"] + self.buildingdata["n_air_infiltration"]
             )
             * self.conditioned_floor_area_in_m2
             * float(self.buildingdata["h_room"])
@@ -1089,8 +1099,24 @@ class Building(dynamic_component.DynamicComponent):
         self.conditioned_floor_area_in_m2 = float(
             self.buildingdata["A_C_Ref"].values[0]
         )
+        # this is for preventing the conditioned_floor_area to be 0
         if self.conditioned_floor_area_in_m2 == 0:
-            self.conditioned_floor_area_in_m2 = 1.0
+            self.conditioned_floor_area_in_m2 = (
+                self.buildingconfig.absolute_conditioned_floor_area
+            )
+        # this is for scaling up the building via the conditioned_floor_area
+        elif (
+            self.conditioned_floor_area_in_m2
+            != self.buildingconfig.absolute_conditioned_floor_area
+        ):
+            self.factor_of_absolute_floor_area_to_tabula_floor_area = (
+                self.buildingconfig.absolute_conditioned_floor_area
+                / self.conditioned_floor_area_in_m2
+            )
+            self.conditioned_floor_area_in_m2 = (
+                self.factor_of_absolute_floor_area_to_tabula_floor_area
+                * self.conditioned_floor_area_in_m2
+            )
 
         self.effective_mass_area_in_m2 = (
             self.conditioned_floor_area_in_m2
@@ -1109,6 +1135,16 @@ class Building(dynamic_component.DynamicComponent):
 
         # Building volume (TABULA: Conditioned building volume)
         self.room_volume_in_m3 = float(self.buildingdata["V_C"].values[0])
+        # this is for scaling up the building via the conditioned floor area
+        # (but only approximation because V_C is not equal to A_C_ref * h_room, so the scaling factor is not really correct here!)
+        if (
+            self.conditioned_floor_area_in_m2
+            != self.buildingconfig.absolute_conditioned_floor_area
+        ):
+            self.room_volume_in_m3 = (
+                self.room_volume_in_m3
+                * self.factor_of_absolute_floor_area_to_tabula_floor_area
+            )
 
         # Reference properties from TABULA, but not used in the model
         # Floor area related heat load during heating season
@@ -1176,7 +1212,7 @@ class Building(dynamic_component.DynamicComponent):
             "East": south_angle - 90,
             "North": south_angle - 180,
             "West": south_angle + 90,
-            "Horizontal": None
+            "Horizontal": None,
         }
 
         windows_directions = [
@@ -1186,38 +1222,52 @@ class Building(dynamic_component.DynamicComponent):
             "West",
             "Horizontal",
         ]
-        reduction_factor_for_non_perpedicular_radiation = self.buildingdata["F_w"].values[0]
-        reduction_factor_for_frame_area_fraction_of_window = self.buildingdata["F_f"].values[0]
-        reduction_factor_for_external_vertical_shading = self.buildingdata["F_sh_vert"].values[0]
-        total_solar_energy_transmittance_for_perpedicular_radiation = self.buildingdata["g_gl_n"].values[0]
+        reduction_factor_for_non_perpedicular_radiation = self.buildingdata[
+            "F_w"
+        ].values[0]
+        reduction_factor_for_frame_area_fraction_of_window = self.buildingdata[
+            "F_f"
+        ].values[0]
+        reduction_factor_for_external_vertical_shading = self.buildingdata[
+            "F_sh_vert"
+        ].values[0]
+        total_solar_energy_transmittance_for_perpedicular_radiation = self.buildingdata[
+            "g_gl_n"
+        ].values[0]
 
         for windows_direction in windows_directions:
             area = float(self.buildingdata["A_Window_" + windows_direction])
-            if area != 0.0:
+            if (
+                area != 0.0
+                and self.conditioned_floor_area_in_m2
+                != self.buildingconfig.absolute_conditioned_floor_area
+            ):
                 if windows_direction == "Horizontal":
                     self.windows.append(
-                    Window(
-                        window_tilt_angle=0,
-                        window_azimuth_angle=windows_angles[windows_direction],
-                        area=area,
-                        frame_area_fraction_reduction_factor=reduction_factor_for_frame_area_fraction_of_window,
-                        glass_solar_transmittance=total_solar_energy_transmittance_for_perpedicular_radiation,
-                        nonperpendicular_reduction_factor=reduction_factor_for_non_perpedicular_radiation,
-                        external_shading_vertical_reduction_factor=reduction_factor_for_external_vertical_shading,
-                    )
-                )
-                else:
-                    self.windows.append(
                         Window(
-                            window_tilt_angle=90,
+                            window_tilt_angle=0,
                             window_azimuth_angle=windows_angles[windows_direction],
-                            area=area,
+                            area=area
+                            * self.factor_of_absolute_floor_area_to_tabula_floor_area,
                             frame_area_fraction_reduction_factor=reduction_factor_for_frame_area_fraction_of_window,
                             glass_solar_transmittance=total_solar_energy_transmittance_for_perpedicular_radiation,
                             nonperpendicular_reduction_factor=reduction_factor_for_non_perpedicular_radiation,
                             external_shading_vertical_reduction_factor=reduction_factor_for_external_vertical_shading,
                         )
-                )
+                    )
+                else:
+                    self.windows.append(
+                        Window(
+                            window_tilt_angle=90,
+                            window_azimuth_angle=windows_angles[windows_direction],
+                            area=area
+                            * self.factor_of_absolute_floor_area_to_tabula_floor_area,
+                            frame_area_fraction_reduction_factor=reduction_factor_for_frame_area_fraction_of_window,
+                            glass_solar_transmittance=total_solar_energy_transmittance_for_perpedicular_radiation,
+                            nonperpendicular_reduction_factor=reduction_factor_for_non_perpedicular_radiation,
+                            external_shading_vertical_reduction_factor=reduction_factor_for_external_vertical_shading,
+                        )
+                    )
                 self.windows_area += area
         # if nothing exists, initialize the empty arrays for caching, else read stuff
         if (
@@ -1382,28 +1432,28 @@ class Building(dynamic_component.DynamicComponent):
         t_supply = temperature_outside_in_celsius
 
         self.equivalent_heat_flux_in_watt = (
-        self.heat_flux_thermal_mass_in_watt
-        + self.external_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin
-        * temperature_outside_in_celsius
-        + self.transmission_heat_transfer_coefficient_3_in_watt_per_kelvin
-        * (
-            self.heat_flux_internal_room_surface_in_watt
-            + self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin
+            self.heat_flux_thermal_mass_in_watt
+            + self.external_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin
             * temperature_outside_in_celsius
-            + self.transmission_heat_transfer_coeffcient_1_in_watt_per_kelvin
+            + self.transmission_heat_transfer_coefficient_3_in_watt_per_kelvin
             * (
-                (
+                self.heat_flux_internal_room_surface_in_watt
+                + self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin
+                * temperature_outside_in_celsius
+                + self.transmission_heat_transfer_coeffcient_1_in_watt_per_kelvin
+                * (
                     (
-                        self.heat_flux_indoor_air_in_watt
-                        + thermal_power_delivered_in_watt
+                        (
+                            self.heat_flux_indoor_air_in_watt
+                            + thermal_power_delivered_in_watt
+                        )
+                        / self.thermal_conductance_by_ventilation_in_watt_per_kelvin
                     )
-                    / self.thermal_conductance_by_ventilation_in_watt_per_kelvin
+                    + t_supply
                 )
-                + t_supply
             )
+            / self.transmission_heat_transfer_coefficient_2_in_watt_per_kelvin
         )
-        / self.transmission_heat_transfer_coefficient_2_in_watt_per_kelvin
-    )
 
     def calc_thermal_mass_averag_bulk_temperature_in_celsius_used_for_calculations(
         self,
