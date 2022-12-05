@@ -189,7 +189,7 @@ class BuildingConfig(cp.ConfigBase):
     building_code: str
     building_heat_capacity_class: str
     initial_internal_temperature_in_celsius: float
-    absolute_conditioned_floor_area: float
+    absolute_conditioned_floor_area_in_m2: float
 
     @classmethod
     def get_default_german_single_family_home(
@@ -202,7 +202,7 @@ class BuildingConfig(cp.ConfigBase):
             building_heat_capacity_class="medium",
             initial_internal_temperature_in_celsius=23,
             heating_reference_temperature_in_celsius=-14,
-            absolute_conditioned_floor_area=121.2,
+            absolute_conditioned_floor_area_in_m2=121.2,
         )
         return config
 
@@ -360,11 +360,12 @@ class Building(dynamic_component.DynamicComponent):
         self.next_thermal_mass_temperature_in_celsius: float
 
         self.get_building()
+        self.build()
+        self.get_physical_param()
         self.max_thermal_building_demand_in_watt = self.calc_max_thermal_building_demand(
             heating_reference_temperature_in_celsius=config.heating_reference_temperature_in_celsius,
             initial_temperature_in_celsius=config.initial_internal_temperature_in_celsius,
         )
-        self.build()
 
         self.state: BuildingState = BuildingState(
             thermal_mass_temperature_in_celsius=config.initial_internal_temperature_in_celsius,
@@ -795,6 +796,19 @@ class Building(dynamic_component.DynamicComponent):
             )
             * self.conditioned_floor_area_in_m2
         )
+        log.information(
+            "vals1+vals2 "
+            + str(vals1_in_watt_per_m2_per_kelvin + vals2_in_watt_per_m2_per_kelvin)
+        )
+        log.information(
+            "initial temp - heating ref temp "
+            + str(
+                initial_temperature_in_celsius
+                - heating_reference_temperature_in_celsius
+            )
+        )
+        log.information("c_f_a " + str(self.conditioned_floor_area_in_m2))
+        log.information("max heat demand " + str(max_thermal_building_demand_in_watt))
         return max_thermal_building_demand_in_watt
 
     def __str__(
@@ -1102,15 +1116,15 @@ class Building(dynamic_component.DynamicComponent):
         # this is for preventing the conditioned_floor_area to be 0
         if self.conditioned_floor_area_in_m2 == 0:
             self.conditioned_floor_area_in_m2 = (
-                self.buildingconfig.absolute_conditioned_floor_area
+                self.buildingconfig.absolute_conditioned_floor_area_in_m2
             )
         # this is for scaling up the building via the conditioned_floor_area
         elif (
             self.conditioned_floor_area_in_m2
-            != self.buildingconfig.absolute_conditioned_floor_area
+            != self.buildingconfig.absolute_conditioned_floor_area_in_m2
         ):
             self.factor_of_absolute_floor_area_to_tabula_floor_area = (
-                self.buildingconfig.absolute_conditioned_floor_area
+                self.buildingconfig.absolute_conditioned_floor_area_in_m2
                 / self.conditioned_floor_area_in_m2
             )
             self.conditioned_floor_area_in_m2 = (
@@ -1139,7 +1153,7 @@ class Building(dynamic_component.DynamicComponent):
         # (but only approximation because V_C is not equal to A_C_ref * h_room, so the scaling factor is not really correct here!)
         if (
             self.conditioned_floor_area_in_m2
-            != self.buildingconfig.absolute_conditioned_floor_area
+            != self.buildingconfig.absolute_conditioned_floor_area_in_m2
         ):
             self.room_volume_in_m3 = (
                 self.room_volume_in_m3
@@ -1240,7 +1254,7 @@ class Building(dynamic_component.DynamicComponent):
             if (
                 area != 0.0
                 and self.conditioned_floor_area_in_m2
-                != self.buildingconfig.absolute_conditioned_floor_area
+                != self.buildingconfig.absolute_conditioned_floor_area_in_m2
             ):
                 if windows_direction == "Horizontal":
                     self.windows.append(
