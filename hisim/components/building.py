@@ -796,19 +796,6 @@ class Building(dynamic_component.DynamicComponent):
             )
             * self.conditioned_floor_area_in_m2
         )
-        log.information(
-            "vals1+vals2 "
-            + str(vals1_in_watt_per_m2_per_kelvin + vals2_in_watt_per_m2_per_kelvin)
-        )
-        log.information(
-            "initial temp - heating ref temp "
-            + str(
-                initial_temperature_in_celsius
-                - heating_reference_temperature_in_celsius
-            )
-        )
-        log.information("c_f_a " + str(self.conditioned_floor_area_in_m2))
-        log.information("max heat demand " + str(max_thermal_building_demand_in_watt))
         return max_thermal_building_demand_in_watt
 
     def __str__(
