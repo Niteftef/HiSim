@@ -307,9 +307,7 @@ class Building(dynamic_component.DynamicComponent):
             0
         )
         # labeled as H_tr_is in paper [2] (** Check header)
-        self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_in_watt_per_kelvin: float = (
-            0
-        )
+        self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_in_watt_per_kelvin: float = 0
         # labeled as h_is in paper [2] (** Check header)
         self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_with_fixed_value_in_watt_per_m2_per_kelvin: float = (
             0
@@ -320,7 +318,7 @@ class Building(dynamic_component.DynamicComponent):
             0
         )
         # before labeled as a_f
-        self.conditioned_floor_area_in_m2: float = 0
+        self.conditioned_floor_area_in_m2: float = 1.0
         # before labeled as a_m
         self.effective_mass_area_in_m2: float = 0
         # before labeled as a_t
@@ -349,7 +347,7 @@ class Building(dynamic_component.DynamicComponent):
         # labeled as Phi_st in the paper [1] (** Check header)
         self.heat_flux_internal_room_surface_in_watt: float
         # labeled as Phi_m in the paper [1] (** Check header)
-        self.heat_flux_thermal_mass_in_watt: float
+        self.heat_flux_thermal_mass_in_watt: float = 0
         self.heat_loss_in_watt: float
         # labeled as Phi_m_tot in the paper [1] (** Check header)
         self.equivalent_heat_flux_in_watt: float
@@ -779,9 +777,7 @@ class Building(dynamic_component.DynamicComponent):
         if vals1_in_watt_per_m2_per_kelvin is None:
             raise ValueError("h_Transmission was none.")
         vals2_in_watt_per_m2_per_kelvin = float(
-            self.buildingdata["h_Ventilation"].values[0]
-        )
-        conditioned_floor_area_in_m2 = float(self.buildingdata["A_C_Ref"].values[0])
+            self.buildingdata["h_Ventilation"].values[0])
 
         # dQ/dt = h * (T2-T1) * A -> [W]
         max_thermal_building_demand_in_watt = (
@@ -790,7 +786,7 @@ class Building(dynamic_component.DynamicComponent):
                 initial_temperature_in_celsius
                 - heating_reference_temperature_in_celsius
             )
-            * conditioned_floor_area_in_m2
+            * self.conditioned_floor_area_in_m2
         )
         return max_thermal_building_demand_in_watt
 
@@ -1093,7 +1089,8 @@ class Building(dynamic_component.DynamicComponent):
         self.conditioned_floor_area_in_m2 = float(
             self.buildingdata["A_C_Ref"].values[0]
         )
-        # total_internal_area = buildingdata["A_Estim_Floor"][1]
+        if self.conditioned_floor_area_in_m2 == 0:
+            self.conditioned_floor_area_in_m2 = 1.0
 
         self.effective_mass_area_in_m2 = (
             self.conditioned_floor_area_in_m2
@@ -1307,6 +1304,7 @@ class Building(dynamic_component.DynamicComponent):
         # )
         self.heat_flux_indoor_air_in_watt = 0.5 * internal_heat_gains_in_watt
         # Heat flow to the surface node in W, before labeled Phi_st
+
         self.heat_flux_internal_room_surface_in_watt = (
             1
             - (self.effective_mass_area_in_m2 / self.total_internal_surface_area_in_m2)
@@ -1384,28 +1382,28 @@ class Building(dynamic_component.DynamicComponent):
         t_supply = temperature_outside_in_celsius
 
         self.equivalent_heat_flux_in_watt = (
-            self.heat_flux_thermal_mass_in_watt
-            + self.external_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin
+        self.heat_flux_thermal_mass_in_watt
+        + self.external_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin
+        * temperature_outside_in_celsius
+        + self.transmission_heat_transfer_coefficient_3_in_watt_per_kelvin
+        * (
+            self.heat_flux_internal_room_surface_in_watt
+            + self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin
             * temperature_outside_in_celsius
-            + self.transmission_heat_transfer_coefficient_3_in_watt_per_kelvin
+            + self.transmission_heat_transfer_coeffcient_1_in_watt_per_kelvin
             * (
-                self.heat_flux_internal_room_surface_in_watt
-                + self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin
-                * temperature_outside_in_celsius
-                + self.transmission_heat_transfer_coeffcient_1_in_watt_per_kelvin
-                * (
+                (
                     (
-                        (
-                            self.heat_flux_indoor_air_in_watt
-                            + thermal_power_delivered_in_watt
-                        )
-                        / self.thermal_conductance_by_ventilation_in_watt_per_kelvin
+                        self.heat_flux_indoor_air_in_watt
+                        + thermal_power_delivered_in_watt
                     )
-                    + t_supply
+                    / self.thermal_conductance_by_ventilation_in_watt_per_kelvin
                 )
+                + t_supply
             )
-            / self.transmission_heat_transfer_coefficient_2_in_watt_per_kelvin
         )
+        / self.transmission_heat_transfer_coefficient_2_in_watt_per_kelvin
+    )
 
     def calc_thermal_mass_averag_bulk_temperature_in_celsius_used_for_calculations(
         self,
