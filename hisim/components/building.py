@@ -92,49 +92,6 @@ __email__ = "vitor.zago@rwth-aachen.de"
 __status__ = "development"
 
 
-@lru_cache(maxsize=16)
-def calc_solar_heat_gains(
-    sun_azimuth,
-    direct_normal_irradiance,
-    direct_horizontal_irradiance,
-    global_horizontal_irradiance,
-    direct_normal_irradiance_extra,
-    apparent_zenith,
-    window_tilt_angle,
-    window_azimuth_angle,
-    reduction_factor_with_area,
-):
-    """Calculates the Solar Gains in the building zone through the set Window.
-
-    :param sun_altitude: Altitude Angle of the Sun in Degrees
-    :type sun_altitude: float
-    :param sun_azimuth: Azimuth angle of the sun in degrees
-    :type sun_azimuth: float
-    :param normal_direct_radiation: Normal Direct Radiation from weather file
-    :type normal_direct_radiation: float
-    :param horizontal_diffuse_radiation: Horizontal Diffuse Radiation from weather file
-    :type horizontal_diffuse_radiation: float
-    :return: self.incident_solar, Incident Solar Radiation on window
-    :return: self.solar_gains - Solar gains in building after transmitting through the window
-    :rtype: float
-    """
-    poa_irrad = pvlib.irradiance.get_total_irradiance(
-        window_tilt_angle,
-        window_azimuth_angle,
-        apparent_zenith,
-        sun_azimuth,
-        direct_normal_irradiance,
-        global_horizontal_irradiance,
-        direct_horizontal_irradiance,
-        direct_normal_irradiance_extra,
-    )
-
-    if math.isnan(poa_irrad["poa_direct"]):
-        return 0
-
-    return poa_irrad["poa_direct"] * reduction_factor_with_area
-
-
 class BuildingState:
 
     """BuildingState class."""
@@ -766,7 +723,6 @@ class Building(dynamic_component.DynamicComponent):
 
         # Get physical parameters
         self.get_physical_param()
-
         # Gets conductances
         self.get_conductances()
 
@@ -1275,6 +1231,49 @@ class Building(dynamic_component.DynamicComponent):
     # Calculate solar heat gain through windows.
     # (** Check header)
 
+    @lru_cache(maxsize=16)
+    def calc_solar_heat_gains(
+        self,
+        sun_azimuth,
+        direct_normal_irradiance,
+        direct_horizontal_irradiance,
+        global_horizontal_irradiance,
+        direct_normal_irradiance_extra,
+        apparent_zenith,
+        window_tilt_angle,
+        window_azimuth_angle,
+        reduction_factor_with_area,
+    ):
+        """Calculates the Solar Gains in the building zone through the set Window.
+
+        :param sun_altitude: Altitude Angle of the Sun in Degrees
+        :type sun_altitude: float
+        :param sun_azimuth: Azimuth angle of the sun in degrees
+        :type sun_azimuth: float
+        :param normal_direct_radiation: Normal Direct Radiation from weather file
+        :type normal_direct_radiation: float
+        :param horizontal_diffuse_radiation: Horizontal Diffuse Radiation from weather file
+        :type horizontal_diffuse_radiation: float
+        :return: self.incident_solar, Incident Solar Radiation on window
+        :return: self.solar_gains - Solar gains in building after transmitting through the window
+        :rtype: float
+        """
+        poa_irrad = pvlib.irradiance.get_total_irradiance(
+            window_tilt_angle,
+            window_azimuth_angle,
+            apparent_zenith,
+            sun_azimuth,
+            direct_normal_irradiance,
+            global_horizontal_irradiance,
+            direct_horizontal_irradiance,
+            direct_normal_irradiance_extra,
+        )
+
+        if math.isnan(poa_irrad["poa_direct"]):
+            return 0
+
+        return poa_irrad["poa_direct"] * reduction_factor_with_area
+
     # @cached(cache=LRUCache(maxsize=16))
     def get_solar_heat_gain_through_windows(
         self,
@@ -1298,7 +1297,7 @@ class Building(dynamic_component.DynamicComponent):
         ):
 
             for window in self.windows:
-                solar_heat_gain = calc_solar_heat_gains(
+                solar_heat_gain = self.calc_solar_heat_gains(
                     sun_azimuth=azimuth,
                     direct_normal_irradiance=direct_normal_irradiance,
                     direct_horizontal_irradiance=direct_horizontal_irradiance,
