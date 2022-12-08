@@ -1309,7 +1309,6 @@ class Building(dynamic_component.DynamicComponent):
                     reduction_factor_with_area=window.reduction_factor_with_area,
                 )
                 solar_heat_gains += solar_heat_gain
-                log.information("solar heat gains " + str(solar_heat_gains))
         return solar_heat_gains
 
     # =====================================================================================================================================
