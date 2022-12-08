@@ -127,24 +127,27 @@ def test_building():
     max_thermal_heat_demand_in_watt_without_scaling = stsv.values[my_residence.var_max_thermal_building_demand_channel.global_index]
 
     # check building test with different absolute conditioned floor areas
-    absolute_conditioned_floor_area_in_m2_scaled = 10 * absolute_conditioned_floor_area_in_m2
-    log.information(
-        "Absolute conditioned floor area upscaled "
-        + str(absolute_conditioned_floor_area_in_m2_scaled)
-    )
-    my_residence_config.absolute_conditioned_floor_area_in_m2 = (
-    absolute_conditioned_floor_area_in_m2_scaled
-    )
-    my_residence = building.Building(
-        config=my_residence_config,
-        my_simulation_parameters=my_simulation_parameters,
-    )
-    my_residence.set_sim_repo(repo)
-    my_residence.i_prepare_simulation()
-    my_residence.i_simulate(0,stsv,False)
-    max_thermal_heat_demand_in_watt_with_scaling = stsv.values[my_residence.var_max_thermal_building_demand_channel.global_index]
-    # test if max heat demand of building scales with conditioned floor area
-    np.testing.assert_allclose(
-        max_thermal_heat_demand_in_watt_without_scaling*10, max_thermal_heat_demand_in_watt_with_scaling,
-        rtol=0.01,
-    )
+    scaling_factors = [1,5,12]
+    for factor in scaling_factors:
+        absolute_conditioned_floor_area_in_m2_scaled = factor * absolute_conditioned_floor_area_in_m2
+        log.information(
+            "Absolute conditioned floor area upscaled "
+            + str(absolute_conditioned_floor_area_in_m2_scaled)
+        )
+        my_residence_config.absolute_conditioned_floor_area_in_m2 = (
+        absolute_conditioned_floor_area_in_m2_scaled
+        )
+        my_residence = building.Building(
+            config=my_residence_config,
+            my_simulation_parameters=my_simulation_parameters,
+        )
+        my_residence.set_sim_repo(repo)
+        my_residence.i_prepare_simulation()
+        my_residence.i_simulate(0,stsv,False)
+        max_thermal_heat_demand_in_watt_with_scaling = stsv.values[my_residence.var_max_thermal_building_demand_channel.global_index]
+        log.information("Max thermal heat demand " + str(factor) + " times upscaled: " + str(max_thermal_heat_demand_in_watt_with_scaling) +  "\n")
+        # test if max heat demand of building scales with conditioned floor area
+        np.testing.assert_allclose(
+            max_thermal_heat_demand_in_watt_without_scaling*factor, max_thermal_heat_demand_in_watt_with_scaling,
+            rtol=0.01,
+        )

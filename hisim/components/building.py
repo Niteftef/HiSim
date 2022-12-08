@@ -285,8 +285,10 @@ class Building(dynamic_component.DynamicComponent):
         # before labeled as a_t
         self.total_internal_surface_area_in_m2: float = 0
         # self.room_volume_in_m3: float = 0
-        # scaling factor for the building
+        # scaling factor via absolute floor area
         self.factor_of_absolute_floor_area_to_tabula_floor_area: float = 1.0
+        # scaling factors for window areas
+        self.factors_window_area_to_wall_area: List[float]
         # reference taken from TABULA (* Check header) as Q_ht [kWh/m2.a], before q_ht_ref
         self.total_heat_transfer_reference_in_kilowatthour_per_m2_per_year: float = 0
         # reference taken from TABULA (* Check header) as Q_int [kWh/m2.a], before q_int_ref
@@ -302,7 +304,8 @@ class Building(dynamic_component.DynamicComponent):
         self.buildingdata: Any
         self.buildingcode: str
         self.windows: List[Window]
-        self.windows_area: float
+        self.windows_directions: List[str]
+        self.total_windows_area: float
         self.cache: List[float]
         self.solar_heat_gain_through_windows: List[float]
         # labeled as Phi_ia in paper [1] (** Check header)
@@ -1051,28 +1054,11 @@ class Building(dynamic_component.DynamicComponent):
         self,
     ):
         """Get the physical parameters from the building data."""
-        # Windows area
-        self.get_windows()
 
         # Reference area [m^2] (TABULA: Reference floor area )Ref: ISO standard 7.2.2.2
         self.conditioned_floor_area_in_m2 = float(
             self.buildingdata["A_C_Ref"].values[0]
         )
-        # this is for preventing the conditioned_floor_area to be 0
-        if self.conditioned_floor_area_in_m2 == 0:
-            self.conditioned_floor_area_in_m2 = (
-                self.buildingconfig.absolute_conditioned_floor_area_in_m2
-            )
-        # this is for scaling up the building via the conditioned_floor_area
-        else:
-            self.factor_of_absolute_floor_area_to_tabula_floor_area = (
-                self.buildingconfig.absolute_conditioned_floor_area_in_m2
-                / self.conditioned_floor_area_in_m2
-            )
-            self.conditioned_floor_area_in_m2 = (
-                self.factor_of_absolute_floor_area_to_tabula_floor_area
-                * self.conditioned_floor_area_in_m2
-            )
 
         self.effective_mass_area_in_m2 = (
             self.conditioned_floor_area_in_m2
@@ -1093,6 +1079,9 @@ class Building(dynamic_component.DynamicComponent):
         # its commented out because it's not used for the calculations
         # and V_C is not scalable with factor_of_absolute_floor_area_to_tabula_floor_area either
         # self.room_volume_in_m3 = float(self.buildingdata["V_C"].values[0])
+
+        # Windows area
+        self.get_windows()
 
         # Reference properties from TABULA, but not used in the model
         # Floor area related heat load during heating season
@@ -1152,7 +1141,7 @@ class Building(dynamic_component.DynamicComponent):
         """
 
         self.windows = []
-        self.windows_area = 0.0
+        self.total_windows_area = 0.0
         south_angle = 180
 
         windows_angles = {
@@ -1163,7 +1152,7 @@ class Building(dynamic_component.DynamicComponent):
             "Horizontal": None,
         }
 
-        windows_directions = [
+        self.windows_directions = [
             "South",
             "East",
             "North",
@@ -1182,39 +1171,30 @@ class Building(dynamic_component.DynamicComponent):
         total_solar_energy_transmittance_for_perpedicular_radiation = self.buildingdata[
             "g_gl_n"
         ].values[0]
-
-        for windows_direction in windows_directions:
-            area = float(self.buildingdata["A_Window_" + windows_direction])
+        self.scaling_over_conditioned_floor_area()
+        for index, windows_direction in enumerate(self.windows_directions):
+            window_area = float(self.buildingdata["A_Window_" + windows_direction])
             if (
-                area != 0.0
+                window_area != 0.0
             ):
                 if windows_direction == "Horizontal":
-                    self.windows.append(
-                        Window(
-                            window_tilt_angle=0,
-                            window_azimuth_angle=windows_angles[windows_direction],
-                            area=area
-                            * self.factor_of_absolute_floor_area_to_tabula_floor_area,
-                            frame_area_fraction_reduction_factor=reduction_factor_for_frame_area_fraction_of_window,
-                            glass_solar_transmittance=total_solar_energy_transmittance_for_perpedicular_radiation,
-                            nonperpendicular_reduction_factor=reduction_factor_for_non_perpedicular_radiation,
-                            external_shading_vertical_reduction_factor=reduction_factor_for_external_vertical_shading,
-                        )
-                    )
+                    window_tilt_angle = 0
                 else:
-                    self.windows.append(
-                        Window(
-                            window_tilt_angle=90,
-                            window_azimuth_angle=windows_angles[windows_direction],
-                            area=area
-                            * self.factor_of_absolute_floor_area_to_tabula_floor_area,
-                            frame_area_fraction_reduction_factor=reduction_factor_for_frame_area_fraction_of_window,
-                            glass_solar_transmittance=total_solar_energy_transmittance_for_perpedicular_radiation,
-                            nonperpendicular_reduction_factor=reduction_factor_for_non_perpedicular_radiation,
-                            external_shading_vertical_reduction_factor=reduction_factor_for_external_vertical_shading,
-                        )
+                    window_tilt_angle = 90
+                self.windows.append(
+                    Window(
+                        window_tilt_angle=window_tilt_angle,
+                        window_azimuth_angle=windows_angles[windows_direction],
+                        area=window_area
+                        * self.factors_window_area_to_wall_area[index],
+                        frame_area_fraction_reduction_factor=reduction_factor_for_frame_area_fraction_of_window,
+                        glass_solar_transmittance=total_solar_energy_transmittance_for_perpedicular_radiation,
+                        nonperpendicular_reduction_factor=reduction_factor_for_non_perpedicular_radiation,
+                        external_shading_vertical_reduction_factor=reduction_factor_for_external_vertical_shading,
                     )
-                self.windows_area += area
+                )
+
+                self.total_windows_area += window_area
         # if nothing exists, initialize the empty arrays for caching, else read stuff
         if (
             not self.is_in_cache
@@ -1226,6 +1206,42 @@ class Building(dynamic_component.DynamicComponent):
                 sep=",",
                 decimal=".",
             )["solar_gain_through_windows"].tolist()
+
+    def scaling_over_conditioned_floor_area(self):
+        """Calculates scaling factors for the building.
+
+        In case the total area is given or the floor area is different to A_C_Ref from TABULA,
+        the conditioned floor area, the surface areas or window areas are scaled with a scaling factor.
+        """
+
+        # absolute conditioned floor area is given
+        # this is for preventing the conditioned_floor_area to be 0
+        if self.conditioned_floor_area_in_m2 == 0:
+            self.conditioned_floor_area_in_m2 = (
+                self.buildingconfig.absolute_conditioned_floor_area_in_m2
+            )
+        # conditioned_floor_area is scaled up
+        else:
+            self.factor_of_absolute_floor_area_to_tabula_floor_area = (
+                self.buildingconfig.absolute_conditioned_floor_area_in_m2
+                / self.conditioned_floor_area_in_m2
+            )
+            self.conditioned_floor_area_in_m2 = (
+                self.factor_of_absolute_floor_area_to_tabula_floor_area
+                * self.conditioned_floor_area_in_m2
+            )
+
+        # scaling window areas
+        # total_wall_area=0.0
+        # for wall_index in range(0,2):
+        #     total_wall_area += float(self.buildingdata["A_Wall_" + wall_index])
+
+        # assumption: building is a cube
+        total_wall_area = 4 * self.conditioned_floor_area_in_m2
+        self.factors_window_area_to_wall_area = []
+        for windows_direction in self.windows_directions:
+            window_area = float(self.buildingdata["A_Window_" + windows_direction])
+            self.factors_window_area_to_wall_area.append(window_area / total_wall_area)
 
     # =====================================================================================================================================
     # Calculate solar heat gain through windows.
@@ -1621,7 +1637,7 @@ class Window:
             * (1 - frame_area_fraction_reduction_factor)
         )
 
-        self.reduction_factor_with_area = self.reduction_factor * area
+        self.reduction_factor_with_area = self.reduction_factor * self.area
 
     def calc_direct_solar_factor(
         self,
