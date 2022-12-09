@@ -1,6 +1,6 @@
-"""Test for scalability in building module.
+"""Test for manual calculation of thermal conductances H_tr in building module.
 
-The aim is to implement scalability in the building module by scaling up the area and volume of the building. 
+The aim is to implement scalability in the building module by scaling up the area of the building. 
 Therefore some functions must be adjusted which are tested here before."""
 
 # clean
@@ -47,7 +47,7 @@ my_residence = building.Building(
 #         log.information(building_code)
 
 @utils.measure_execution_time
-def test_building_scalability():
+def test_building_thermal_conductance_calculation():
     """Test function for some functions of the building module."""
 
     # Test calculation of the thermal conductances H_Transmission (H_tr) given by TABULA

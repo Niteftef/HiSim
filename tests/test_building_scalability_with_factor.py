@@ -1,6 +1,9 @@
-"""Test for scalability in building module with a factor.
+"""Test for scalability in building module.
 
-The aim is to make the building module scalable via a factor which takes absolute conditioned floor area to the conditioned floor area given by tabula."""
+The aim is to make the building module scalable via a factor which is the absolute conditioned floor area (or total base area)
+divided by the conditioned floor area given by TABULA.
+The window areas are scaled via the ratio of window area to wall area.
+"""
 
 import datetime
 import numpy as np
@@ -16,7 +19,7 @@ from tests import functions_for_testing as fft
 
 
 @utils.measure_execution_time
-def test_building():
+def test_building_scalability():
     """Test function for the building module."""
 
     # Sets inputs
@@ -119,7 +122,7 @@ def test_building():
     my_weather.i_simulate(0, stsv, False)
     my_residence.i_simulate(0, stsv, False)
 
-    # some variables to test, before scaling 
+    # some variables to test
     max_thermal_heat_demand_in_watt_without_scaling = stsv.values[my_residence.var_max_thermal_building_demand_channel.global_index]
     opaque_surfaces_without_scaling = my_residence.scaled_opaque_surfaces_envelope_area_in_m2
     window_and_door_surfaces_without_scaling = my_residence.scaled_windows_and_door_envelope_areas_in_m2
