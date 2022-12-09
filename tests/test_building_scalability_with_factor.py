@@ -108,30 +108,29 @@ def test_building():
 
     log.information("Seconds per Timestep: " + str(seconds_per_timestep))
     log.information(
-        "Absolute conditioned floor area "
-        + str(my_residence_config.absolute_conditioned_floor_area_in_m2)
-    )
-    my_residence.seconds_per_timestep = seconds_per_timestep
+            "Absolute conditioned floor area without scaling "
+            + str(absolute_conditioned_floor_area_in_m2) + "\n"
+        )
 
+    my_residence.seconds_per_timestep = seconds_per_timestep
     # Simulates
-    stsv.values[my_residence.thermal_mass_temperature_channel.global_index] = 23
 
     my_occupancy.i_simulate(0, stsv, False)
     my_weather.i_simulate(0, stsv, False)
     my_residence.i_simulate(0, stsv, False)
 
-    log.information(f"Occupancy Outputs: {stsv.values[0:4]}")
-    log.information(f"Weather Outputs: {stsv.values[4:13]}")
-    log.information(f"Residence Outputs: {stsv.values[13:17]}\n")
-
+    # some variables to test, before scaling 
     max_thermal_heat_demand_in_watt_without_scaling = stsv.values[my_residence.var_max_thermal_building_demand_channel.global_index]
+    opaque_surfaces_without_scaling = my_residence.scaled_opaque_surfaces_envelope_area_in_m2
+    window_and_door_surfaces_without_scaling = my_residence.scaled_windows_and_door_envelope_areas_in_m2
+    window_areas_without_scaling = my_residence.scaled_window_areas_in_m2
 
     # check building test with different absolute conditioned floor areas
     scaling_factors = [1,5,12]
     for factor in scaling_factors:
         absolute_conditioned_floor_area_in_m2_scaled = factor * absolute_conditioned_floor_area_in_m2
         log.information(
-            "Absolute conditioned floor area upscaled "
+            "Absolute conditioned floor area "+ str(factor) + " times upscaled: "
             + str(absolute_conditioned_floor_area_in_m2_scaled)
         )
         my_residence_config.absolute_conditioned_floor_area_in_m2 = (
@@ -144,10 +143,32 @@ def test_building():
         my_residence.set_sim_repo(repo)
         my_residence.i_prepare_simulation()
         my_residence.i_simulate(0,stsv,False)
+
         max_thermal_heat_demand_in_watt_with_scaling = stsv.values[my_residence.var_max_thermal_building_demand_channel.global_index]
-        log.information("Max thermal heat demand " + str(factor) + " times upscaled: " + str(max_thermal_heat_demand_in_watt_with_scaling) +  "\n")
+        opaque_surfaces_with_scaling = my_residence.scaled_opaque_surfaces_envelope_area_in_m2
+        window_and_door_surfaces_with_scaling = my_residence.scaled_windows_and_door_envelope_areas_in_m2
+        window_areas_with_scaling = my_residence.scaled_window_areas_in_m2
+        log.information("Max thermal heat demand " + str(factor) + " times upscaled: " + str(max_thermal_heat_demand_in_watt_with_scaling) + "\n")
+
         # test if max heat demand of building scales with conditioned floor area
         np.testing.assert_allclose(
             max_thermal_heat_demand_in_watt_without_scaling*factor, max_thermal_heat_demand_in_watt_with_scaling,
+            rtol=0.01,
+        )
+        # test if opaque envelope surface areas of building scale with conditioned floor area
+        np.testing.assert_allclose(
+            [ x * factor for x in opaque_surfaces_without_scaling], opaque_surfaces_with_scaling,
+            rtol=0.01,
+        )
+
+        # test if window and door envelope surface areas of building scale with conditioned floor area
+        np.testing.assert_allclose(
+            [ x * factor for x in window_and_door_surfaces_without_scaling], window_and_door_surfaces_with_scaling,
+            rtol=0.01,
+        )
+
+        # test if window areas of building scale with conditioned floor area
+        np.testing.assert_allclose(
+            [ x * factor for x in window_areas_without_scaling], window_areas_with_scaling,
             rtol=0.01,
         )
