@@ -1,4 +1,4 @@
-"""  Basic household example. Shows how to set up a standard system. """
+"""  Household example with PV system and heatpump. """
 
 from typing import Optional, Any
 from hisim.simulator import SimulationParameters
@@ -121,6 +121,8 @@ def household_pv_hp(my_sim: Any, my_simulation_parameters: Optional[SimulationPa
     building_class = "medium"
     initial_temperature = 23
     heating_reference_temperature = -14
+    absolute_conditioned_floor_area = None
+
 
     # Set heat pump controller
     t_air_heating = 16.0
@@ -179,7 +181,7 @@ def household_pv_hp(my_sim: Any, my_simulation_parameters: Optional[SimulationPa
     my_sim.add_component(my_base_electricity_load_profile)
 
     my_building_config = building.BuildingConfig(building_code=building_code, building_heat_capacity_class=building_class, initial_internal_temperature_in_celsius=initial_temperature,
-                                                 heating_reference_temperature_in_celsius=heating_reference_temperature, name="Building1", total_base_area_in_m2= my_config.total_base_area_in_m2)
+                                                 heating_reference_temperature_in_celsius=heating_reference_temperature, name="Building1", total_base_area_in_m2= my_config.total_base_area_in_m2, absolute_conditioned_floor_area_in_m2=absolute_conditioned_floor_area)
     my_building = building.Building(config=my_building_config, my_simulation_parameters=my_simulation_parameters)
     my_building.connect_only_predefined_connections(my_weather)
     my_building.connect_only_predefined_connections(my_occupancy)
