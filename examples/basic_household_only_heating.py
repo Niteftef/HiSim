@@ -8,6 +8,7 @@ from hisim.components import building
 from hisim.components import controller_l1_heat_old
 from hisim.components import generic_heat_water_storage
 from hisim.components import generic_gas_heater
+from hisim import utils
 
 __authors__ = "Maximilian Hillen"
 __copyright__ = "Copyright 2021-2022, FZJ-IEK-3"
@@ -64,8 +65,8 @@ def basic_household_only_heating(my_sim: Any, my_simulation_parameters: Optional
     # Build Building
     my_building = building.Building(config=building.BuildingConfig.get_default_german_single_family_home(),
                                     my_simulation_parameters=my_simulation_parameters)
-    my_building_controller = building.BuildingController(config=building.BuildingController.get_default_config(),
-                                                         my_simulation_parameters=my_simulation_parameters)
+    # my_building_controller = building.BuildingController(config=building.BuildingController.get_default_config(),
+    #                                                      my_simulation_parameters=my_simulation_parameters)
 
     # Build Storage
     my_storage = generic_heat_water_storage.HeatStorage(config=generic_heat_water_storage.HeatStorage.get_default_config(),
@@ -89,12 +90,12 @@ def basic_household_only_heating(my_sim: Any, my_simulation_parameters: Optional
     my_storage_controller.connect_input(my_storage_controller.BuildingTemperature, my_building.component_name, my_building.TemperatureMean)
     my_storage_controller.connect_input(my_storage_controller.ReferenceMaxHeatBuildingDemand, my_building.component_name,
                                         my_building.ReferenceMaxHeatBuildingDemand)
-    my_storage_controller.connect_input(my_storage_controller.RealHeatBuildingDemand, my_building_controller.component_name,
-                                        my_building_controller.RealHeatBuildingDemand)
+    # my_storage_controller.connect_input(my_storage_controller.RealHeatBuildingDemand, my_building_controller.component_name,
+    #                                     my_building_controller.RealHeatBuildingDemand)
 
-    my_building_controller.connect_input(my_building_controller.ReferenceMaxHeatBuildingDemand, my_building.component_name,
-                                         my_building.ReferenceMaxHeatBuildingDemand)
-    my_building_controller.connect_input(my_building_controller.ResidenceTemperature, my_building.component_name, my_building.TemperatureMean)
+    # my_building_controller.connect_input(my_building_controller.ReferenceMaxHeatBuildingDemand, my_building.component_name,
+    #                                      my_building.ReferenceMaxHeatBuildingDemand)
+    # my_building_controller.connect_input(my_building_controller.ResidenceTemperature, my_building.component_name, my_building.TemperatureMean)
     my_building.connect_input(my_building.ThermalEnergyDelivered, my_storage.component_name, my_storage.RealHeatForBuilding)
 
     my_controller_heat.connect_input(my_controller_heat.StorageTemperatureHeatingWater, my_storage.component_name,
@@ -106,7 +107,7 @@ def basic_household_only_heating(my_sim: Any, my_simulation_parameters: Optional
     my_gas_heater.connect_input(my_gas_heater.MassflowInputTemperature, my_storage.component_name, my_storage.WaterOutputStorageforHeaters)
     my_storage.connect_input(my_storage.ThermalInputPower1, my_gas_heater.component_name, my_gas_heater.ThermalOutputPower)
 
-    my_sim.add_component(my_building_controller)
+    # my_sim.add_component(my_building_controller)
     my_sim.add_component(my_controller_heat)
     my_sim.add_component(my_storage_controller)
 
