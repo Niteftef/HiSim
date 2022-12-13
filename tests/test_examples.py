@@ -47,3 +47,11 @@ def test_household_with_heatpump_and_pv():
     func = "household_pv_hp"
     mysimpar = SimulationParameters.one_day_only(year=2019, seconds_per_timestep=60 * 15)
     hisim_main.main(path, func, mysimpar)
+
+@utils.measure_execution_time
+def test_household_with_gasheater():
+    """ Tests Household with gasheater. """
+    path = "../examples/household_with_generic_gas_heater.py"
+    func = "household_generic_gas_heater"
+    mysimpar = SimulationParameters.one_day_only(year=2019, seconds_per_timestep=60 * 15)
+    hisim_main.main(path, func, mysimpar)
