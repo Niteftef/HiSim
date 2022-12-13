@@ -118,18 +118,16 @@ def household_generic_gas_heater(
     absolute_conditioned_floor_area = None
 
     # Set generic gas heater
-    temperature_delta_in_celsius = (10,)
-    maximal_power_in_watt = (12_000,)
-    is_modulating = (True,)
-    minimal_thermal_power_in_watt = (1_000,)  # [W]
-    maximal_thermal_power_in_watt = (12_000,)  # [W]
-    eff_th_min = (0.60,)  # [-]
-    eff_th_max = (0.90,)  # [-]
-    delta_temperature_in_celsius = (25,)
-    maximal_mass_flow_in_kilogram_per_second = (
-        12_000 / (4180 * 25),
-    )  # kg/s ## -> ~0.07 P_th_max / (4180 * delta_T)
-    maximal_temperature_in_celsius = 80  # [°C])
+    temperature_delta_in_celsius = 10
+    maximal_power_in_watt = 12_000
+    is_modulating = True
+    minimal_thermal_power_in_watt = 1_000
+    maximal_thermal_power_in_watt = 12_000
+    eff_th_min = 0.60
+    eff_th_max = 0.90
+    delta_temperature_in_celsius = 25
+    maximal_mass_flow_in_kilogram_per_second = 12_000 / (4180 * 25) # -> ~0.07 P_th_max / (4180 * delta_T)
+    maximal_temperature_in_celsius = 80
 
     # Build Components #
 
