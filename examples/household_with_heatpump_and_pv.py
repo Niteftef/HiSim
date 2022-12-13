@@ -48,7 +48,7 @@ class HouseholdPVConfig:
     PV_azimuth: float
     Tilt: float
     PV_Power: float
-    Total_base_area_in_m2: float
+    total_base_area_in_m2: float
     @classmethod
     def get_default (cls):
         return HouseholdPVConfig(PVSize=5,
@@ -62,7 +62,8 @@ class HouseholdPVConfig:
                                  charging_station_set=ChargingStationSets.Charging_At_Home_with_11_kW,
                                 PV_azimuth=180,
                                  Tilt=30,
-                                 PV_Power=10000)
+                                 PV_Power=10000,
+                                 total_base_area_in_m2=121.2)
 
 
 
@@ -178,7 +179,7 @@ def household_pv_hp(my_sim: Any, my_simulation_parameters: Optional[SimulationPa
     my_sim.add_component(my_base_electricity_load_profile)
 
     my_building_config = building.BuildingConfig(building_code=building_code, building_heat_capacity_class=building_class, initial_internal_temperature_in_celsius=initial_temperature,
-                                                 heating_reference_temperature_in_celsius=heating_reference_temperature, name="Building1", total_base_area_in_m2= my_config.Total_base_area_in_m2)
+                                                 heating_reference_temperature_in_celsius=heating_reference_temperature, name="Building1", total_base_area_in_m2= my_config.total_base_area_in_m2)
     my_building = building.Building(config=my_building_config, my_simulation_parameters=my_simulation_parameters)
     my_building.connect_only_predefined_connections(my_weather)
     my_building.connect_only_predefined_connections(my_occupancy)
