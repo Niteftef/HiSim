@@ -19,6 +19,7 @@ from hisim.components import controller_l1_heat_old
 from hisim.components import generic_heat_water_storage
 from hisim.components import building
 from hisim import log
+from examples.household_with_heatpump_and_pv import HouseholdPVConfig
 
 __authors__ = "Vitor Hugo Bellotto Zago, Noah Pflugradt"
 __copyright__ = "Copyright 2022, FZJ-IEK-3"
@@ -29,47 +30,47 @@ __maintainer__ = "Noah Pflugradt"
 __status__ = "development"
 
 
-@dataclass_json
-@dataclass
-class HouseholdPVConfig:
+# @dataclass_json
+# @dataclass
+# class HouseholdPVConfig:
 
-    """Configuration for HouseholdPV."""
+#     """Configuration for HouseholdPV."""
 
-    pv_size: float
-    building_type: str
-    household_type: JsonReference
-    lpg_url: str
-    result_path: str
-    travel_route_set: JsonReference
-    simulation_parameters: SimulationParameters
-    api_key: str
-    transportation_device_set: JsonReference
-    charging_station_set: JsonReference
-    pv_azimuth: float
-    tilt: float
-    pv_power: float
-    total_base_area_in_m2: float
+#     pv_size: float
+#     building_type: str
+#     household_type: JsonReference
+#     lpg_url: str
+#     result_path: str
+#     travel_route_set: JsonReference
+#     simulation_parameters: SimulationParameters
+#     api_key: str
+#     transportation_device_set: JsonReference
+#     charging_station_set: JsonReference
+#     pv_azimuth: float
+#     tilt: float
+#     pv_power: float
+#     total_base_area_in_m2: float
 
-    @classmethod
-    def get_default(cls):
-        """Get default HouseholdPVConfig."""
+#     @classmethod
+#     def get_default(cls):
+#         """Get default HouseholdPVConfig."""
 
-        return HouseholdPVConfig(
-            pv_size=5,
-            building_type="blub",
-            household_type=Households.CHR01_Couple_both_at_Work,
-            lpg_url="http://134.94.131.167:443/api/v1/profilerequest",
-            api_key="OrjpZY93BcNWw8lKaMp0BEchbCc",
-            simulation_parameters=SimulationParameters.one_day_only(2022),
-            result_path="mypath",
-            travel_route_set=TravelRouteSets.Travel_Route_Set_for_10km_Commuting_Distance,
-            transportation_device_set=TransportationDeviceSets.Bus_and_one_30_km_h_Car,
-            charging_station_set=ChargingStationSets.Charging_At_Home_with_11_kW,
-            pv_azimuth=180,
-            tilt=30,
-            pv_power=10000,
-            total_base_area_in_m2=121.2,
-        )
+#         return HouseholdPVConfig(
+#             pv_size=5,
+#             building_type="blub",
+#             household_type=Households.CHR01_Couple_both_at_Work,
+#             lpg_url="http://134.94.131.167:443/api/v1/profilerequest",
+#             api_key="OrjpZY93BcNWw8lKaMp0BEchbCc",
+#             simulation_parameters=SimulationParameters.one_day_only(2022),
+#             result_path="mypath",
+#             travel_route_set=TravelRouteSets.Travel_Route_Set_for_10km_Commuting_Distance,
+#             transportation_device_set=TransportationDeviceSets.Bus_and_one_30_km_h_Car,
+#             charging_station_set=ChargingStationSets.Charging_At_Home_with_11_kW,
+#             pv_azimuth=180,
+#             tilt=30,
+#             pv_power=10000,
+#             total_base_area_in_m2=121.2,
+#         )
 
 
 def household_generic_gas_heater(
