@@ -1,6 +1,16 @@
 """  Household example with generic gas heater. """
-
+# clean
 from typing import Optional, Any
+from pathlib import Path
+from dataclasses import dataclass
+from dataclasses_json import dataclass_json
+from utspclient.helpers.lpgdata import (
+    ChargingStationSets,
+    Households,
+    TransportationDeviceSets,
+    TravelRouteSets,
+)
+from utspclient.helpers.lpgpythonbindings import JsonReference
 from hisim.simulator import SimulationParameters
 from hisim.components import loadprofilegenerator_utsp_connector
 from hisim.components import weather
@@ -9,9 +19,6 @@ from hisim.components import controller_l1_heat_old
 from hisim.components import generic_heat_water_storage
 from hisim.components import building
 from hisim import log
-from dataclasses_json import dataclass_json
-from dataclasses import dataclass
-from pathlib import Path
 
 __authors__ = "Vitor Hugo Bellotto Zago, Noah Pflugradt"
 __copyright__ = "Copyright 2022, FZJ-IEK-3"
@@ -20,13 +27,6 @@ __license__ = "MIT"
 __version__ = "1.0"
 __maintainer__ = "Noah Pflugradt"
 __status__ = "development"
-from utspclient.helpers.lpgdata import (
-    ChargingStationSets,
-    Households,
-    TransportationDeviceSets,
-    TravelRouteSets,
-)
-from utspclient.helpers.lpgpythonbindings import JsonReference
 
 
 @dataclass_json
@@ -92,13 +92,14 @@ def household_generic_gas_heater(
 
     my_config: HouseholdPVConfig
     if Path(config_filename).is_file():
-        with open(config_filename, encoding='utf8') as system_config_file:
+        with open(config_filename, encoding="utf8") as system_config_file:
             my_config = HouseholdPVConfig.from_json(system_config_file.read())  # type: ignore
         log.information(f"Read system config from {config_filename}")
     else:
         my_config = HouseholdPVConfig.get_default()
 
-    # System Parameters #
+    # =================================================================================================================================
+    # Set System Parameters
 
     # Set Simulation Parameters
     year = 2021
@@ -111,7 +112,8 @@ def household_generic_gas_heater(
     heating_reference_temperature = -14
     absolute_conditioned_floor_area = None
 
-    # Build Components #
+    # =================================================================================================================================
+    # Build Components
 
     # Build Simulation Parameters
     if my_simulation_parameters is None:
@@ -157,19 +159,25 @@ def household_generic_gas_heater(
     )
 
     # Build Gasheater
-    my_gasheater = generic_gas_heater.GasHeater(config=generic_gas_heater.GasHeater.get_default_config(), 
-                                                my_simulation_parameters=my_simulation_parameters)
+    my_gasheater = generic_gas_heater.GasHeater(
+        config=generic_gas_heater.GasHeater.get_default_config(),
+        my_simulation_parameters=my_simulation_parameters,
+    )
 
     # Build Heat Water Storage
-    my_heat_water_storage = generic_heat_water_storage.HeatStorage(config=generic_heat_water_storage.HeatStorage.get_default_config(),
-                                                        my_simulation_parameters=my_simulation_parameters)
+    my_heat_water_storage = generic_heat_water_storage.HeatStorage(
+        config=generic_heat_water_storage.HeatStorage.get_default_config(),
+        my_simulation_parameters=my_simulation_parameters,
+    )
 
     # Build Heat Controller
     my_controller_heat = controller_l1_heat_old.ControllerHeat(
-        config=controller_l1_heat_old.ControllerHeat.get_default_config(), my_simulation_parameters=my_simulation_parameters)
+        config=controller_l1_heat_old.ControllerHeat.get_default_config(),
+        my_simulation_parameters=my_simulation_parameters,
+    )
 
-
-    # Connect Inputs
+    # =================================================================================================================================
+    # Connect Component Inputs with Outputs
 
     my_building.connect_only_predefined_connections(my_weather)
     my_building.connect_only_predefined_connections(my_occupancy)
@@ -179,21 +187,31 @@ def household_generic_gas_heater(
         my_gasheater.thermal_output_power_channel,
     )
 
-    my_gasheater.connect_input(my_gasheater.ControlSignal, my_controller_heat.component_name, my_controller_heat.ControlSignalGasHeater)
-    my_gasheater.connect_input(my_gasheater.MassflowInputTemperature, my_heat_water_storage.component_name, my_heat_water_storage.WaterOutputStorageforHeaters)
+    my_gasheater.connect_input(
+        my_gasheater.ControlSignal,
+        my_controller_heat.component_name,
+        my_controller_heat.ControlSignalGasHeater,
+    )
+    my_gasheater.connect_input(
+        my_gasheater.MassflowInputTemperature,
+        my_heat_water_storage.component_name,
+        my_heat_water_storage.WaterOutputStorageforHeaters,
+    )
 
-    # my_storage.connect_input(my_storage.ThermalInputPower1, my_gasheater.component_name, my_gasheater.ThermalOutputPower)
-    # my_storage.connect_input(my_storage.ControlSignalChooseStorage, my_controller_heat.component_name, my_controller_heat.ControlSignalChooseStorage)
-    # my_controller_heat.connect_input(my_controller_heat.StorageTemperatureHeatingWater, my_storage.component_name,
-    #                                  my_storage.WaterOutputTemperatureHeatingWater)
+    # my_heat_water_storage.connect_input(my_heat_water_storage.ThermalInputPower1, my_gasheater.component_name, my_gasheater.ThermalOutputPower)
+    # my_heat_water_storage.connect_input(my_heat_water_storage.ControlSignalChooseStorage, my_controller_heat.component_name,
+    #                                       my_controller_heat.ControlSignalChooseStorage)
+    # my_controller_heat.connect_input(my_controller_heat.StorageTemperatureHeatingWater, my_heat_water_storage.component_name,
+    #                                  my_heat_water_storage.WaterOutputTemperatureHeatingWater)
 
     # my_controller_heat.connect_input(my_controller_heat.ResidenceTemperature, my_building.component_name, my_building.TemperatureMean)
 
+    # =================================================================================================================================
     # Add Components to Simulation Parameters
     my_sim.add_component(my_occupancy)
     my_sim.add_component(my_weather)
     my_sim.add_component(my_building)
     my_sim.add_component(my_gasheater)
-    
+
     my_sim.add_component(my_heat_water_storage)
     my_sim.add_component(my_controller_heat)

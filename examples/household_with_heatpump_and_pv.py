@@ -19,8 +19,6 @@ from hisim.components import building
 from hisim.components import generic_heat_pump
 from hisim.components import sumbuilder
 from hisim import log
-# from hisim import utils
-# from hisim import loadtypes
 
 __authors__ = "Vitor Hugo Bellotto Zago, Noah Pflugradt"
 __copyright__ = "Copyright 2022, FZJ-IEK-3"
@@ -101,16 +99,17 @@ def household_pv_hp(
     else:
         my_config = HouseholdPVConfig.get_default()
 
-    # System Parameters #
+    # =================================================================================================================================
+    # Set System Parameters
 
-    # Set simulation parameters
+    # Set Simulation Parameters
     year = 2021
     seconds_per_timestep = 60
 
-    # Set weather
+    # Set Weather
     location = "Aachen"
 
-    # Set photovoltaic system
+    # Set Photovoltaic System
     time = 2019
     power = my_config.pv_power
     load_module_data = False
@@ -122,29 +121,27 @@ def household_pv_hp(
     tilt = my_config.tilt
     source_weight = -1
 
-    # Set occupancy
-    # occupancy_profile = "CH01"
-
-    # Set building
+    # Set Building
     building_code = "DE.N.SFH.05.Gen.ReEx.001.002"
     building_class = "medium"
     initial_temperature = 23
     heating_reference_temperature = -14
     absolute_conditioned_floor_area = None
 
-    # Set heat pump controller
+    # Set Heat Pump Controller
     t_air_heating = 16.0
     t_air_cooling = 24.0
     offset = 0.5
     hp_mode = 2
 
-    # Set heat pump
+    # Set Heat Pump
     hp_manufacturer = "Viessmann Werke GmbH & Co KG"
     hp_name = "Vitocal 300-A AWO-AC 301.B07"
     hp_min_operation_time = 60
     hp_min_idle_time = 15
 
-    # Build Components #
+    # =================================================================================================================================
+    # Build Components
 
     # Build system parameters
     if my_simulation_parameters is None:
@@ -152,10 +149,8 @@ def household_pv_hp(
             year=year, seconds_per_timestep=seconds_per_timestep
         )
     my_sim.set_simulation_parameters(my_simulation_parameters)
+
     # Build occupancy
-    # lpgurl = "http://"
-    # api_key = "asdf"
-    # result_path = os.path.join(utils.get_input_directory(), "lpg_profiles")
     my_occupancy_config = loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig(
         url=my_config.lpg_url,
         api_key=my_config.api_key,
@@ -169,7 +164,6 @@ def household_pv_hp(
     my_occupancy = loadprofilegenerator_utsp_connector.UtspLpgConnector(
         config=my_occupancy_config, my_simulation_parameters=my_simulation_parameters
     )
-    my_sim.add_component(my_occupancy)
 
     # Build Weather
     my_weather_config = weather.WeatherConfig.get_default(
@@ -178,7 +172,6 @@ def household_pv_hp(
     my_weather = weather.Weather(
         config=my_weather_config, my_simulation_parameters=my_simulation_parameters
     )
-    my_sim.add_component(my_weather)
 
     # Build PV
     my_photovoltaic_system_config = generic_pv_system.PVSystemConfig(
@@ -199,17 +192,14 @@ def household_pv_hp(
         my_simulation_parameters=my_simulation_parameters,
     )
 
-    my_photovoltaic_system.connect_only_predefined_connections(my_weather)
-    my_sim.add_component(my_photovoltaic_system)
-
-    # electricity grid
+    # Build Electricity Grid
     my_base_electricity_load_profile = sumbuilder.ElectricityGrid(
         name="BaseLoad",
         grid=[my_occupancy, "Subtract", my_photovoltaic_system],
         my_simulation_parameters=my_simulation_parameters,
     )
-    my_sim.add_component(my_base_electricity_load_profile)
 
+    # Build Building
     my_building_config = building.BuildingConfig(
         building_code=building_code,
         building_heat_capacity_class=building_class,
@@ -222,10 +212,8 @@ def household_pv_hp(
     my_building = building.Building(
         config=my_building_config, my_simulation_parameters=my_simulation_parameters
     )
-    my_building.connect_only_predefined_connections(my_weather)
-    my_building.connect_only_predefined_connections(my_occupancy)
-    my_sim.add_component(my_building)
 
+    # Build Heat Pump Controller
     my_heat_pump_controller = generic_heat_pump.HeatPumpController(
         t_air_heating=t_air_heating,
         t_air_cooling=t_air_cooling,
@@ -233,6 +221,28 @@ def household_pv_hp(
         mode=hp_mode,
         my_simulation_parameters=my_simulation_parameters,
     )
+
+    # Build Heat Pump
+    my_heat_pump = generic_heat_pump.GenericHeatPump(
+        manufacturer=hp_manufacturer,
+        name=hp_name,
+        min_operation_time=hp_min_operation_time,
+        min_idle_time=hp_min_idle_time,
+        my_simulation_parameters=my_simulation_parameters,
+    )
+
+    # =================================================================================================================================
+    # Connect Component Inputs with Outputs
+    my_photovoltaic_system.connect_only_predefined_connections(my_weather)
+
+    my_building.connect_only_predefined_connections(my_weather)
+    my_building.connect_only_predefined_connections(my_occupancy)
+    my_building.connect_input(
+        my_building.ThermalEnergyDelivered,
+        my_heat_pump.component_name,
+        my_heat_pump.ThermalEnergyDelivered,
+    )
+
     my_heat_pump_controller.connect_input(
         my_heat_pump_controller.TemperatureMean,
         my_building.component_name,
@@ -243,15 +253,7 @@ def household_pv_hp(
         my_base_electricity_load_profile.component_name,
         my_base_electricity_load_profile.ElectricityOutput,
     )
-    my_sim.add_component(my_heat_pump_controller)
 
-    my_heat_pump = generic_heat_pump.GenericHeatPump(
-        manufacturer=hp_manufacturer,
-        name=hp_name,
-        min_operation_time=hp_min_operation_time,
-        min_idle_time=hp_min_idle_time,
-        my_simulation_parameters=my_simulation_parameters,
-    )
     my_heat_pump.connect_input(
         my_heat_pump.State,
         my_heat_pump_controller.component_name,
@@ -263,10 +265,13 @@ def household_pv_hp(
         my_weather.TemperatureOutside,
     )
 
-    my_sim.add_component(my_heat_pump)
+    # =================================================================================================================================
+    # Add Components to Simulation Parameters
 
-    my_building.connect_input(
-        my_building.ThermalEnergyDelivered,
-        my_heat_pump.component_name,
-        my_heat_pump.ThermalEnergyDelivered,
-    )
+    my_sim.add_component(my_occupancy)
+    my_sim.add_component(my_weather)
+    my_sim.add_component(my_photovoltaic_system)
+    my_sim.add_component(my_base_electricity_load_profile)
+    my_sim.add_component(my_building)
+    my_sim.add_component(my_heat_pump_controller)
+    my_sim.add_component(my_heat_pump)
