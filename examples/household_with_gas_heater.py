@@ -1,4 +1,4 @@
-"""  Household example with generic gas heater. """
+"""  Household example with gas heater. """
 # clean
 from typing import Optional, Any
 from pathlib import Path
@@ -73,7 +73,7 @@ __status__ = "development"
 #         )
 
 
-def household_generic_gas_heater(
+def household_gas_heater(
     my_sim: Any, my_simulation_parameters: Optional[SimulationParameters] = None
 ) -> None:  # noqa: too-many-statements
     """Basic household example.
@@ -87,6 +87,8 @@ def household_generic_gas_heater(
         - Weather
         - Building
         - Gas Heater
+        - Heat Water Storage
+        - Heat Controller
     """
 
     config_filename = "pv_hp_config.json"

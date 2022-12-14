@@ -32,7 +32,7 @@ def test_basic_household_network_chart():
 
 @utils.measure_execution_time
 def test_modular_household_configurations():
-    """ Tests the modular example. """
+    """ Test the modular example. """
     path = "../examples/modular_example.py"
     func = "modular_household_explicit"
     mysimpar = SimulationParameters.one_day_only(year=2019, seconds_per_timestep=60 * 15)
@@ -42,7 +42,7 @@ def test_modular_household_configurations():
 
 @utils.measure_execution_time
 def test_household_with_heatpump_and_pv():
-    """ Tests Household with heat pump and pv. """
+    """ Test Household with heat pump and pv. """
     path = "../examples/household_with_heatpump_and_pv.py"
     func = "household_pv_hp"
     mysimpar = SimulationParameters.one_day_only(year=2019, seconds_per_timestep=60 * 15)
@@ -50,8 +50,8 @@ def test_household_with_heatpump_and_pv():
 
 @utils.measure_execution_time
 def test_household_with_gasheater():
-    """ Tests Household with gasheater. """
-    path = "../examples/household_with_generic_gas_heater.py"
-    func = "household_generic_gas_heater"
+    """ Test Household with gasheater. """
+    path = "../examples/household_with_gas_heater.py"
+    func = "household_gas_heater"
     mysimpar = SimulationParameters.one_day_only(year=2019, seconds_per_timestep=60 * 15)
     hisim_main.main(path, func, mysimpar)
