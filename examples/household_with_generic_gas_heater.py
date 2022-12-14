@@ -3,9 +3,11 @@
 from typing import Optional, Any
 from hisim.simulator import SimulationParameters
 from hisim.components import loadprofilegenerator_utsp_connector
-from hisim.components import loadprofilegenerator_connector
+# from hisim.components import loadprofilegenerator_connector
 from hisim.components import weather
 from hisim.components import generic_gas_heater
+from hisim.components import controller_l1_heat_old
+from hisim.components import generic_heat_water_storage
 from hisim.components import building
 # from hisim.components import sumbuilder
 from hisim import log
@@ -161,6 +163,7 @@ def household_generic_gas_heater(
     )
     my_sim.add_component(my_occupancy)
 
+
     # # Build occupancy (from basic household example)
     # my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig(
     #     profile_name=occupancy_profile, name="Occupancy"
@@ -170,6 +173,7 @@ def household_generic_gas_heater(
     # )
     # my_sim.add_component(my_occupancy)
 
+
     # Build Weather
     my_weather_config = weather.WeatherConfig.get_default(
         location_entry=weather.LocationEnum.Aachen
@@ -178,6 +182,8 @@ def household_generic_gas_heater(
         config=my_weather_config, my_simulation_parameters=my_simulation_parameters
     )
     my_sim.add_component(my_weather)
+
+
 
     # Build Gasheater
     my_gasheater_config = generic_gas_heater.GenericGasHeaterConfig(
@@ -195,11 +201,25 @@ def household_generic_gas_heater(
     my_gasheater = generic_gas_heater.GasHeater(
         config=my_gasheater_config, my_simulation_parameters=my_simulation_parameters
     )
+    my_sim.add_component(my_gasheater)
 
-    # # electricity grid
-    # my_base_electricity_load_profile = sumbuilder.ElectricityGrid(name="BaseLoad", grid=[my_occupancy, "Subtract", my_photovoltaic_system],
-    #                                                               my_simulation_parameters=my_simulation_parameters)
-    # my_sim.add_component(my_base_electricity_load_profile)
+
+    # Build Storage
+    my_storage = generic_heat_water_storage.HeatStorage(config=generic_heat_water_storage.HeatStorage.get_default_config(),
+                                                        my_simulation_parameters=my_simulation_parameters)
+    my_gasheater.connect_input(my_gasheater.MassflowInputTemperature, my_storage.component_name, my_storage.WaterOutputStorageforHeaters)
+
+    my_sim.add_component(my_storage)
+    # Build Controller
+    my_controller_heat = controller_l1_heat_old.ControllerHeat(
+        config=controller_l1_heat_old.ControllerHeat.get_default_config(), my_simulation_parameters=my_simulation_parameters)
+    my_gasheater.connect_input(my_gasheater.ControlSignal, my_controller_heat.component_name, my_controller_heat.ControlSignalGasHeater)
+
+    my_sim.add_component(my_controller_heat)
+
+
+
+
 
     # Build building
     my_building_config = building.BuildingConfig(
