@@ -7,14 +7,14 @@ from hisim.components import loadprofilegenerator_connector
 from hisim.components import weather
 from hisim.components import generic_gas_heater
 from hisim.components import building
-from hisim.components import sumbuilder
+# from hisim.components import sumbuilder
 from hisim import log
 from hisim import utils
 from dataclasses_json import dataclass_json
 from dataclasses import dataclass
 import os
 from pathlib import Path
-from hisim import loadtypes
+# from hisim import loadtypes
 
 __authors__ = "Vitor Hugo Bellotto Zago, Noah Pflugradt"
 __copyright__ = "Copyright 2022, FZJ-IEK-3"
@@ -26,48 +26,53 @@ __status__ = "development"
 from utspclient.helpers.lpgdata import (
     ChargingStationSets,
     Households,
-    HouseTypes,
-    LoadTypes,
+    # HouseTypes,
+    # LoadTypes,
     TransportationDeviceSets,
     TravelRouteSets,
 )
-from utspclient.helpers.lpgpythonbindings import CalcOption, JsonReference
+from utspclient.helpers.lpgpythonbindings import JsonReference # CalcOption, 
 
 
 @dataclass_json
 @dataclass
 class HouseholdPVConfig:
-    PVSize: float
-    BuildingType: str
-    HouseholdType: JsonReference
-    LPGUrl: str
-    ResultPath: str
-    TravelRouteSet: JsonReference
+
+    """Configuration for HouseholdPV."""
+
+    pv_size: float
+    building_type: str
+    household_type: JsonReference
+    lpg_url: str
+    result_path: str
+    travel_route_set: JsonReference
     simulation_parameters: SimulationParameters
-    APIKey: str
+    api_key: str
     transportation_device_set: JsonReference
     charging_station_set: JsonReference
-    PV_azimuth: float
-    Tilt: float
-    PV_Power: float
+    pv_azimuth: float
+    tilt: float
+    pv_power: float
     total_base_area_in_m2: float
 
     @classmethod
     def get_default(cls):
+        """Get default HouseholdPVConfig."""
+
         return HouseholdPVConfig(
-            PVSize=5,
-            BuildingType="blub",
-            HouseholdType=Households.CHR01_Couple_both_at_Work,
-            LPGUrl="http://134.94.131.167:443/api/v1/profilerequest",
-            APIKey="OrjpZY93BcNWw8lKaMp0BEchbCc",
+            pv_size=5,
+            building_type="blub",
+            household_type=Households.CHR01_Couple_both_at_Work,
+            lpg_url="http://134.94.131.167:443/api/v1/profilerequest",
+            api_key="OrjpZY93BcNWw8lKaMp0BEchbCc",
             simulation_parameters=SimulationParameters.one_day_only(2022),
-            ResultPath="mypath",
-            TravelRouteSet=TravelRouteSets.Travel_Route_Set_for_10km_Commuting_Distance,
+            result_path="mypath",
+            travel_route_set=TravelRouteSets.Travel_Route_Set_for_10km_Commuting_Distance,
             transportation_device_set=TransportationDeviceSets.Bus_and_one_30_km_h_Car,
             charging_station_set=ChargingStationSets.Charging_At_Home_with_11_kW,
-            PV_azimuth=180,
-            Tilt=30,
-            PV_Power=10000,
+            pv_azimuth=180,
+            tilt=30,
+            pv_power=10000,
             total_base_area_in_m2=121.2,
         )
 
@@ -88,15 +93,15 @@ def household_generic_gas_heater(
         - Gas Heater
     """
 
-    config_filename = None  # "pv_hp_config.json"
+    config_filename = "pv_hp_config.json"
 
     my_config: HouseholdPVConfig
-    # if Path(config_filename).is_file():
-    #     with open(config_filename, encoding='utf8') as system_config_file:
-    #         my_config = HouseholdPVConfig.from_json(system_config_file.read())  # type: ignore
-    #     log.information(f"Read system config from {config_filename}")
-    # else:
-    my_config = HouseholdPVConfig.get_default()
+    if Path(config_filename).is_file():
+        with open(config_filename, encoding='utf8') as system_config_file:
+            my_config = HouseholdPVConfig.from_json(system_config_file.read())  # type: ignore
+        log.information(f"Read system config from {config_filename}")
+    else:
+        my_config = HouseholdPVConfig.get_default()
 
     # System Parameters #
 
@@ -105,10 +110,10 @@ def household_generic_gas_heater(
     seconds_per_timestep = 60
 
     # Set weather
-    location = "Aachen"
+    # location = "Aachen"
 
     # Set occupancy
-    occupancy_profile = "CH01"
+    # occupancy_profile = "CH01"
 
     # Set building
     building_code = "DE.N.SFH.05.Gen.ReEx.001.002"
@@ -137,30 +142,33 @@ def household_generic_gas_heater(
             year=year, seconds_per_timestep=seconds_per_timestep
         )
     my_sim.set_simulation_parameters(my_simulation_parameters)
-    # # Build occupancy
+    # Build occupancy
     # lpgurl = "http://"
     # api_key = "asdf"
     # result_path = os.path.join(utils.get_input_directory(), "lpg_profiles")
-    # my_occupancy_config = loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig(url=my_config.LPGUrl,
-    #                                                                                  api_key=my_config.APIKey,
-    #                                                                                  household=my_config.HouseholdType,
-    #                                                                                  result_path=my_config.ResultPath,
-    #                                                                                  travel_route_set=my_config.TravelRouteSet,
-    #                                                                                  transportation_device_set=my_config.transportation_device_set,
-    #                                                                                  charging_station_set=my_config.charging_station_set
-    #                                                                                  )
-
-    # my_occupancy = loadprofilegenerator_utsp_connector.UtspLpgConnector(config=my_occupancy_config, my_simulation_parameters=my_simulation_parameters)
-    # my_sim.add_component(my_occupancy)
-
-    # Build occupancy (fro basic household example)
-    my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig(
-        profile_name=occupancy_profile, name="Occupancy"
+    my_occupancy_config = loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig(
+        url=my_config.lpg_url,
+        api_key=my_config.api_key,
+        household=my_config.household_type,
+        result_path=my_config.result_path,
+        travel_route_set=my_config.travel_route_set,
+        transportation_device_set=my_config.transportation_device_set,
+        charging_station_set=my_config.charging_station_set,
     )
-    my_occupancy = loadprofilegenerator_connector.Occupancy(
+
+    my_occupancy = loadprofilegenerator_utsp_connector.UtspLpgConnector(
         config=my_occupancy_config, my_simulation_parameters=my_simulation_parameters
     )
     my_sim.add_component(my_occupancy)
+
+    # # Build occupancy (from basic household example)
+    # my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig(
+    #     profile_name=occupancy_profile, name="Occupancy"
+    # )
+    # my_occupancy = loadprofilegenerator_connector.Occupancy(
+    #     config=my_occupancy_config, my_simulation_parameters=my_simulation_parameters
+    # )
+    # my_sim.add_component(my_occupancy)
 
     # Build Weather
     my_weather_config = weather.WeatherConfig.get_default(
