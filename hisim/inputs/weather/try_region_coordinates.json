@@ -1,0 +1,64 @@
+{
+    "Comment": "This file contains coordinates of the weather stations for all test reference year regions.",
+    "Source": "https://www.bbsr.bund.de/BBSR/DE/forschung/programme/zb/Auftragsforschung/5EnergieKlimaBauen/2008/Testreferenzjahre/TRY_Handbuch.pdf?__blob=publicationFile&v=2",
+    "1": {
+        "latitude": 53.5333,
+        "longitude": 8.5667
+    },
+    "2": {
+        "latitude": 54.15,
+        "longitude": 11.85
+    },
+    "3": {
+        "latitude": 53.65,
+        "longitude": 10.1167
+    },
+    "4": {
+        "latitude": 52.3833,
+        "longitude": 13.0667
+    },
+    "5": {
+        "latitude": 51.4,
+        "longitude": 6.9666667
+    },
+    "6": {
+        "latitude": 50.66666666,
+        "longitude": 7.966666667
+    },
+    "7": {
+        "latitude": 51.03,
+        "longitude": 9.45
+    },
+    "8": {
+        "latitude": 51.73333333,
+        "longitude": 10.6
+    },
+    "9": {
+        "latitude": 50.8,
+        "longitude": 12.86666667
+    },
+    "10": {
+        "latitude": 50.3166,
+        "longitude": 11.8833
+    },
+    "11": {
+        "latitude": 50.4333,
+        "longitude": 12.95
+    },
+    "12": {
+        "latitude": 49.5166,
+        "longitude": 8.55
+    },
+    "13": {
+        "latitude": 48.2833,
+        "longitude": 12.5
+    },
+    "14": {
+        "latitude": 48.6666,
+        "longitude": 9.8666
+    },
+    "15": {
+        "latitude": 47.4833,
+        "longitude": 11.0666
+    }
+}

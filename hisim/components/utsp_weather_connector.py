@@ -2,11 +2,12 @@
 
 from enum import Enum
 import io
+import json
 import math
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, List
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -22,14 +23,17 @@ from hisim.simulationparameters import SimulationParameters
 TIME_ZONE = "Europe/Berlin"
 
 
-class AtmosphericClimateVariable(str, Enum):
-    DIRECT_NORMAL_IRRADIANCE = "dni"  # [W/m^2]
+class ClimateVariable(str, Enum):
+
+    """Atmospheric Climate Variable class."""
+
+    DIRECT_NORMAL_IRRADIANCE = "direct_normal_irradiance"  # [W/m^2]
     DIRECT_NORMAL_IRRADIANCE_EXTRATERRESTRIAL = (
         "direct_normal_irradiance_extraterrestrial"  # [W/m^2]
     )
     DIRECT_HORIZONTAL_IRRADIANCE = "direct_horizontal_irradiance"  # [W/m^2]
-    DIFFUSE_HORIZONTAL_IRRADIANCE = "dhi"  # [W/m^2]
-    GLOBAL_HORIZONTAL_IRRADIANCE = "ghi"  #  [W/m^2]
+    DIFFUSE_HORIZONTAL_IRRADIANCE = "diffuse_horizontal_irradiance"  # [W/m^2]
+    GLOBAL_HORIZONTAL_IRRADIANCE = "global_horizontal_irradiance"  #  [W/m^2]
     SURFACE_AIR_TEMPERATURE = "temp_air"  # [degC]
     WIND_SPEED = "wind_speed"  # [m/s]
     AIR_PRESSURE = "air_pressure"  # [hPa]
@@ -54,6 +58,9 @@ class UtspWeatherConfig(ConfigBase, utsp_utils.UtspConfig):
     def get_default_config(
         cls, url: str = "http://localhost:443/api/v1/profilerequest", api_key: str = ""
     ) -> "UtspWeatherConfig":
+        """Default config for the UTSP Weather.
+        Formulate your weather request for the UTSP in the weather_request string.
+        """
         config = UtspWeatherConfig(
             url,
             api_key,
@@ -210,7 +217,6 @@ class UtspWeather(Component):
             return
         if force_convergence:
             return
-        """ Performs the simulation. """
         stsv.set_output_value(
             self.air_temperature_output, self.temperature_list[timestep]
         )
@@ -226,7 +232,7 @@ class UtspWeather(Component):
         )
 
         # set the temperature forecast
-        if self.my_simulation_parameters.system_config.predictive:
+        if self.my_simulation_parameters.predictive_control:
             timesteps_24h = (
                 24 * 3600 / self.my_simulation_parameters.seconds_per_timestep
             )
@@ -241,6 +247,7 @@ class UtspWeather(Component):
         self.last_timestep_with_update = timestep
 
     def get_data_from_utsp(self) -> str:
+        """Get weather data from the UTSP."""
 
         # Prepare the time series request
         request = datastructures.TimeSeriesRequest(
@@ -260,15 +267,12 @@ class UtspWeather(Component):
         """Generates the lists to be used later."""
         seconds_per_timestep = self.my_simulation_parameters.seconds_per_timestep
         log.information(self.weather_config.to_json())
-        # TODO: somehow provide the used weather location
-        location = {
-            "name": "Bremerhaven",
-            "latitude": 53.5591,
-            "longitude": 8.5872,
-        }
+        location = self.get_try_coordinates()
+        latitude = location["latitude"]
+        longitude = location["longitude"]
         self.simulation_repository.set_entry("weather_location", location)
         cachefound, cache_filepath = utils.get_cache_file(
-            "Weather", self.weather_config, self.my_simulation_parameters
+            "UtspWeather", self.weather_config, self.my_simulation_parameters
         )
         if cachefound:
             # read cached files
@@ -276,153 +280,116 @@ class UtspWeather(Component):
                 cache_filepath, sep=",", decimal=".", encoding="cp1252"
             )
             self.temperature_list = my_weather[
-                AtmosphericClimateVariable.SURFACE_AIR_TEMPERATURE
+                ClimateVariable.SURFACE_AIR_TEMPERATURE
             ].tolist()
             self.DHI_list = my_weather[
-                AtmosphericClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE
+                ClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE
             ].tolist()
             self.DNI_list = my_weather[
-                AtmosphericClimateVariable.DIRECT_NORMAL_IRRADIANCE
+                ClimateVariable.DIRECT_NORMAL_IRRADIANCE
             ].tolist()  # self np.float64( maybe not needed? - Noah
             self.DNIextra_list = my_weather[
-                AtmosphericClimateVariable.DIRECT_NORMAL_IRRADIANCE_EXTRATERRESTRIAL
+                ClimateVariable.DIRECT_NORMAL_IRRADIANCE_EXTRATERRESTRIAL
             ].tolist()
             self.GHI_list = my_weather[
-                AtmosphericClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE
+                ClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE
             ].tolist()
-            self.altitude_list = my_weather[
-                AtmosphericClimateVariable.ALTITUDE
-            ].tolist()
-            self.azimuth_list = my_weather[AtmosphericClimateVariable.AZIMUTH].tolist()
+            self.altitude_list = my_weather[ClimateVariable.ALTITUDE].tolist()
+            self.azimuth_list = my_weather[ClimateVariable.AZIMUTH].tolist()
             self.apparent_zenith_list = my_weather[
-                AtmosphericClimateVariable.APPARENT_ZENITH
+                ClimateVariable.APPARENT_ZENITH
             ].tolist()
-            self.wind_speed_list = my_weather[
-                AtmosphericClimateVariable.WIND_SPEED
-            ].tolist()
+            self.wind_speed_list = my_weather[ClimateVariable.WIND_SPEED].tolist()
         else:
             raw_data: str = self.get_data_from_utsp()
-            data: pd.DataFrame = read_data(raw_data)
+            data: pd.DataFrame = self.read_data(raw_data)
+            set_weather_data_year_to_simulation_year(
+                data, self.my_simulation_parameters.year
+            )
+            calc_missing_irradiation_components(
+                data, latitude=latitude, longitude=longitude
+            )
 
+            # TODO: When testing, it was observed that the wheather data was changed even when loaded in the same resolution as the simulation, so that
+            # the interpolation should have no effect. Either find the issue or remove the interpolation (it should not be necessary for TRY data)
             direct_normal_irradiance = self.interpolate(
-                data[AtmosphericClimateVariable.DIRECT_NORMAL_IRRADIANCE],
+                data[ClimateVariable.DIRECT_NORMAL_IRRADIANCE],
                 self.my_simulation_parameters.year,
             )
-            # calculate extra terrestrial radiation- n eeded for perez array diffuse irradiance models
+            # calculate extra terrestrial radiation - needed for perez array diffuse irradiance models
             direct_normal_irradiance_extraterrestrial = pd.Series(pvlib.irradiance.get_extra_radiation(direct_normal_irradiance.index), index=direct_normal_irradiance.index)  # type: ignore
             # DNI_data = self.interpolate(tmy_data['DNI'], 2015)
             temperature = self.interpolate(
-                data[AtmosphericClimateVariable.SURFACE_AIR_TEMPERATURE],
+                data[ClimateVariable.SURFACE_AIR_TEMPERATURE],
                 self.my_simulation_parameters.year,
             )
             diffuse_horizontal_irradiance = self.interpolate(
-                data[AtmosphericClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE],
+                data[ClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE],
                 self.my_simulation_parameters.year,
             )
             global_horizontal_irradiance = self.interpolate(
-                data[AtmosphericClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE],
+                data[ClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE],
                 self.my_simulation_parameters.year,
-            )  # TODO: wrong column for testing (GHI column is missing)
-            solar_position = pvlib.solarposition.get_solarposition(direct_normal_irradiance.index, location["latitude"], location["longitude"])  # type: ignore
+            )
+            solar_position = pvlib.solarposition.get_solarposition(direct_normal_irradiance.index, latitude=latitude, longitude=longitude)  # type: ignore
             altitude = solar_position["elevation"]
             azimuth = solar_position["azimuth"]
             apparent_zenith = solar_position["apparent_zenith"]
             wind_speed = self.interpolate(
-                data[AtmosphericClimateVariable.WIND_SPEED],
+                data[ClimateVariable.WIND_SPEED],
                 self.my_simulation_parameters.year,
             )
 
-            if seconds_per_timestep != 60:
-                # resample to simulation resolution
-                self.temperature_list = (
-                    temperature.resample(str(seconds_per_timestep) + "S")
-                    .mean()
-                    .tolist()
-                )
-                self.DHI_list = (
-                    diffuse_horizontal_irradiance.resample(
-                        str(seconds_per_timestep) + "S"
-                    )
-                    .mean()
-                    .tolist()
-                )
-                self.DNI_list = (
-                    direct_normal_irradiance.resample(str(seconds_per_timestep) + "S")
-                    .mean()
-                    .tolist()
-                )
-                self.DNIextra_list = (
-                    direct_normal_irradiance_extraterrestrial.resample(
-                        str(seconds_per_timestep) + "S"
-                    )
-                    .mean()
-                    .tolist()
-                )
-                self.GHI_list = (
-                    global_horizontal_irradiance.resample(
-                        str(seconds_per_timestep) + "S"
-                    )
-                    .mean()
-                    .tolist()
-                )
-                self.altitude_list = (
-                    altitude.resample(str(seconds_per_timestep) + "S").mean().tolist()
-                )
-                self.azimuth_list = (
-                    azimuth.resample(str(seconds_per_timestep) + "S").mean().tolist()
-                )
-                self.apparent_zenith_list = (
-                    apparent_zenith.resample(str(seconds_per_timestep) + "S")
-                    .mean()
-                    .tolist()
-                )
-                self.wind_speed_list = (
-                    wind_speed.resample(str(seconds_per_timestep) + "S").mean().tolist()
-                )
-            else:
-                # data already has the correct resolution (1 minute)
-                self.temperature_list = temperature.tolist()
-                self.DHI_list = diffuse_horizontal_irradiance.tolist()
-                self.DNI_list = direct_normal_irradiance.tolist()
-                self.DNIextra_list = direct_normal_irradiance_extraterrestrial.tolist()
-                self.GHI_list = global_horizontal_irradiance.tolist()
-                self.altitude_list = altitude.tolist()
-                self.azimuth_list = azimuth.tolist()
-                self.apparent_zenith_list = apparent_zenith.tolist()
-                self.wind_speed_list = (
-                    wind_speed.resample(str(seconds_per_timestep) + "S").mean().tolist()
-                )
-
-            resampled_data = [
-                self.DNI_list,
-                self.DHI_list,
-                self.GHI_list,
-                self.temperature_list,
-                self.altitude_list,
-                self.azimuth_list,
-                self.apparent_zenith_list,
-                self.wind_speed_list,
-                self.DNIextra_list,
+            # collect all interpolated series in a list
+            interpolated_data = [
+                direct_normal_irradiance,
+                diffuse_horizontal_irradiance,
+                global_horizontal_irradiance,
+                temperature,
+                altitude,
+                azimuth,
+                apparent_zenith,
+                wind_speed,
+                direct_normal_irradiance_extraterrestrial,
             ]
+            # resample all series objects to simulation resolution
+            if seconds_per_timestep != 60:
+                for i, series in enumerate(interpolated_data):
+                    interpolated_data[i] = series.resample(
+                        str(seconds_per_timestep) + "S"
+                    ).mean()
 
+            # save values in component output members
+            self.temperature_list = temperature.tolist()
+            self.DHI_list = diffuse_horizontal_irradiance.tolist()
+            self.DNI_list = direct_normal_irradiance.tolist()
+            self.DNIextra_list = direct_normal_irradiance_extraterrestrial.tolist()
+            self.GHI_list = global_horizontal_irradiance.tolist()
+            self.altitude_list = altitude.tolist()
+            self.azimuth_list = azimuth.tolist()
+            self.apparent_zenith_list = apparent_zenith.tolist()
+            self.wind_speed_list = wind_speed.tolist()
+
+            # combine all resampled series in a data frame for caching
             database = pd.DataFrame(
-                np.transpose(resampled_data),
+                np.transpose(interpolated_data),
                 columns=[
-                    AtmosphericClimateVariable.DIRECT_NORMAL_IRRADIANCE,
-                    AtmosphericClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE,
-                    AtmosphericClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE,
-                    AtmosphericClimateVariable.SURFACE_AIR_TEMPERATURE,
-                    AtmosphericClimateVariable.ALTITUDE,
-                    AtmosphericClimateVariable.AZIMUTH,
-                    AtmosphericClimateVariable.APPARENT_ZENITH,
-                    AtmosphericClimateVariable.WIND_SPEED,
-                    AtmosphericClimateVariable.DIRECT_NORMAL_IRRADIANCE_EXTRATERRESTRIAL,
+                    ClimateVariable.DIRECT_NORMAL_IRRADIANCE,
+                    ClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE,
+                    ClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE,
+                    ClimateVariable.SURFACE_AIR_TEMPERATURE,
+                    ClimateVariable.ALTITUDE,
+                    ClimateVariable.AZIMUTH,
+                    ClimateVariable.APPARENT_ZENITH,
+                    ClimateVariable.WIND_SPEED,
+                    ClimateVariable.DIRECT_NORMAL_IRRADIANCE_EXTRATERRESTRIAL,
                 ],
             )
+            # store the resampled data in the cache
             database.to_csv(cache_filepath)
 
         # write one year forecast to simulation repository for PV processing -> if PV forecasts are needed
-        if self.my_simulation_parameters.system_config.predictive:
+        if self.my_simulation_parameters.predictive_control:
             self.simulation_repository.set_entry(
                 self.Weather_TemperatureOutside_yearly_forecast, self.temperature_list
             )
@@ -472,141 +439,129 @@ class UtspWeather(Component):
         # TODO: why always resample to 1 Minute and not directly to the simulation resolution
         return data.resample("1T").asfreq().interpolate(method="linear")
 
+    def get_try_coordinates(self) -> Dict[str, float]:
+        """Gets coordinates of the weather station of the specified test reference year
+        region"""
+        # get TRY region number
+        weather_request = json.loads(self.weather_config.weather_request)
+        try_region = weather_request["reference_region"]
+        assert 1 <= try_region <= 15, "Invalid reference region"
+        # read coordinates from file
+        coordinates_file = os.path.join(
+            utils.get_input_directory(), "weather", "try_region_coordinates.json"
+        )
+        with open(coordinates_file, "r") as file:
+            coordinates = json.load(file)
+        return coordinates[str(try_region)]
 
-def read_data(raw_data: str) -> pd.DataFrame:
-    """
-    Parses weather data from the UTSP weather_provider.
-    """
-    data_buffer = io.StringIO(raw_data)
-    data = pd.read_csv(
-        data_buffer,
-        index_col=0,
-        parse_dates=[0],
-    )
-    # convert to datetime index (needs to be done in UTC), and then change the time zone back to utc+1
-    data.index = pd.to_datetime(data.index, utc=True).tz_convert(tz=TIME_ZONE)
+    def read_data(self, raw_data: str) -> pd.DataFrame:
+        """
+        Parses weather data from the UTSP weather_provider.
+        Data index is given in UTC.
 
-    # map the column names in the data to the corresponding variable names
-    general_name_mapping = {
-        "temperature [degC]": AtmosphericClimateVariable.SURFACE_AIR_TEMPERATURE,
-        "wind speed [m/s]": AtmosphericClimateVariable.WIND_SPEED,
-        "pressure [hPa]": AtmosphericClimateVariable.AIR_PRESSURE,
-        "wind direction [deg]": AtmosphericClimateVariable.WIND_DIRECTION,
-    }
-    if any(x not in data for x in general_name_mapping.keys()):
-        raise Exception("Missing weather data")
-    synthetic_name_mapping = {
-        "synthetic diffuse irradiance [W/m^2]": AtmosphericClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE,
-        "synthetic global irradiance [W/m^2]": AtmosphericClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE,
-    }
-    measured_name_mapping = {
-        "direct irradiance [W/m^2]": AtmosphericClimateVariable.DIRECT_HORIZONTAL_IRRADIANCE,
-        "diffuse irradiance [W/m^2]": AtmosphericClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE,
-    }
-    if all(x in data for x in synthetic_name_mapping.keys()):
-        # synthetic irradiance data with higher resolution is available
-        mapping = dict(general_name_mapping, **synthetic_name_mapping)
-    elif all(x in data for x in measured_name_mapping.keys()):
-        # measured irradiance data with low resolution is available
-        mapping = dict(general_name_mapping, **measured_name_mapping)
-    else:
-        raise Exception("Missing irradiance data")
-    data = data.rename(columns=mapping)
-
-    # TODO: calculate missing data; depending on whether synthetic or measured is used, this
-    # is direct_horizontal or global_horizontal, and in each case direct_normal
-    # TODO: prepare_inputs can calculate all missing irradiance data automatically: can it be used without specifying a PV-System?
-    # if not: calculate missing data 'manually'
-    # pvlib.modelchain.ModelChain().prepare_inputs(data)
-
-    # calculate direct horizontal irradiance
-    direct_horizontal_irradiance = (
-        data[AtmosphericClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE]
-        - data[AtmosphericClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE]
-    )
-
-    lon, lat = 53, 8  # TODO: somehow obtain coordinates
-    # calculate direct normal irradiance
-    data[
-        AtmosphericClimateVariable.DIRECT_NORMAL_IRRADIANCE
-    ] = calculate_direct_normal_radiation(direct_horizontal_irradiance, lon, lat)
-    return data
-
-
-def read_dwd_data(filepath: str, year: int) -> Any:
-    """Reads the DWD data."""
-    # get the geoposition
-    with open(filepath + ".dat", encoding="utf-8") as file_stream:
-        lines = file_stream.readlines()
-        location_name = lines[0].split(maxsplit=2)[2].replace("\n", "")
-        lat = float(lines[1][20:37])
-        lon = float(lines[2][15:30])
-    location_dict = {"name": location_name, "latitude": lat, "longitude": lon}
-    # check if time series data already exists as .csv with DNI
-    if os.path.isfile(filepath + ".csv"):
+        Instructions for TRY data are given here:
+        https://www.bbsr.bund.de/BBSR/DE/forschung/programme/zb/Auftragsforschung/5EnergieKlimaBauen/2008/Testreferenzjahre/TRY_Handbuch.pdf?__blob=publicationFile&v=2
+        """
+        data_buffer = io.StringIO(raw_data)
         data = pd.read_csv(
-            filepath + ".csv", index_col=0, parse_dates=True, sep=";", decimal=","
+            data_buffer,
+            index_col=0,
+            parse_dates=[0],
         )
-        data.index = pd.to_datetime(data.index, utc=True).tz_convert(TIME_ZONE)
-    # else read from .dat and calculate DNI etc.
-    else:
-        # get data
-        data = pd.read_csv(filepath + ".dat", sep=r"\s+", skiprows=list(range(0, 31)))
-        data.index = pd.date_range(
-            f"{year}-01-01 00:30:00", periods=8760, freq="H", tz=TIME_ZONE
-        )
-        data["GHI"] = data["D"] + data["B"]
-        data = data.rename(
-            columns={
-                "D": "DHI",
-                "t": "T",
-                "WG": "Wspd",
-                "MM": "Month",
-                "DD": "Day",
-                "HH": "Hour",
-                "p": "Pressure",
-                "WR": "Wdir",
-            }
-        )
+        # convert to datetime index (needs to be done in UTC), and then change the time zone back to utc+1
+        data.index = pd.to_datetime(data.index, utc=True).tz_convert(tz=TIME_ZONE)
 
-        # calculate direct normal
-        data["DNI"] = calculate_direct_normal_radiation(
-            data["B"], lon, lat
-        )  # data["DNI"] = data["B"]
-
-        # save as .csv  # data.to_csv(filepath + ".csv",sep=";",decimal=",")
-    return data, location_dict
-
-
-def read_nsrdb_data(filepath, year):
-    """Reads a set of NSRDB data."""
-    with open(filepath + ".dat", encoding="utf-8") as file_stream:
-        lines = file_stream.readlines()
-        location_name = lines[0].split(maxsplit=2)[2].replace("\n", "")
-        lat = float(lines[1][20:25])
-        lon = float(lines[2][15:20])
-    location_dict = {"name": location_name, "latitude": lat, "longitude": lon}
-    # get data
-    data = pd.read_csv(filepath + ".dat", sep=",", skiprows=list(range(0, 11)))
-    data = data.drop(data.index[8761:8772])
-    data.index = pd.date_range(
-        f"{year}-01-01 00:30:00", periods=8760, freq="H", tz=TIME_ZONE
-    )
-    data = data.rename(
-        columns={
-            "DHI": "DHI",
-            "Temperature": "T",
-            "Wind Speed": "Wspd",
-            "MM": "Month",
-            "DD": "Day",
-            "HH": "Hour",
-            "Pressure": "Pressure",
-            "Wind Direction": "Wdir",
-            "GHI": "GHI",
-            "DNI": "DNI",
+        # map the column names in the data to the corresponding variable names
+        general_name_mapping = {
+            "temperature [degC]": ClimateVariable.SURFACE_AIR_TEMPERATURE,
+            "wind speed [m/s]": ClimateVariable.WIND_SPEED,
+            "pressure [hPa]": ClimateVariable.AIR_PRESSURE,
+            "wind direction [deg]": ClimateVariable.WIND_DIRECTION,
         }
+        # check if any of the irreplaceable data columns is missing
+        if any(x not in data for x in general_name_mapping.keys()):
+            raise Exception("Missing weather data")
+        synthetic_name_mapping = {
+            "synthetic diffuse irradiance [W/m^2]": ClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE,
+            "synthetic global irradiance [W/m^2]": ClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE,
+        }
+        measured_name_mapping = {
+            "direct irradiance [W/m^2]": ClimateVariable.DIRECT_HORIZONTAL_IRRADIANCE,
+            "diffuse irradiance [W/m^2]": ClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE,
+        }
+        # select irradiance data to use
+        if all(x in data for x in synthetic_name_mapping.keys()):
+            # synthetic irradiance data with higher resolution is available
+            mapping = dict(general_name_mapping, **synthetic_name_mapping)
+        elif all(x in data for x in measured_name_mapping.keys()):
+            # measured irradiance data with low resolution is available
+            mapping = dict(general_name_mapping, **measured_name_mapping)
+        else:
+            # no irradiance data is available at all
+            raise Exception("Missing irradiance data")
+        # rename the relevant columns using the standardized names
+        data = data.rename(columns=mapping)
+        return data
+
+
+def set_weather_data_year_to_simulation_year(
+    data: pd.DataFrame, simulation_year: int
+) -> None:
+    """Sets year of the weather data to the year from the simulation parameters.
+    It checks whether the original year or the simulation year are leap years."""
+    start_date = data.index[0].replace(year=simulation_year)
+    end_date = data.index[-1].replace(year=simulation_year)
+    # create a new index for the simulation year, in the same resolution
+    new_index = pd.date_range(start_date, end=end_date, freq=pd.infer_freq(data.index))
+    # check if the original year or the simulation year is a leap year
+    if len(new_index) < len(data.index):
+        # leap day in original data but not in simulation year
+        # --> remove the 29.02. from the original data
+        # TODO: this branch was not tested yet
+        leap_day = data.loc[f"{simulation_year}-02-29"]
+        data.drop(leap_day.index, inplace=True)
+    elif len(new_index) > len(data.index):
+        # leap day in simulation year but not in original data
+        # --> remove the 29.02. from the new index
+        new_index_df = new_index.to_frame(index=True)
+        leap_day = new_index_df.loc[f"{simulation_year}-02-29"]
+        new_index_df.drop(leap_day.index, inplace=True)
+        new_index = new_index_df.index
+    # assign the new index
+    data.index = new_index
+
+
+def calc_missing_irradiation_components(
+    data: pd.DataFrame, latitude: float, longitude: float
+) -> None:
+    """Calculate missing data; depending on whether synthetic or measured is used, this
+    is direct_horizontal or global_horizontal, and in each case direct_normal"""
+    # calculate direct horizontal irradiance or global horizontal irradiance
+    assert (
+        ClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE in data
+    ), f"{ClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE} data column is missing"
+
+    # check which data is already present and, depending on that, calculate missing data
+    if ClimateVariable.DIRECT_HORIZONTAL_IRRADIANCE not in data:
+        assert (
+            ClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE in data
+        ), f"{ClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE} data column is missing"
+        # calculate missing direct horizontal irradiance
+        data[ClimateVariable.DIRECT_HORIZONTAL_IRRADIANCE] = (
+            data[ClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE]
+            - data[ClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE]
+        )
+    elif ClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE not in data:
+        # calculate missing global horizontal irradiance
+        data[ClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE] = (
+            data[ClimateVariable.DIRECT_HORIZONTAL_IRRADIANCE]
+            + data[ClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE]
+        )
+
+    # calculate direct normal irradiance
+    data[ClimateVariable.DIRECT_NORMAL_IRRADIANCE] = calculate_direct_normal_radiation(
+        data[ClimateVariable.DIRECT_HORIZONTAL_IRRADIANCE], longitude, latitude
     )
-    return data, location_dict
 
 
 def calculate_direct_normal_radiation(
