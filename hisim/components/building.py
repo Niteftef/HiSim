@@ -1708,6 +1708,9 @@ class Window:
         :return: self.solar_gains - Solar gains in building after transmitting through the window
         :rtype: float
         """
+        if window_azimuth_angle is None:
+            window_azimuth_angle = 0
+            log.warning("window azimuth angle was set to 0 south because no value was set.")
         poa_irrad = pvlib.irradiance.get_total_irradiance(
             window_tilt_angle,
             window_azimuth_angle,
