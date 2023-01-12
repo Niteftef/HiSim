@@ -310,35 +310,29 @@ class UtspWeather(Component):
                 data, latitude=latitude, longitude=longitude
             )
 
-            # TODO: When testing, it was observed that the wheather data was changed even when loaded in the same resolution as the simulation, so that
-            # the interpolation should have no effect. Either find the issue or remove the interpolation (it should not be necessary for TRY data)
+            # TODO: Bei der Umrechnung von Irradiance-Daten muss darauf geachtet werden, ob der Zeitstempel der Daten linksbündig, rechtsbündig oder etwas anderes ist
+            # (also für welche Zeitspanne ein einzelner Messwert steht). Wir müssen herausfinden, was bei den TRY-Daten der Fall ist und ggf. die Stützstellen beim interpolieren richtig setzen.
             direct_normal_irradiance = self.interpolate(
-                data[ClimateVariable.DIRECT_NORMAL_IRRADIANCE],
-                self.my_simulation_parameters.year,
+                data[ClimateVariable.DIRECT_NORMAL_IRRADIANCE]
             )
             # calculate extra terrestrial radiation - needed for perez array diffuse irradiance models
             direct_normal_irradiance_extraterrestrial = pd.Series(pvlib.irradiance.get_extra_radiation(direct_normal_irradiance.index), index=direct_normal_irradiance.index)  # type: ignore
             # DNI_data = self.interpolate(tmy_data['DNI'], 2015)
+
             temperature = self.interpolate(
-                data[ClimateVariable.SURFACE_AIR_TEMPERATURE],
-                self.my_simulation_parameters.year,
+                data[ClimateVariable.SURFACE_AIR_TEMPERATURE]
             )
             diffuse_horizontal_irradiance = self.interpolate(
-                data[ClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE],
-                self.my_simulation_parameters.year,
+                data[ClimateVariable.DIFFUSE_HORIZONTAL_IRRADIANCE]
             )
             global_horizontal_irradiance = self.interpolate(
-                data[ClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE],
-                self.my_simulation_parameters.year,
+                data[ClimateVariable.GLOBAL_HORIZONTAL_IRRADIANCE]
             )
             solar_position = pvlib.solarposition.get_solarposition(direct_normal_irradiance.index, latitude=latitude, longitude=longitude)  # type: ignore
             altitude = solar_position["elevation"]
             azimuth = solar_position["azimuth"]
             apparent_zenith = solar_position["apparent_zenith"]
-            wind_speed = self.interpolate(
-                data[ClimateVariable.WIND_SPEED],
-                self.my_simulation_parameters.year,
-            )
+            wind_speed = self.interpolate(data[ClimateVariable.WIND_SPEED])
 
             # collect all interpolated series in a list
             interpolated_data = [
@@ -352,12 +346,6 @@ class UtspWeather(Component):
                 wind_speed,
                 direct_normal_irradiance_extraterrestrial,
             ]
-            # resample all series objects to simulation resolution
-            if seconds_per_timestep != 60:
-                for i, series in enumerate(interpolated_data):
-                    interpolated_data[i] = series.resample(
-                        str(seconds_per_timestep) + "S"
-                    ).mean()
 
             # save values in component output members
             self.temperature_list = temperature.tolist()
@@ -416,11 +404,12 @@ class UtspWeather(Component):
                 self.Weather_WindSpeed_yearly_forecast, self.wind_speed_list
             )
 
-    def interpolate(self, data: Any, year: int) -> Any:
-        """Interpolates a timeseries to 1-minute resolution and interpolates missing data
+    def interpolate(self, data: pd.Series) -> pd.Series:
+        """Interpolates a timeseries to simulation resolution and interpolates missing data
         in the beginning or end of the simulation time frame."""
         # if the data starts after the simulation start date or ends before the simulation
         # end date, add the respective date to interpolate the missing parts
+        year = self.my_simulation_parameters.year
         start_date = pd.Timestamp(datetime(year, 1, 1, 0, 0), tz=TIME_ZONE)
         if start_date < data.index[0]:
             firstday = pd.Series(
@@ -431,13 +420,29 @@ class UtspWeather(Component):
         end_date = pd.Timestamp(datetime(year, 12, 31, 23, 59), tz=TIME_ZONE)
         if end_date > data.index[-1]:
             lastday = pd.Series(
-                data[-1],
+                data.iloc[-1],
                 index=[end_date],
             )
             data = pd.concat([data, lastday])
-        # resample to 1 minute resolution
-        # TODO: why always resample to 1 Minute and not directly to the simulation resolution
-        return data.resample("1T").asfreq().interpolate(method="linear")
+
+        # resample to simulation resolution
+        simulation_resolution = (
+            str(self.my_simulation_parameters.seconds_per_timestep) + "S"
+        )
+        # create index with sampling points in simulation resolution
+        simulation_resolution_index = (
+            data.resample(simulation_resolution).asfreq().index
+        )
+        # add sampling points for simulation to index of original data
+        new_index = data.index.union(simulation_resolution_index)
+        # use the new index for the series, new sampling points are NaN
+        reindexed_data = data.reindex(new_index)
+        # fill NaN values by interpolating
+        interpolated = reindexed_data.interpolate(method="time")
+
+        # return only the data at the sampling points required for simulation,
+        # excluding those from the raw data that are "between" the sampling points
+        return interpolated[simulation_resolution_index]
 
     def get_try_coordinates(self) -> Dict[str, float]:
         """Gets coordinates of the weather station of the specified test reference year
