@@ -62,7 +62,7 @@ def test_house_with_pv_and_hp_for_heating_test(
     building_heat_capacity_class = "medium"
     initial_temperature_in_celsius = 23
     heating_reference_temperature_in_celsius = -14
-    absolute_conditioned_floor_area_in_m2 = 218.9
+    # absolute_conditioned_floor_area_in_m2 = 218.9
     total_base_area_in_m2 = None
 
     # Set Heat Pump Controller
@@ -96,14 +96,18 @@ def test_house_with_pv_and_hp_for_heating_test(
         encoding="cp1252",
         low_memory=False,
     )
-    with open("mydata.csv", "w",) as myfile:
-        myfile.write("building_code" + ";" + "energy_need_for_heating_from_heat_pump_in_kilowatt_hour_per_year_per_m2" + ";" + "energy_need_for_heating_given_by_tabula_in_kilowatt_hour_per_year_per_m2" + ";" + "ratio_hp_tabula" + "\n")
-    energy_need_data_frame = list([0,0,0,0])
-    log.information("energy need " + str(energy_need_data_frame))
-    for building_code in d_f["Code_BuildingVariant"]:
-        if isinstance(building_code, str):
-            log.information("building code " + str(building_code))
 
+    with open("test_building_heating_demand_all_tabula_energy_needs.csv", "w",) as myfile:
+        myfile.write("Building Code" + ";" + "Energy need for heating from Heat Pump [kWh/(a*m2)]" + ";" + "Energy need for heating from TABULA [kWh/(a*m2)]" + ";" + "Ratio HP/TABULA" + "\n")
+
+    for building_code in d_f["Code_BuildingVariant"]:
+        buildingdata = d_f.loc[
+            d_f["Code_BuildingVariant"] == building_code
+        ]
+        tabula_conditioned_floor_area = buildingdata["A_C_Ref"].values[0]
+        if isinstance(building_code, str) and tabula_conditioned_floor_area != 0: # and d_f[d_f["Code_BuildingVariant"]==building_code].index.values > 2340:
+            #log.information("building code " + str(d_f[d_f["Code_BuildingVariant"]==building_code].index.values))
+            log.information("tabula floor area " + str(tabula_conditioned_floor_area))
             # this part is copied from hisim_main
             # Build Simulator
             normalized_path = os.path.normpath(PATH)
@@ -141,7 +145,7 @@ def test_house_with_pv_and_hp_for_heating_test(
                 initial_internal_temperature_in_celsius=initial_temperature_in_celsius,
                 heating_reference_temperature_in_celsius=heating_reference_temperature_in_celsius,
                 name="Building1",
-                absolute_conditioned_floor_area_in_m2=absolute_conditioned_floor_area_in_m2,
+                absolute_conditioned_floor_area_in_m2=tabula_conditioned_floor_area,
                 total_base_area_in_m2=total_base_area_in_m2,
             )
             my_building = building.Building(
@@ -251,7 +255,7 @@ def test_house_with_pv_and_hp_for_heating_test(
                 "HeatPump - Heating [Heating - W]"
             ]
             sum_heating_in_watt_timestep = sum(results_heatpump_heating)
-            log.information("sum hp heating [W*timestep] " + str(sum_heating_in_watt_timestep))
+            # log.information("sum hp heating [W*timestep] " + str(sum_heating_in_watt_timestep))
             timestep_factor = seconds_per_timestep / 3600
             sum_heating_in_watt_hour = sum_heating_in_watt_timestep * timestep_factor
             sum_heating_in_kilowatt_hour = sum_heating_in_watt_hour / 1000
@@ -262,17 +266,17 @@ def test_house_with_pv_and_hp_for_heating_test(
                 my_building.buildingdata["q_h_nd"].values[0]
             )
 
-            energy_need_for_heating_from_heat_pump_in_kilowatt_hour_per_year_per_m2 = (
-                sum_heating_in_kilowatt_hour / absolute_conditioned_floor_area_in_m2
-            )
-            log.information(
-                "energy need for heating from tabula [kWh/(a*m2)] "
-                + str(energy_need_for_heating_given_by_tabula_in_kilowatt_hour_per_year_per_m2)
-            )
-            log.information(
-                "energy need for heating from heat pump [kWh/(a*m2)] "
-                + str(energy_need_for_heating_from_heat_pump_in_kilowatt_hour_per_year_per_m2)
-            )
+            energy_need_for_heating_from_heat_pump_in_kilowatt_hour_per_year_per_m2 = np.round((
+                sum_heating_in_kilowatt_hour / my_building_config.absolute_conditioned_floor_area_in_m2
+            ),1)
+            # log.information(
+            #     "energy need for heating from tabula [kWh/(a*m2)] "
+            #     + str(energy_need_for_heating_given_by_tabula_in_kilowatt_hour_per_year_per_m2)
+            # )
+            # log.information(
+            #     "energy need for heating from heat pump [kWh/(a*m2)] "
+            #     + str(energy_need_for_heating_from_heat_pump_in_kilowatt_hour_per_year_per_m2)
+            # )
             # test whether tabula energy demand for heating is equal to energy demand for heating generated from heat pump with a tolerance of 30%
             # np.testing.assert_allclose(
             #     energy_need_for_heating_given_by_tabula_in_kilowatt_hour_per_year_per_m2,
@@ -280,14 +284,7 @@ def test_house_with_pv_and_hp_for_heating_test(
             #     rtol=0.3,
             # )
 
-            ratio_hp_tabula = energy_need_for_heating_from_heat_pump_in_kilowatt_hour_per_year_per_m2 / energy_need_for_heating_given_by_tabula_in_kilowatt_hour_per_year_per_m2
-            energy_need = list([building_code, energy_need_for_heating_from_heat_pump_in_kilowatt_hour_per_year_per_m2, energy_need_for_heating_given_by_tabula_in_kilowatt_hour_per_year_per_m2, ratio_hp_tabula])
-            log.information("energy need " + str(energy_need))
-            energy_need_data_frame = np.append(energy_need_data_frame,energy_need, axis=0)
-            log.information("energy need " + str(energy_need_data_frame))
-            with open("mydata.csv", "a",) as myfile:
-                myfile.write(building_code + ";" + str(energy_need_for_heating_from_heat_pump_in_kilowatt_hour_per_year_per_m2) + ";" + str(energy_need_for_heating_given_by_tabula_in_kilowatt_hour_per_year_per_m2) + ";" + str(ratio_hp_tabula) + "\n")
+            ratio_hp_tabula = np.round(energy_need_for_heating_from_heat_pump_in_kilowatt_hour_per_year_per_m2 / energy_need_for_heating_given_by_tabula_in_kilowatt_hour_per_year_per_m2,2)
 
-            # energy_need_data_frame = pd.DataFrame(data=energy_need_data_frame, columns=["BuildingCode", "Q_h_nd HeatPump [kWh/a*m2]", "Q_h_nd Tabula [kWh/a*m2]", "Ratio HP/Tabula"])
-            # energy_need_data_frame.to_excel("C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Households\\household_with_pv_and_hp_for_test_building_heating_demand\\file.xlsx")
-                
+            with open("test_building_heating_demand_all_tabula_energy_needs.csv", "a",) as myfile:
+                myfile.write(building_code + ";" + str(energy_need_for_heating_from_heat_pump_in_kilowatt_hour_per_year_per_m2) + ";" + str(energy_need_for_heating_given_by_tabula_in_kilowatt_hour_per_year_per_m2) + ";" + str(ratio_hp_tabula) + "\n")

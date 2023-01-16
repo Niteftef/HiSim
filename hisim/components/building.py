@@ -277,7 +277,7 @@ class Building(dynamic_component.DynamicComponent):
         self.buildingcode: str
 
         # before labeled as a_f
-        self.conditioned_floor_area_in_m2: float = 0
+        self.conditioned_floor_area_in_m2: float = 1
         self.scaled_conditioned_floor_area_in_m2: float = 0
         self.scaling_factor: float = 1
         # before labeled as a_m
@@ -746,6 +746,7 @@ class Building(dynamic_component.DynamicComponent):
         self.conditioned_floor_area_in_m2 = float(
             self.buildingdata["A_C_Ref"].values[0]
         )
+
         self.room_height_in_m2 = float(self.buildingdata["h_room"].values[0])
 
         # Get scaled areas
@@ -917,39 +918,37 @@ class Building(dynamic_component.DynamicComponent):
             )
         if self.buildingconfig.absolute_conditioned_floor_area_in_m2 is not None:
 
-            # absolute conditioned floor area is given
-            factor_of_absolute_floor_area_to_tabula_floor_area = (
-                self.buildingconfig.absolute_conditioned_floor_area_in_m2
-                / self.conditioned_floor_area_in_m2
-            )
-
             # this is for preventing that the conditioned_floor_area is 0 (some buildings in TABULA have conditioned_floor_area (A_C_Ref) = 0)
             if self.conditioned_floor_area_in_m2 == 0:
                 self.scaled_conditioned_floor_area_in_m2 = (
                     self.buildingconfig.absolute_conditioned_floor_area_in_m2
                 )
+                factor_of_absolute_floor_area_to_tabula_floor_area = 1
             # scaling conditioned floor area
             else:
+                factor_of_absolute_floor_area_to_tabula_floor_area = (
+                self.buildingconfig.absolute_conditioned_floor_area_in_m2
+                / self.conditioned_floor_area_in_m2
+            )
                 self.scaled_conditioned_floor_area_in_m2 = (
                     self.conditioned_floor_area_in_m2
                     * factor_of_absolute_floor_area_to_tabula_floor_area
                 )
             self.scaling_factor = factor_of_absolute_floor_area_to_tabula_floor_area
-
+            log.information("scaling factor " + str(self.scaling_factor))
         elif self.buildingconfig.total_base_area_in_m2 is not None:
-
-            # total base area is given
-            factor_of_total_base_area_to_tabula_floor_area = (
-                self.buildingconfig.total_base_area_in_m2
-                / self.conditioned_floor_area_in_m2
-            )
             # this is for preventing that the conditioned_floor_area is 0
             if self.conditioned_floor_area_in_m2 == 0:
                 self.scaled_conditioned_floor_area_in_m2 = (
                     self.buildingconfig.total_base_area_in_m2
                 )
+                factor_of_total_base_area_to_tabula_floor_area = 1
             # scaling conditioned floor area
             else:
+                factor_of_total_base_area_to_tabula_floor_area = (
+                self.buildingconfig.total_base_area_in_m2
+                / self.conditioned_floor_area_in_m2
+                )
                 self.scaled_conditioned_floor_area_in_m2 = (
                     self.conditioned_floor_area_in_m2
                     * factor_of_total_base_area_to_tabula_floor_area
@@ -976,9 +975,18 @@ class Building(dynamic_component.DynamicComponent):
         ]
         # assumption: building is a cuboid with square floor area (area_of_one_wall = wall_length * wall_height, with wall_length = sqrt(floor_area))
         # then the total_wall_area = 4 * area_of_one_wall
-        total_wall_area_in_m2 = (
-            4 * math.sqrt(self.conditioned_floor_area_in_m2) * self.room_height_in_m2
+        if self.conditioned_floor_area_in_m2 == 0 and self.buildingconfig.total_base_area_in_m2 is not None:
+            total_wall_area_in_m2 = (
+            4 * math.sqrt(self.buildingconfig.total_base_area_in_m2) * self.room_height_in_m2
         )
+        elif self.conditioned_floor_area_in_m2 == 0 and self.buildingconfig.absolute_conditioned_floor_area_in_m2 is not None:
+            total_wall_area_in_m2 = (
+            4 * math.sqrt(self.buildingconfig.absolute_conditioned_floor_area_in_m2) * self.room_height_in_m2
+        )
+        else: 
+            total_wall_area_in_m2 = (
+                4 * math.sqrt(self.conditioned_floor_area_in_m2) * self.room_height_in_m2
+            )
         self.scaled_window_areas_in_m2 = []
         for windows_direction in self.windows_directions:
             window_area_in_m2 = float(
