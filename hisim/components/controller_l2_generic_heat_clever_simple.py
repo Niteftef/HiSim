@@ -191,7 +191,7 @@ class L2HeatSmartController(cp.Component):
         log.information("setting building default connections in L2 Controller")
         connections = [ ]
         building_classname = Building.get_classname( )
-        connections.append(cp.ComponentConnection(L2HeatSmartController.ReferenceTemperature, building_classname, Building.TemperatureMean))
+        connections.append(cp.ComponentConnection(L2HeatSmartController.ReferenceTemperature, building_classname, Building.TemperatureMeanThermalMass))
         return connections
     def i_prepare_simulation(self) -> None:
         """ Prepares the simulation. """

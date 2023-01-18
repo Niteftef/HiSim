@@ -203,7 +203,7 @@ class L1HeatPumpController(cp.Component):
         connections = []
         building_classname = building.Building.get_classname()
         connections.append(cp.ComponentConnection(L1HeatPumpController.StorageTemperature, building_classname,
-                                                  building.Building.TemperatureMean))
+                                                  building.Building.TemperatureMeanThermalMass))
         return connections
 
     def i_prepare_simulation(self) -> None:

@@ -195,7 +195,7 @@ class L2GenericHeatController(cp.Component):
         log.information("setting building default connections in L2 Controller")
         connections = []
         building_classname = Building.get_classname()
-        connections.append(cp.ComponentConnection(L2GenericHeatController.ReferenceTemperature, building_classname, Building.TemperatureMean))
+        connections.append(cp.ComponentConnection(L2GenericHeatController.ReferenceTemperature, building_classname, Building.TemperatureMeanThermalMass))
         return connections
 
     def get_default_connections_from_generic_hot_water_storage_modular(self):

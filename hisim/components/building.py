@@ -209,7 +209,7 @@ class Building(dynamic_component.DynamicComponent):
 
     # Outputs
     InitialInternalTemperature = "InitialInternalTemperature"
-    TemperatureMean = "ResidenceTemperature"
+    TemperatureMeanThermalMass = "ResidenceTemperature"
     TemperatureInternalSurface = "TemperatureInternalSurface"
     TemperatureIndoorAir ="TemperatureIndoorAir"
     TotalEnergyToResidence = "TotalEnergyToResidence"
@@ -427,7 +427,7 @@ class Building(dynamic_component.DynamicComponent):
 
         self.thermal_mass_temperature_channel: cp.ComponentOutput = self.add_output(
             self.component_name,
-            self.TemperatureMean,
+            self.TemperatureMeanThermalMass,
             lt.LoadTypes.TEMPERATURE,
             lt.Units.CELSIUS,
         )

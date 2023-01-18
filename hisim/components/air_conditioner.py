@@ -327,7 +327,7 @@ class AirConditionercontroller(cp.Component):
         connections = []
         building_classname = Building.get_classname()
         connections.append(cp.ComponentConnection(AirConditionercontroller.TemperatureMean, building_classname,
-                                                  Building.TemperatureMean))
+                                                  Building.TemperatureMeanThermalMass))
         return connections
 
     def build(self, t_air_heating, t_air_cooling, offset):

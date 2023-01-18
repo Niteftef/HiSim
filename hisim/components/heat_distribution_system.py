@@ -320,7 +320,7 @@ class HeatDistributionController(cp.Component):
             cp.ComponentConnection(
                 HeatDistributionController.ResidenceTemperature,
                 building_classname,
-                Building.TemperatureMean,
+                Building.TemperatureMeanThermalMass,
             )
         )
         return connections

@@ -180,7 +180,7 @@ def household_gas_heater(
     my_heat_water_storage_controller.connect_input(
         my_heat_water_storage_controller.BuildingTemperature,
         my_building.component_name,
-        my_building.TemperatureMean,
+        my_building.TemperatureMeanThermalMass,
     )
     my_heat_water_storage_controller.connect_input(
         my_heat_water_storage_controller.ReferenceMaxHeatBuildingDemand,
@@ -196,7 +196,7 @@ def household_gas_heater(
     my_controller_heat.connect_input(
         my_controller_heat.ResidenceTemperature,
         my_building.component_name,
-        my_building.TemperatureMean,
+        my_building.TemperatureMeanThermalMass,
     )
 
     # =================================================================================================================================

@@ -100,7 +100,7 @@ class PIDController(cp.Component):
         connections = []
         building_classname = Building.get_classname()
         connections.append(
-            cp.ComponentConnection(PIDController.TemperatureMean, building_classname, Building.TemperatureMean))
+            cp.ComponentConnection(PIDController.TemperatureMean, building_classname, Building.TemperatureMeanThermalMass))
         # connections.append(cp.ComponentConnection(PIDController.SolarGainThroughWindows, building_classname,                                                  Building.SolarGainThroughWindows))
 
         return connections
