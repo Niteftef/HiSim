@@ -209,7 +209,7 @@ class Building(dynamic_component.DynamicComponent):
 
     # Outputs
     InitialInternalTemperature = "InitialInternalTemperature"
-    TemperatureMeanThermalMass = "ResidenceTemperature"
+    TemperatureMeanThermalMass = "TemperatureMeanThermalMass"
     TemperatureInternalSurface = "TemperatureInternalSurface"
     TemperatureIndoorAir ="TemperatureIndoorAir"
     TotalEnergyToResidence = "TotalEnergyToResidence"
