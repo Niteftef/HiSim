@@ -210,6 +210,8 @@ class Building(dynamic_component.DynamicComponent):
     # Outputs
     InitialInternalTemperature = "InitialInternalTemperature"
     TemperatureMean = "ResidenceTemperature"
+    TemperatureInternalSurface = "TemperatureInternalSurface"
+    TemperatureIndoorAir ="TemperatureIndoorAir"
     TotalEnergyToResidence = "TotalEnergyToResidence"
     SolarGainThroughWindows = "SolarGainThroughWindows"
     ReferenceMaxHeatBuildingDemand = "ReferenceMaxHeatBuildingDemand"
@@ -429,6 +431,18 @@ class Building(dynamic_component.DynamicComponent):
             lt.LoadTypes.TEMPERATURE,
             lt.Units.CELSIUS,
         )
+        self.internal_surface_temperature_channel: cp.ComponentOutput = self.add_output(
+            self.component_name,
+            self.TemperatureInternalSurface,
+            lt.LoadTypes.TEMPERATURE,
+            lt.Units.CELSIUS,
+        )
+        self.indoor_air_temperature_channel: cp.ComponentOutput = self.add_output(
+            self.component_name,
+            self.TemperatureIndoorAir,
+            lt.LoadTypes.TEMPERATURE,
+            lt.Units.CELSIUS,
+        )
         self.total_power_to_residence_channel: cp.ComponentOutput = self.add_output(
             self.component_name,
             self.TotalEnergyToResidence,
@@ -613,6 +627,8 @@ class Building(dynamic_component.DynamicComponent):
         (
             thermal_mass_average_bulk_temperature_in_celsius,
             heat_loss_in_watt,
+            internal_surface_temp,
+            indoor_air_temp, 
         ) = self.calc_crank_nicolson(
             thermal_power_delivered_in_watt=thermal_power_delivered_in_watt,
             internal_heat_gains_in_watt=self.internal_heat_gains_through_occupancy_in_watt,
@@ -632,6 +648,14 @@ class Building(dynamic_component.DynamicComponent):
         stsv.set_output_value(
             self.thermal_mass_temperature_channel,
             thermal_mass_average_bulk_temperature_in_celsius,
+        )
+        stsv.set_output_value(
+            self.internal_surface_temperature_channel,
+            internal_surface_temp,
+        )
+        stsv.set_output_value(
+            self.indoor_air_temperature_channel,
+            indoor_air_temp,
         )
         # maybe later of interest: stsv.set_output_value(self.t_airC, t_air)
         # phi_loss is already given in W, time correction factor applied to thermal transmittance h_tr
@@ -1549,25 +1573,29 @@ class Building(dynamic_component.DynamicComponent):
         )
 
         # keep these calculations if later you are interested in the indoor surface or air temperature
-        # # Updates internal surface temperature (t_s)
-        # internal_room_surface_temperature_in_celsius = (
-        #     self.calc_temperature_of_internal_room_surfaces_in_celsius(
-        #         outside_temperature_in_celsius,
-        #         thermal_mass_average_bulk_temperature_in_celsius,
-        #     )
-        # )
+        # Updates internal surface temperature (t_s)
+        internal_room_surface_temperature_in_celsius = (
+            self.calc_temperature_of_internal_room_surfaces_in_celsius(
+                outside_temperature_in_celsius,
+                thermal_mass_average_bulk_temperature_in_celsius,
+                thermal_power_delivered_in_watt
+            )
+        )
 
-        # # Updates indoor air temperature (t_air)
-        # indoor_air_temperature_in_celsius = (
-        #     self.calc_temperature_of_the_inside_air_in_celsius(
-        #         outside_temperature_in_celsius,
-        #         internal_room_surface_temperature_in_celsius,
-        #     )
-        # )
+        # Updates indoor air temperature (t_air)
+        indoor_air_temperature_in_celsius = (
+            self.calc_temperature_of_the_inside_air_in_celsius(
+                outside_temperature_in_celsius,
+                internal_room_surface_temperature_in_celsius,
+                thermal_power_delivered_in_watt
+            )
+        )
 
         return (
             thermal_mass_average_bulk_temperature_in_celsius,
             heat_loss_in_watt,
+            internal_room_surface_temperature_in_celsius,
+            indoor_air_temperature_in_celsius
         )
         # then then return t_m, t_air, t_s, indoor_air_temperature_in_celsius,internal_room_surface_temperature_in_celsius,
 

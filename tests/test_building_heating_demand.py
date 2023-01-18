@@ -62,7 +62,7 @@ def test_house_with_pv_and_hp_for_heating_test(
     building_heat_capacity_class = "medium"
     initial_temperature_in_celsius = 23
     heating_reference_temperature_in_celsius = -14
-    # absolute_conditioned_floor_area_in_m2 = 218.9
+    absolute_conditioned_floor_area_in_m2 = 10000
     total_base_area_in_m2 = None
 
     # Set Heat Pump Controller
@@ -108,6 +108,7 @@ def test_house_with_pv_and_hp_for_heating_test(
         if isinstance(building_code, str) and tabula_conditioned_floor_area != 0: # and d_f[d_f["Code_BuildingVariant"]==building_code].index.values > 2340:
             #log.information("building code " + str(d_f[d_f["Code_BuildingVariant"]==building_code].index.values))
             log.information("tabula floor area " + str(tabula_conditioned_floor_area))
+            log.information("absolute floor area " + str(absolute_conditioned_floor_area_in_m2))
             # this part is copied from hisim_main
             # Build Simulator
             normalized_path = os.path.normpath(PATH)
@@ -145,7 +146,7 @@ def test_house_with_pv_and_hp_for_heating_test(
                 initial_internal_temperature_in_celsius=initial_temperature_in_celsius,
                 heating_reference_temperature_in_celsius=heating_reference_temperature_in_celsius,
                 name="Building1",
-                absolute_conditioned_floor_area_in_m2=tabula_conditioned_floor_area,
+                absolute_conditioned_floor_area_in_m2=absolute_conditioned_floor_area_in_m2,
                 total_base_area_in_m2=total_base_area_in_m2,
             )
             my_building = building.Building(
