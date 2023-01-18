@@ -1135,7 +1135,7 @@ class Building(dynamic_component.DynamicComponent):
     # (**/*** Check header)
 
     @property
-    def transmission_heat_transfer_coeffcient_1_in_watt_per_kelvin(
+    def transmission_heat_transfer_coefficient_1_in_watt_per_kelvin(
         self,
     ):
         """Definition to simplify calc_phi_m_tot. Long form for H_tr_1.
@@ -1159,7 +1159,7 @@ class Building(dynamic_component.DynamicComponent):
         Based on the RC_BuildingSimulator project @[rc_buildingsimulator-jayathissa] (** Check header)
         """
         return (
-            self.transmission_heat_transfer_coeffcient_1_in_watt_per_kelvin
+            self.transmission_heat_transfer_coefficient_1_in_watt_per_kelvin
             + self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin
         )
 
@@ -1445,7 +1445,7 @@ class Building(dynamic_component.DynamicComponent):
                 self.heat_flux_internal_room_surface_in_watt
                 + self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin
                 * temperature_outside_in_celsius
-                + self.transmission_heat_transfer_coeffcient_1_in_watt_per_kelvin
+                + self.transmission_heat_transfer_coefficient_1_in_watt_per_kelvin
                 * (
                     (
                         (
@@ -1491,21 +1491,21 @@ class Building(dynamic_component.DynamicComponent):
         t_supply = temperature_outside_in_celsius
 
         return (
-            self.heat_transfer_coefficient_between_thermal_mass_and_internal_surface_with_fixed_value_in_watt_per_m2_per_kelvin
+            self.internal_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin
             * thermal_mass_temperature_in_celsius
             + self.heat_flux_internal_room_surface_in_watt
             + self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin
             * temperature_outside_in_celsius
-            + self.transmission_heat_transfer_coeffcient_1_in_watt_per_kelvin
+            + self.transmission_heat_transfer_coefficient_1_in_watt_per_kelvin
             * (
                 t_supply
                 + (self.heat_flux_indoor_air_in_watt + thermal_power_delivered_in_watt)
                 / self.thermal_conductance_by_ventilation_in_watt_per_kelvin
             )
         ) / (
-            self.heat_transfer_coefficient_between_thermal_mass_and_internal_surface_with_fixed_value_in_watt_per_m2_per_kelvin
+            self.internal_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin
             + self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin
-            + self.transmission_heat_transfer_coeffcient_1_in_watt_per_kelvin
+            + self.transmission_heat_transfer_coefficient_1_in_watt_per_kelvin
         )
 
     def calc_temperature_of_the_inside_air_in_celsius(
@@ -1525,13 +1525,13 @@ class Building(dynamic_component.DynamicComponent):
         t_supply = temperature_outside_in_celsius
 
         return (
-            self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_with_fixed_value_in_watt_per_m2_per_kelvin
+            self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_in_watt_per_kelvin
             * temperature_internal_room_surfaces_in_celsius
             + self.thermal_conductance_by_ventilation_in_watt_per_kelvin * t_supply
             + thermal_power_delivered_in_watt
             + self.heat_flux_indoor_air_in_watt
         ) / (
-            self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_with_fixed_value_in_watt_per_m2_per_kelvin
+            self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_in_watt_per_kelvin
             + self.thermal_conductance_by_ventilation_in_watt_per_kelvin
         )
 
