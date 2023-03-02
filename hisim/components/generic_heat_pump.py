@@ -681,7 +681,7 @@ class GenericHeatPumpController(cp.Component):
             cp.ComponentConnection(
                 GenericHeatPumpController.TemperatureMean,
                 building_classname,
-                Building.TemperatureMeanThermalMass,
+                Building.TemperatureMean,
             )
         )
         return connections
