@@ -1028,7 +1028,7 @@ class Building(dynamic_component.DynamicComponent):
                     * factor_of_absolute_floor_area_to_tabula_floor_area
                 )
             self.scaling_factor = factor_of_absolute_floor_area_to_tabula_floor_area
-            log.information("scaling factor " + str(self.scaling_factor))
+            # log.information("scaling factor " + str(self.scaling_factor))
         elif self.buildingconfig.total_base_area_in_m2 is not None:
             # this is for preventing that the conditioned_floor_area is 0
             if self.conditioned_floor_area_in_m2 == 0:

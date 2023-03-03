@@ -27,6 +27,7 @@ class FakeHeater(cp.Component):
 
     # Outputs
     ThermalPowerDelivered = "ThermalPowerDelivered"
+    HeatingPowerDelivered = "HeatingPowerDelivered"
     SetHeatingTemperatureForBuilding = "SetHeatingTemperatureForBuilding"
     SetCoolingTemperatureForBuilding = "SetCoolingTemperatureForBuilding"
 
@@ -46,6 +47,7 @@ class FakeHeater(cp.Component):
 
         self.thermal_power_delivered_in_watt: float = 0
         self.theoretical_thermal_building_in_watt: float = 0
+        self.heating_in_watt: float = 0
         self.set_heating_temperature_for_building_in_celsius = set_heating_temperature_for_building_in_celsius
         self.set_cooling_temperature_for_building_in_celsius = set_cooling_temperature_for_building_in_celsius
 
@@ -66,6 +68,14 @@ class FakeHeater(cp.Component):
             lt.LoadTypes.HEATING,
             lt.Units.WATT,
             output_description=f"here a description for {self.ThermalPowerDelivered} will follow.",
+        )
+
+        self.heating_power_delivered_channel: cp.ComponentOutput = self.add_output(
+            self.component_name,
+            self.HeatingPowerDelivered,
+            lt.LoadTypes.HEATING,
+            lt.Units.WATT,
+            output_description=f"here a description for {self.HeatingPowerDelivered} will follow."
         )
 
         self.set_heating_temperature_for_building_channel: cp.ComponentOutput = self.add_output(
@@ -128,11 +138,19 @@ class FakeHeater(cp.Component):
 
         self.thermal_power_delivered_in_watt = self.theoretical_thermal_building_in_watt
 
+        if self.thermal_power_delivered_in_watt > 0:
+            self.heating_in_watt = self.thermal_power_delivered_in_watt
+
         # Set outputs -----------------------------------------------------------------------------------------------------------
 
         stsv.set_output_value(
             self.thermal_power_delivered_channel,
             self.thermal_power_delivered_in_watt,
+        )
+
+        stsv.set_output_value(
+            self.heating_power_delivered_channel,
+            self.heating_in_watt
         )
 
         stsv.set_output_value(

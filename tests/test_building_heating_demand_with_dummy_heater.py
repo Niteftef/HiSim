@@ -56,14 +56,6 @@ def test_house_with_dummy_heater_for_heating_test(
     # Set Occupancy
     occupancy_profile = "CH01"
 
-    # Set Building
-    building_code = "DE.N.SFH.05.Gen.ReEx.001.002"
-    building_heat_capacity_class = "medium"
-    initial_temperature_in_celsius = 23
-    heating_reference_temperature_in_celsius = -14
-    absolute_conditioned_floor_area_in_m2 = 100
-    total_base_area_in_m2 = None
-
     # Set Dummy Heater
     set_heating_temperature_for_building_in_celsius = 19.5
     set_cooling_temperature_for_building_in_celsius = 20.5
@@ -97,8 +89,8 @@ def test_house_with_dummy_heater_for_heating_test(
         tabula_conditioned_floor_area = buildingdata["A_C_Ref"].values[0]
         if isinstance(building_code, str) and tabula_conditioned_floor_area != 0:
             #log.information("building code " + str(d_f[d_f["Code_BuildingVariant"]==building_code].index.values))
-            log.information("tabula floor area " + str(tabula_conditioned_floor_area))
-            log.information("absolute floor area " + str(absolute_conditioned_floor_area_in_m2))
+            # log.information("tabula floor area " + str(tabula_conditioned_floor_area))
+            # log.information("absolute floor area " + str(absolute_conditioned_floor_area_in_m2))
             # this part is copied from hisim_main
             # Build Simulator
             normalized_path = os.path.normpath(PATH)
@@ -130,7 +122,16 @@ def test_house_with_dummy_heater_for_heating_test(
             )
 
             # Build Building
-            my_building_config = building.BuildingConfig.get_default_german_single_family_home()
+            log.information("building data " + str(buildingdata))
+            my_building_config = building.BuildingConfig(name="TabulaBuilding",
+                                                         # what are the heating reference years
+                                                         heating_reference_temperature_in_celsius=-14,
+                                                         building_code=building_code,
+                                                         building_heat_capacity_class="medium",
+                                                         initial_internal_temperature_in_celsius=23.0,
+                                                         absolute_conditioned_floor_area_in_m2=tabula_conditioned_floor_area,
+                                                         total_base_area_in_m2=None)
+            my_building_config.absolute_conditioned_floor_area_in_m2 = tabula_conditioned_floor_area
             my_building = building.Building(
                 config=my_building_config, my_simulation_parameters=my_simulation_parameters
             )
@@ -208,11 +209,12 @@ def test_house_with_dummy_heater_for_heating_test(
 
             # =========================================================================================================================================================
             # Calculate annual dummy heater heating energy
-
-            log.information(str(my_sim.results_data_frame.iloc[0]))
+            # log.information("tabula floor area " + str(tabula_conditioned_floor_area))
+            # log.information("absolute floor area " + str(my_building.buildingconfig.absolute_conditioned_floor_area_in_m2))
             results_dummy_heater_heating = my_sim.results_data_frame[
-                "FakeHeaterSystem - ThermalPowerDelivered [Heating - W]"
+                "FakeHeaterSystem - HeatingPowerDelivered [Heating - W]"
             ]
+            log.information(str(my_sim.results_data_frame["TabulaBuilding - TemperatureIndoorAir [Temperature - °C]"]))
             sum_heating_in_watt_timestep = sum(results_dummy_heater_heating)
             timestep_factor = seconds_per_timestep / 3600
             sum_heating_in_watt_hour = sum_heating_in_watt_timestep * timestep_factor
@@ -232,3 +234,4 @@ def test_house_with_dummy_heater_for_heating_test(
 
             with open("test_building_heating_demand_dummy_heater_all_tabula_energy_needs.csv", "a",) as myfile:
                 myfile.write(building_code + ";" + str(energy_need_for_heating_from_dummy_heater_in_kilowatt_hour_per_year_per_m2) + ";" + str(energy_need_for_heating_given_by_tabula_in_kilowatt_hour_per_year_per_m2) + ";" + str(ratio_hp_tabula) + "\n")
+
