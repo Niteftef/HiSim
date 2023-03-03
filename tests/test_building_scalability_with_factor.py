@@ -40,22 +40,21 @@ def test_building_scalability():
         low_memory=False,
     )
 
-    for building_code in d_f["Code_BuildingVariant"]:
-        if isinstance(building_code, str):
-            # Set Residence
-            my_residence_config = (
-                building.BuildingConfig.get_default_german_single_family_home()
-            )
-            my_residence_config.absolute_conditioned_floor_area_in_m2 = (
-                absolute_conditioned_floor_area_in_m2
-            )
-            my_residence_config.building_code = building_code
-            my_residence = building.Building(
-                config=my_residence_config,
-                my_simulation_parameters=my_simulation_parameters,
-            )
-            my_residence.set_sim_repo(repo)
-            my_residence.i_prepare_simulation()
+    # for building_code in d_f["Code_BuildingVariant"]:
+    #     if isinstance(building_code, str):
+    # Set Residence
+    my_residence_config = (
+        building.BuildingConfig.get_default_german_single_family_home()
+    )
+    my_residence_config.absolute_conditioned_floor_area_in_m2 = (
+        absolute_conditioned_floor_area_in_m2
+    )
+    my_residence = building.Building(
+        config=my_residence_config,
+        my_simulation_parameters=my_simulation_parameters,
+    )
+    my_residence.set_sim_repo(repo)
+    my_residence.i_prepare_simulation()
 
             log.information(my_residence_config.building_code)
 

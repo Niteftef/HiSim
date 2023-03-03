@@ -62,25 +62,11 @@ def basic_household_explicit(
     # Set Occupancy
     occupancy_profile = "CH01"
 
-    # Set Building
-    building_code = "DE.N.SFH.05.Gen.ReEx.001.002"
-    building_heat_capacity_class = "medium"
-    initial_temperature_in_celsius = 23
-    heating_reference_temperature = -14
-    absolute_conditioned_floor_area_in_m2 = 121.2
-    total_base_area_in_m2 = None
-
     # Set Heat Pump Controller
     temperature_air_heating_in_celsius = 16.0
     temperature_air_cooling_in_celsius = 24.0
     offset = 0.5
     hp_mode = 2
-
-    # Set Heat Pump
-    hp_manufacturer = "Viessmann Werke GmbH & Co KG"
-    hp_name = "Vitocal 300-A AWO-AC 301.B07"
-    hp_min_operation_time = 60
-    hp_min_idle_time = 15
 
     # =================================================================================================================================
     # Build Components
@@ -128,15 +114,7 @@ def basic_household_explicit(
     )
 
     # Build Building
-    my_building_config = building.BuildingConfig(
-        building_code=building_code,
-        building_heat_capacity_class=building_heat_capacity_class,
-        initial_internal_temperature_in_celsius=initial_temperature_in_celsius,
-        heating_reference_temperature_in_celsius=heating_reference_temperature,
-        absolute_conditioned_floor_area_in_m2=absolute_conditioned_floor_area_in_m2,
-        total_base_area_in_m2=total_base_area_in_m2,
-        name="Building1",
-    )
+    my_building_config = building.BuildingConfig.get_default_german_single_family_home()
 
     my_building = building.Building(
         config=my_building_config, my_simulation_parameters=my_simulation_parameters
@@ -144,26 +122,24 @@ def basic_household_explicit(
 
     # Build Base Electricity Load Profile
     my_base_electricity_load_profile = sumbuilder.ElectricityGrid(
-        name="BaseLoad",
-        grid=[my_occupancy, "Subtract", my_photovoltaic_system],
+        config=sumbuilder.ElectricityGridConfig(name="ElectrcityGrid_BaseLoad", grid=[my_occupancy, "Subtract", my_photovoltaic_system], signal=None),
         my_simulation_parameters=my_simulation_parameters,
     )
 
     # Build Heat Pump Controller
-    my_heat_pump_controller = generic_heat_pump.HeatPumpController(
+    my_heat_pump_controller = generic_heat_pump.GenericHeatPumpController(
+        config=generic_heat_pump.GenericHeatPumpControllerConfig(
+        name="GenericHeatPumpController",
         temperature_air_heating_in_celsius=temperature_air_heating_in_celsius,
         temperature_air_cooling_in_celsius=temperature_air_cooling_in_celsius,
         offset=offset,
-        mode=hp_mode,
+        mode=hp_mode),
         my_simulation_parameters=my_simulation_parameters,
     )
 
     # Build Heat Pump
     my_heat_pump = generic_heat_pump.GenericHeatPump(
-        manufacturer=hp_manufacturer,
-        name=hp_name,
-        min_operation_time=hp_min_operation_time,
-        min_idle_time=hp_min_idle_time,
+        config=generic_heat_pump.GenericHeatPumpConfig.get_default_generic_heat_pump_config(),
         my_simulation_parameters=my_simulation_parameters,
     )
 
@@ -257,7 +233,7 @@ def basic_household_explicit(
     my_heat_pump_controller.connect_input(
         my_heat_pump_controller.TemperatureMean,
         my_building.component_name,
-        my_building.TemperatureIndoorAir,
+        my_building.TemperatureMeanThermalMass,
     )
     my_heat_pump_controller.connect_input(
         my_heat_pump_controller.ElectricityInput,

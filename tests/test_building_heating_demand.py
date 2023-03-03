@@ -14,6 +14,7 @@ from hisim.components import loadprofilegenerator_connector
 from hisim.components import weather
 from hisim.components import building
 from hisim.components import generic_heat_pump
+from hisim.components import generic_heat_pump
 from hisim import log
 from hisim import utils
 
