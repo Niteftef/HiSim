@@ -57,8 +57,8 @@ def test_house_with_dummy_heater_for_heating_test(
     occupancy_profile = "CH01"
 
     # Set Dummy Heater
-    set_heating_temperature_for_building_in_celsius = 19.5
-    set_cooling_temperature_for_building_in_celsius = 20.5
+    set_heating_temperature_for_building_in_celsius = 20.0
+    set_cooling_temperature_for_building_in_celsius = 22.0
     # =========================================================================================================================================================
     # Build Components
 
@@ -122,7 +122,6 @@ def test_house_with_dummy_heater_for_heating_test(
             )
 
             # Build Building
-            log.information("building data " + str(buildingdata))
             my_building_config = building.BuildingConfig(name="TabulaBuilding",
                                                          # what are the heating reference years
                                                          heating_reference_temperature_in_celsius=-14,
@@ -190,7 +189,16 @@ def test_house_with_dummy_heater_for_heating_test(
                 my_dummy_heater.component_name,
                 my_dummy_heater.ThermalPowerDelivered,
             )
-
+            my_building.connect_input(
+                my_building.SetHeatingTemperature,
+                my_dummy_heater.component_name,
+                my_dummy_heater.SetHeatingTemperatureForBuilding,
+            )
+            my_building.connect_input(
+                my_building.SetCoolingTemperature,
+                my_dummy_heater.component_name,
+                my_dummy_heater.SetCoolingTemperatureForBuilding,
+            )
             # Dummy Heater
             my_dummy_heater.connect_input(
                 my_dummy_heater.TheoreticalThermalBuildingDemand,
@@ -214,7 +222,7 @@ def test_house_with_dummy_heater_for_heating_test(
             results_dummy_heater_heating = my_sim.results_data_frame[
                 "FakeHeaterSystem - HeatingPowerDelivered [Heating - W]"
             ]
-            log.information(str(my_sim.results_data_frame["TabulaBuilding - TemperatureIndoorAir [Temperature - °C]"]))
+            # log.information(str(my_sim.results_data_frame["TabulaBuilding - TemperatureIndoorAir [Temperature - °C]"]))
             sum_heating_in_watt_timestep = sum(results_dummy_heater_heating)
             timestep_factor = seconds_per_timestep / 3600
             sum_heating_in_watt_hour = sum_heating_in_watt_timestep * timestep_factor

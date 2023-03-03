@@ -1,3 +1,6 @@
 Building Code;Energy need for heating from Dummy Heater [kWh/(a*m2)];Energy need for heating from TABULA [kWh/(a*m2)];Ratio HP/TABULA
-##.N.SFH.01.Gen.ReEx.001.001;0.9;35.7;0.03
-AT.N.AB.01.Gen.ReEx.001.001;3.0;176.0;0.02
+##.N.SFH.01.Gen.ReEx.001.001;67.0;35.7;1.88
+AT.N.AB.01.Gen.ReEx.001.001;170.5;176.0;0.97
+AT.N.AB.01.Gen.ReEx.001.002;88.0;80.6;1.09
+AT.N.AB.01.Gen.ReEx.001.003;82.2;66.2;1.24
+AT.N.AB.02.Gen.ReEx.001.001;217.2;227.1;0.96

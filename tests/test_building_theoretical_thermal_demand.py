@@ -48,7 +48,7 @@ def test_house_with_fake_heater_for_heating_test(
 
     # Set Simulation Parameters
     year = 2021
-    seconds_per_timestep = 60
+    seconds_per_timestep = 60 * 60
 
     # Set Occupancy
     occupancy_profile = "CH01"
@@ -112,7 +112,7 @@ def test_house_with_fake_heater_for_heating_test(
             )
 
             # Build Building
-            my_building_config = building.BuildingConfig(name="Building1",
+            my_building_config = building.BuildingConfig(name="Building_1",
                                                         heating_reference_temperature_in_celsius=-14,
                                                         building_code=building_code,
                                                         building_heat_capacity_class="medium",
@@ -215,6 +215,7 @@ def test_house_with_fake_heater_for_heating_test(
 
             for air_temperature in building_indoor_air_temperatures.values:
                 # check if air temperature in building is held between set temperatures
+                # log.information(str(air_temperature))
                 assert (
                     my_building.set_heating_temperature_in_celsius
                     <= np.round(air_temperature)
