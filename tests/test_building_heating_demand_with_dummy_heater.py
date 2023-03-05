@@ -57,8 +57,8 @@ def test_house_with_dummy_heater_for_heating_test(
     occupancy_profile = "CH01"
 
     # Set Dummy Heater
-    set_heating_temperature_for_building_in_celsius = 20.0
-    set_cooling_temperature_for_building_in_celsius = 22.0
+    set_heating_temperature_for_building_in_celsius = 19.5
+    set_cooling_temperature_for_building_in_celsius = 20.5
     # =========================================================================================================================================================
     # Build Components
 
@@ -127,7 +127,7 @@ def test_house_with_dummy_heater_for_heating_test(
                                                          heating_reference_temperature_in_celsius=-14,
                                                          building_code=building_code,
                                                          building_heat_capacity_class="medium",
-                                                         initial_internal_temperature_in_celsius=23.0,
+                                                         initial_internal_temperature_in_celsius=20.0,
                                                          absolute_conditioned_floor_area_in_m2=tabula_conditioned_floor_area,
                                                          total_base_area_in_m2=None)
             my_building_config.absolute_conditioned_floor_area_in_m2 = tabula_conditioned_floor_area
