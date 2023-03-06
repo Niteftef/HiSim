@@ -56,133 +56,133 @@ def test_building_scalability():
     my_residence.set_sim_repo(repo)
     my_residence.i_prepare_simulation()
 
-            log.information(my_residence_config.building_code)
+    log.information(my_residence_config.building_code)
 
-            # Set Occupancy
-            my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig(
-                profile_name=my_occupancy_profile, name="Occupancy-1"
-            )
-            my_occupancy = loadprofilegenerator_connector.Occupancy(
-                config=my_occupancy_config,
-                my_simulation_parameters=my_simulation_parameters,
-            )
-            my_occupancy.set_sim_repo(repo)
-            my_occupancy.i_prepare_simulation()
+    # Set Occupancy
+    my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig(
+        profile_name=my_occupancy_profile, name="Occupancy-1"
+    )
+    my_occupancy = loadprofilegenerator_connector.Occupancy(
+        config=my_occupancy_config,
+        my_simulation_parameters=my_simulation_parameters,
+    )
+    my_occupancy.set_sim_repo(repo)
+    my_occupancy.i_prepare_simulation()
 
-            # Set Weather
-            my_weather_config = weather.WeatherConfig.get_default(
-                location_entry=weather.LocationEnum.Aachen
-            )
-            my_weather = weather.Weather(
-                config=my_weather_config, my_simulation_parameters=my_simulation_parameters
-            )
-            my_weather.set_sim_repo(repo)
-            my_weather.i_prepare_simulation()
+    # Set Weather
+    my_weather_config = weather.WeatherConfig.get_default(
+        location_entry=weather.LocationEnum.Aachen
+    )
+    my_weather = weather.Weather(
+        config=my_weather_config, my_simulation_parameters=my_simulation_parameters
+    )
+    my_weather.set_sim_repo(repo)
+    my_weather.i_prepare_simulation()
 
-            number_of_outputs = fft.get_number_of_outputs(
-                [my_occupancy, my_weather, my_residence]
-            )
-            stsv: component.SingleTimeStepValues = component.SingleTimeStepValues(
-                number_of_outputs
-            )
-            my_residence.temperature_outside_channel.source_output = (
-                my_weather.air_temperature_output
-            )
-            my_residence.altitude_channel.source_output = my_weather.altitude_output
-            my_residence.azimuth_channel.source_output = my_weather.azimuth_output
-            my_residence.direct_normal_irradiance_channel.source_output = my_weather.DNI_output
-            my_residence.direct_horizontal_irradiance_channel.source_output = (
-                my_weather.DHI_output
-            )
-            my_residence.occupancy_heat_gain_channel.source_output = (
-                my_occupancy.heating_by_residentsC
-            )
+    number_of_outputs = fft.get_number_of_outputs(
+        [my_occupancy, my_weather, my_residence]
+    )
+    stsv: component.SingleTimeStepValues = component.SingleTimeStepValues(
+        number_of_outputs
+    )
+    my_residence.temperature_outside_channel.source_output = (
+        my_weather.air_temperature_output
+    )
+    my_residence.altitude_channel.source_output = my_weather.altitude_output
+    my_residence.azimuth_channel.source_output = my_weather.azimuth_output
+    my_residence.direct_normal_irradiance_channel.source_output = my_weather.DNI_output
+    my_residence.direct_horizontal_irradiance_channel.source_output = (
+        my_weather.DHI_output
+    )
+    my_residence.occupancy_heat_gain_channel.source_output = (
+        my_occupancy.heating_by_residentsC
+    )
 
-            fft.add_global_index_of_components([my_occupancy, my_weather, my_residence])
+    fft.add_global_index_of_components([my_occupancy, my_weather, my_residence])
 
-            log.information("Seconds per Timestep: " + str(seconds_per_timestep))
-            log.information(
-                "Absolute conditioned floor area without scaling "
-                + str(absolute_conditioned_floor_area_in_m2)
-                + "\n"
-            )
+    log.information("Seconds per Timestep: " + str(seconds_per_timestep))
+    log.information(
+        "Absolute conditioned floor area without scaling "
+        + str(absolute_conditioned_floor_area_in_m2)
+        + "\n"
+    )
 
-            my_residence.seconds_per_timestep = seconds_per_timestep
+    my_residence.seconds_per_timestep = seconds_per_timestep
 
-            # Simulates
-            my_occupancy.i_simulate(0, stsv, False)
-            my_weather.i_simulate(0, stsv, False)
-            my_residence.i_simulate(0, stsv, False)
+    # Simulates
+    my_occupancy.i_simulate(0, stsv, False)
+    my_weather.i_simulate(0, stsv, False)
+    my_residence.i_simulate(0, stsv, False)
 
-            # some variables to test
-            opaque_surfaces_without_scaling = (
-                my_residence.scaled_opaque_surfaces_envelope_area_in_m2
-            )
-            window_and_door_surfaces_without_scaling = (
-                my_residence.scaled_windows_and_door_envelope_areas_in_m2
-            )
-            window_areas_without_scaling = my_residence.scaled_window_areas_in_m2
+    # some variables to test
+    opaque_surfaces_without_scaling = (
+        my_residence.scaled_opaque_surfaces_envelope_area_in_m2
+    )
+    window_and_door_surfaces_without_scaling = (
+        my_residence.scaled_windows_and_door_envelope_areas_in_m2
+    )
+    window_areas_without_scaling = my_residence.scaled_window_areas_in_m2
 
-            # temperature_output = stsv.values[my_residence.thermal_mass_temperature_channel.global_index]
-            # log.information("temperature output " + str(temperature_output))
+    # temperature_output = stsv.values[my_residence.thermal_mass_temperature_channel.global_index]
+    # log.information("temperature output " + str(temperature_output))
 
-            # check building test with different absolute conditioned floor areas
-            scaling_factors = [1, 5, 12]
-            for factor in scaling_factors:
-                absolute_conditioned_floor_area_in_m2_scaled = (
-                    factor * absolute_conditioned_floor_area_in_m2
-                )
-                log.information(
-                    "Absolute conditioned floor area "
-                    + str(factor)
-                    + " times upscaled: "
-                    + str(absolute_conditioned_floor_area_in_m2_scaled)
-                )
-                my_residence_config.absolute_conditioned_floor_area_in_m2 = (
-                    absolute_conditioned_floor_area_in_m2_scaled
-                )
-                my_residence = building.Building(
-                    config=my_residence_config,
-                    my_simulation_parameters=my_simulation_parameters,
-                )
-                my_residence.set_sim_repo(repo)
-                my_residence.i_prepare_simulation()
-                my_residence.i_simulate(0, stsv, False)
+    # check building test with different absolute conditioned floor areas
+    scaling_factors = [1, 5, 12]
+    for factor in scaling_factors:
+        absolute_conditioned_floor_area_in_m2_scaled = (
+            factor * absolute_conditioned_floor_area_in_m2
+        )
+        log.information(
+            "Absolute conditioned floor area "
+            + str(factor)
+            + " times upscaled: "
+            + str(absolute_conditioned_floor_area_in_m2_scaled)
+        )
+        my_residence_config.absolute_conditioned_floor_area_in_m2 = (
+            absolute_conditioned_floor_area_in_m2_scaled
+        )
+        my_residence = building.Building(
+            config=my_residence_config,
+            my_simulation_parameters=my_simulation_parameters,
+        )
+        my_residence.set_sim_repo(repo)
+        my_residence.i_prepare_simulation()
+        my_residence.i_simulate(0, stsv, False)
 
-                opaque_surfaces_with_scaling = (
-                    my_residence.scaled_opaque_surfaces_envelope_area_in_m2
-                )
-                window_and_door_surfaces_with_scaling = (
-                    my_residence.scaled_windows_and_door_envelope_areas_in_m2
-                )
-                window_areas_with_scaling = my_residence.scaled_window_areas_in_m2
+        opaque_surfaces_with_scaling = (
+            my_residence.scaled_opaque_surfaces_envelope_area_in_m2
+        )
+        window_and_door_surfaces_with_scaling = (
+            my_residence.scaled_windows_and_door_envelope_areas_in_m2
+        )
+        window_areas_with_scaling = my_residence.scaled_window_areas_in_m2
 
-                
-                log.information(
-                    "Opaque surface areas "
-                    + str(factor)
-                    + " times upscaled: "
-                    + str(opaque_surfaces_with_scaling)
-                    + "\n"
-                )
+        
+        log.information(
+            "Opaque surface areas "
+            + str(factor)
+            + " times upscaled: "
+            + str(opaque_surfaces_with_scaling)
+            + "\n"
+        )
 
-                # test if opaque envelope surface areas of building scale with conditioned floor area
-                np.testing.assert_allclose(
-                    [x * factor for x in opaque_surfaces_without_scaling],
-                    opaque_surfaces_with_scaling,
-                    rtol=0.01,
-                )
+        # test if opaque envelope surface areas of building scale with conditioned floor area
+        np.testing.assert_allclose(
+            [x * factor for x in opaque_surfaces_without_scaling],
+            opaque_surfaces_with_scaling,
+            rtol=0.01,
+        )
 
-                # test if window and door envelope surface areas of building scale with conditioned floor area
-                np.testing.assert_allclose(
-                    [x * factor for x in window_and_door_surfaces_without_scaling],
-                    window_and_door_surfaces_with_scaling,
-                    rtol=0.01,
-                )
+        # test if window and door envelope surface areas of building scale with conditioned floor area
+        np.testing.assert_allclose(
+            [x * factor for x in window_and_door_surfaces_without_scaling],
+            window_and_door_surfaces_with_scaling,
+            rtol=0.01,
+        )
 
-                # test if window areas of building scale with conditioned floor area
-                np.testing.assert_allclose(
-                    [x * factor for x in window_areas_without_scaling],
-                    window_areas_with_scaling,
-                    rtol=0.01,
-                )
+        # test if window areas of building scale with conditioned floor area
+        np.testing.assert_allclose(
+            [x * factor for x in window_areas_without_scaling],
+            window_areas_with_scaling,
+            rtol=0.01,
+        )
