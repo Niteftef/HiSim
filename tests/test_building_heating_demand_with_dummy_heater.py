@@ -77,6 +77,14 @@ def test_house_with_dummy_heater_for_heating_test(
         encoding="cp1252",
         low_memory=False,
     )
+    d_f_1 = pd.read_csv(
+        utils.HISIMPATH["housing_reference_temperatures"],
+        decimal=",",
+        sep=",",
+        encoding="cp1252",
+        low_memory=False,
+    )
+
 
     with open(
         "test_building_heating_demand_dummy_heater_all_tabula_energy_needs.csv",
@@ -102,13 +110,17 @@ def test_house_with_dummy_heater_for_heating_test(
 
                 country_abbreviation = building_code.split(".")[0]
 
-                # check if country abbreviation in weather-LocationEnum or else take Aachen as location
+                # check if country abbreviation in weather-LocationEnum or else take Aachen as location (DE)
                 try: 
                     weather_location_enum = weather.LocationEnum[country_abbreviation]
                     log.information(str(weather_location_enum))
                 except:
                     weather_location_enum = weather.LocationEnum.Aachen
                     log.information("  " + str (country_abbreviation))
+                    country_abbreviation = "DE"
+
+                # get heating reference temperatures from input data from 2019 weather data
+                heating_reference_temperature_in_celsius = float(d_f_1.loc[d_f_1["Location"]==country_abbreviation]["HeatingReferenceTemperature"].values[0])
 
                 # building_code = "DE.N.SFH.05.Gen.ReEx.001.002"
                 # tabula_conditioned_floor_area = d_f.loc[
@@ -149,14 +161,16 @@ def test_house_with_dummy_heater_for_heating_test(
                 # Build Building
                 my_building_config = building.BuildingConfig(
                     name="TabulaBuilding",
-                    # what are the heating reference years
-                    heating_reference_temperature_in_celsius=-14,
+                    heating_reference_temperature_in_celsius=heating_reference_temperature_in_celsius,
                     building_code=building_code,
                     building_heat_capacity_class="medium",
                     initial_internal_temperature_in_celsius=20.0,
                     absolute_conditioned_floor_area_in_m2=tabula_conditioned_floor_area,
                     total_base_area_in_m2=None,
                 )
+                log.information("building config " +str(my_building_config))
+                log.information("weather config " + str(my_weather_config))
+
                 my_building_config.absolute_conditioned_floor_area_in_m2 = (
                     tabula_conditioned_floor_area
                 )
