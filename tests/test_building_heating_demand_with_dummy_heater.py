@@ -119,9 +119,11 @@ def test_house_with_dummy_heater_for_heating_test(
                     log.information("  " + str (country_abbreviation))
                     country_abbreviation = "DE"
 
-                # get heating reference temperatures from input data from 2019 weather data
-                heating_reference_temperature_in_celsius = float(d_f_1.loc[d_f_1["Location"]==country_abbreviation]["HeatingReferenceTemperature"].values[0])
-
+                # get heating reference temperatures from input data from 2019 weather data, if country code not in heating reference temps (like RS serbien) take germany DE
+                try:
+                    heating_reference_temperature_in_celsius = float(d_f_1.loc[d_f_1["Location"]==country_abbreviation]["HeatingReferenceTemperature"].values[0])
+                except:
+                    heating_reference_temperature_in_celsius = float(d_f_1.loc[d_f_1["Location"]=="DE"]["HeatingReferenceTemperature"].values[0])
                 # building_code = "DE.N.SFH.05.Gen.ReEx.001.002"
                 # tabula_conditioned_floor_area = d_f.loc[
                 #     d_f["Code_BuildingVariant"] == building_code

@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn
 
-with open("test_building_heating_demand_dummy_heater_all_tabula_energy_needs.csv", "r") as myfile:
+with open("C:\\Users\\k.rieck\\HiSim\\tests\\test_building_heating_demand_dummy_heater_all_tabula_energy_needs.csv", "r") as myfile:
     lines = myfile.readlines()[1:]
     print(len(lines))
 
@@ -56,7 +56,7 @@ else:
     dictionary_countries_and_indices = dict(zip(tabula_countries, list_of_indices))
     dictionary_countries_and_ratios = dict(zip(tabula_countries, list_of_ratios))
 
-    df = pd.DataFrame(dictionary_countries_and_ratios, index=["first_try"] *465)
+    df = pd.DataFrame(dictionary_countries_and_ratios, index=["first_try"] *232)
 
     df.index.name="Index Name"
     df.columns.name="Countries"
@@ -69,7 +69,7 @@ else:
     plt.axhline(y=1, color="red")
     plt.title("Heating Test")
     plt.ylabel("Ratio Heating Need Dummy Heater/Tabula")
-    plt.axis([-1,22,0,3])
+    plt.axis([-1,22,0,40])
     plt.xlabel("Country")
     plt.show()
 
