@@ -61,7 +61,6 @@ else:
     df.index.name="Index Name"
     df.columns.name="Countries"
     plt.figure(figsize=(5,5))
-    df.boxplot(column=tabula_countries)
 
     print(df)
     seaborn.boxplot(data=df)
