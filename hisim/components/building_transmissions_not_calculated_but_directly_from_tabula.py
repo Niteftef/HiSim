@@ -93,14 +93,14 @@ __status__ = "development"
 
 @dataclass_json
 @dataclass
-class BuildingConfig(cp.ConfigBase):
+class Building1Config(cp.ConfigBase):
 
     """Configuration of the Building class."""
 
     @classmethod
     def get_main_classname(cls):
         """Return the full class name of the base class."""
-        return Building.get_full_classname()
+        return Building1.get_full_classname()
 
     name: str
     heating_reference_temperature_in_celsius: float
@@ -115,7 +115,7 @@ class BuildingConfig(cp.ConfigBase):
         cls,
     ) -> Any:
         """Get a default Building."""
-        config = BuildingConfig(
+        config = Building1Config(
             name="Building_1",
             building_code="DE.N.SFH.05.Gen.ReEx.001.002",
             building_heat_capacity_class="medium",
@@ -127,7 +127,7 @@ class BuildingConfig(cp.ConfigBase):
         return config
 
 
-class BuildingState:
+class Building1State:
 
     """BuildingState class."""
 
@@ -159,13 +159,13 @@ class BuildingState:
         self,
     ):
         """Copy the Building State."""
-        return BuildingState(
+        return Building1State(
             self.thermal_mass_temperature_in_celsius,
             self.thermal_capacitance_in_joule_per_kelvin,
         )
 
 
-class Building(dynamic_component.DynamicComponent):
+class Building1(dynamic_component.DynamicComponent):
 
     """Building class.
 
@@ -224,7 +224,7 @@ class Building(dynamic_component.DynamicComponent):
     def __init__(
         self,
         my_simulation_parameters: SimulationParameters,
-        config: BuildingConfig,
+        config: Building1Config,
     ):
         """Construct all the neccessary attributes."""
         self.buildingconfig = config
@@ -341,7 +341,7 @@ class Building(dynamic_component.DynamicComponent):
             initial_temperature_in_celsius=config.initial_internal_temperature_in_celsius,
         )
 
-        self.state: BuildingState = BuildingState(
+        self.state: Building1State = Building1State(
             thermal_mass_temperature_in_celsius=config.initial_internal_temperature_in_celsius,
             thermal_capacitance_in_joule_per_kelvin=self.thermal_capacity_of_building_thermal_mass_in_joule_per_kelvin,
         )
@@ -518,56 +518,56 @@ class Building(dynamic_component.DynamicComponent):
         weather_classname = Weather.get_classname()
         connections.append(
             cp.ComponentConnection(
-                Building.Altitude,
+                Building1.Altitude,
                 weather_classname,
                 Weather.Altitude,
             )
         )
         connections.append(
             cp.ComponentConnection(
-                Building.Azimuth,
+                Building1.Azimuth,
                 weather_classname,
                 Weather.Azimuth,
             )
         )
         connections.append(
             cp.ComponentConnection(
-                Building.ApparentZenith,
+                Building1.ApparentZenith,
                 weather_classname,
                 Weather.ApparentZenith,
             )
         )
         connections.append(
             cp.ComponentConnection(
-                Building.DirectNormalIrradiance,
+                Building1.DirectNormalIrradiance,
                 weather_classname,
                 Weather.DirectNormalIrradiance,
             )
         )
         connections.append(
             cp.ComponentConnection(
-                Building.DirectNormalIrradianceExtra,
+                Building1.DirectNormalIrradianceExtra,
                 weather_classname,
                 Weather.DirectNormalIrradianceExtra,
             )
         )
         connections.append(
             cp.ComponentConnection(
-                Building.DiffuseHorizontalIrradiance,
+                Building1.DiffuseHorizontalIrradiance,
                 weather_classname,
                 Weather.DiffuseHorizontalIrradiance,
             )
         )
         connections.append(
             cp.ComponentConnection(
-                Building.GlobalHorizontalIrradiance,
+                Building1.GlobalHorizontalIrradiance,
                 weather_classname,
                 Weather.GlobalHorizontalIrradiance,
             )
         )
         connections.append(
             cp.ComponentConnection(
-                Building.TemperatureOutside,
+                Building1.TemperatureOutside,
                 weather_classname,
                 Weather.TemperatureOutside,
             )
@@ -583,7 +583,7 @@ class Building(dynamic_component.DynamicComponent):
         occupancy_classname = Occupancy.get_classname()
         connections.append(
             cp.ComponentConnection(
-                Building.HeatingByResidents,
+                Building1.HeatingByResidents,
                 occupancy_classname,
                 Occupancy.HeatingByResidents,
             )
@@ -599,7 +599,7 @@ class Building(dynamic_component.DynamicComponent):
         utsp_classname = UtspLpgConnector.get_classname()
         connections.append(
             cp.ComponentConnection(
-                Building.HeatingByResidents,
+                Building1.HeatingByResidents,
                 utsp_classname,
                 UtspLpgConnector.HeatingByResidents,
             )
@@ -1304,15 +1304,10 @@ class Building(dynamic_component.DynamicComponent):
         self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin = (
             0.0
         )
-
-        # here instead of reading H_Transmission from buildingdata it will be calculated manually using
-        # input values U_Actual, A_ and b_Transmission also given by TABULA buildingdata
         for index, w_i in enumerate(self.windows_and_door):
-            # with with H_Tr = U * A * b_tr [W/K], here b_tr is not given in TABULA data, so it is chosen 1.0
+ 
             h_tr_i = (
-                self.buildingdata["U_Actual_" + w_i].values[0]
-                * self.scaled_windows_and_door_envelope_areas_in_m2[index]
-                * 1.0
+                self.buildingdata["H_Transmission_" + w_i].values[0]
             )
             log.information("H_Transmission Windows and Door " + str(h_tr_i))
             self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin += float(
@@ -1339,14 +1334,11 @@ class Building(dynamic_component.DynamicComponent):
         self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin = (
             0.0
         )
-        # here modification for scalability: instead of reading H_Transmission from buildingdata it will be calculated manually using
-        # input values U_Actual, A_Calc and b_Transmission also given by TABULA buildingdata
+
         for index, o_w in enumerate(self.opaque_walls):
-            # with with H_Tr = U * A * b_tr [W/K]
+
             h_tr_i = (
-                self.buildingdata["U_Actual_" + o_w].values[0]
-                * self.scaled_opaque_surfaces_envelope_area_in_m2[index]
-                * self.buildingdata["b_Transmission_" + o_w].values[0]
+                self.buildingdata["H_Transmission_" + o_w].values[0]
             )
             log.information("H_Transmission Wall, Roof, Floor " + str(h_tr_i))
             self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin += float(

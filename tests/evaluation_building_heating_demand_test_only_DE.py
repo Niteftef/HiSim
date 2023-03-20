@@ -4,77 +4,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn
-
-# with open("C:\\Users\\k.rieck\\HiSim\\tests\\test_building_heating_demand_dummy_heater_all_tabula_energy_needs.csv", "r") as myfile:
-#     lines = myfile.readlines()[1:]
-#     print(len(lines))
-
-# if len(lines)  == 0:
-#     pass
-#     print("file is empty. nothing to analyze.")
-# else:
-#     building_codes = []
-#     ratios = []
-#     countries = []
-
-#     for index,line in enumerate(lines):
-#         splitted_line = line.split(";")
-#         building_code = splitted_line[0]
-#         country = building_code[0:2]
-
-#         ratio_hp_tabula = splitted_line[-1]
-#         ratio_hp_tabula_floats = float(ratio_hp_tabula)
-#         building_codes.append(building_code)
-#         ratios.append(ratio_hp_tabula_floats)
-#         countries.append(country)
+from hisim import log
+from ordered_set import OrderedSet
 
 
-#     tabula_countries = list(set(countries))
-#     list_of_indices = []
-#     list_of_ratios = []
-#     for index_1, tabula_country in enumerate(tabula_countries):
-#         list_of_indices_of_one_country = []
-#         list_of_ratios_of_one_country = []
-#         for index_2, country in enumerate(countries):
-#             if tabula_country == country:
-#                 list_of_indices_of_one_country.append(index_2)
-#                 list_of_ratios_of_one_country.append(ratios[index_2])
-
-#         list_of_indices.append(list_of_indices_of_one_country)
-#         list_of_ratios.append(list_of_ratios_of_one_country)
-
-
-
-#     max_length_of_list_of_ratios = max(len(list) for list in list_of_ratios)
-
-#     for index, list_in_list_of_ratios in enumerate(list_of_ratios):
-#         if len(list_in_list_of_ratios) < max_length_of_list_of_ratios:
-#             length_difference = max_length_of_list_of_ratios - len(list_in_list_of_ratios)
-#             list_of_ratios[index] = list_in_list_of_ratios +  (list(np.repeat(np.nan, length_difference)))
-
-
-#     dictionary_countries_and_indices = dict(zip(tabula_countries, list_of_indices))
-#     dictionary_countries_and_ratios = dict(zip(tabula_countries, list_of_ratios))
-
-#     df = pd.DataFrame(dictionary_countries_and_ratios, index=["first_try"] *232)
-
-#     df.index.name="Index Name"
-#     df.columns.name="Countries"
-#     plt.figure(figsize=(5,5))
-#     df.boxplot(column=tabula_countries)
-
-#     print(df)
-#     seaborn.boxplot(data=df)
-#     seaborn.swarmplot(data=df)
-#     plt.axhline(y=1, color="red")
-#     plt.title("Heating Test")
-#     plt.ylabel("Ratio Heating Need Dummy Heater/Tabula")
-#     plt.axis([-1,22,0,40])
-#     plt.xlabel("Country")
-#     plt.show()
-
-
-with open("C:\\Users\\k.rieck\\HiSim\\tests\\test_building_heating_demand_dummy_heater_DE_energy_needs.csv", "r") as myfile:
+with open("C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Tests\\Heating_Test\\Nineth_try_only_DE_with_15min_timesteps_Aachen_weather\\test_building_heating_demand_dummy_heater_DE_energy_needs1.csv", "r") as myfile:
     lines = myfile.readlines()[1:]
     print(len(lines))
 
@@ -83,43 +17,111 @@ if len(lines)  == 0:
     print("file is empty. nothing to analyze.")
 else:
     building_codes = []
+    types= []
+    types_details = []
+    heat_demands_hisim = []
+    heat_demands_tabula = []
     ratios = []
-    building_code_indices = []
-    building_code_index = 0
-    types = []
+
     for index,line in enumerate(lines):
         splitted_line = line.split(";")
         building_code = splitted_line[0]
-        type = building_code.split(".")[2]
-
-        ratio_heat_generator_vs_tabula = splitted_line[-1]
-        ratio_heat_generator_vs_tabula_floats = float(ratio_heat_generator_vs_tabula)
-        building_code_index = building_code_index + 1
+        type = ".".join(building_code.split(".")[0:-2])
+        type_detail = ".".join(building_code.split(".")[-2:])
+        heat_demand_hisim = float(splitted_line[1])
+        log.information(str(building_code))
+        log.information(str(heat_demand_hisim))
+        heat_demand_tabula = float(splitted_line[2])
+        ratio_hp_tabula = splitted_line[3]
+        log.information(str(ratio_hp_tabula))
+        ratio_hp_tabula_floats = float(ratio_hp_tabula)
         building_codes.append(building_code)
-        ratios.append(ratio_heat_generator_vs_tabula_floats)
-        building_code_indices.append(building_code_index)
         types.append(type)
+        types_details.append(type_detail)
+        heat_demands_hisim.append(heat_demand_hisim)
+        heat_demands_tabula.append(heat_demand_tabula)
+        ratios.append(ratio_hp_tabula_floats)
 
 
-    # plot the points
-    plt.scatter(building_code_indices, ratios, s=1)
+    tabula_types = list(OrderedSet(types))
+    log.information(str(tabula_types))
+    list_of_indices = []
+    list_of_ratios = []
+    list_of_heat_demand_hisim = []
+    list_of_heat_demand_tabula = []
+    list_of_type_details = []
+    for index_1, tabula_type in enumerate(tabula_types):
+        list_of_indices_of_one_type = []
+        list_of_ratios_of_one_type = []
+        list_of_heat_demand_hisim_of_one_type = []
+        list_of_heat_demand_tabula_of_one_type = []
+        list_of_type_details_of_one_type = []
 
-    # zip joins x and y coordinates in pairs
-    index = 0
-    for building_code_index, ratio in zip(building_code_indices, ratios):
+        for index_2, tabula_type2 in enumerate(types):
+            if tabula_type == tabula_type2:
+                list_of_indices_of_one_type.append(index_2)
+                list_of_ratios_of_one_type.append(ratios[index_2])
+                list_of_heat_demand_hisim_of_one_type.append(heat_demands_hisim[index_2])
+                list_of_heat_demand_tabula_of_one_type.append(heat_demands_tabula[index_2])
+                list_of_type_details_of_one_type.append(types_details[index_2])
+        minimum = min(min(list_of_heat_demand_hisim_of_one_type), min(list_of_heat_demand_tabula_of_one_type))
+        maximum = max(max(list_of_heat_demand_hisim_of_one_type), max(list_of_heat_demand_tabula_of_one_type))
 
-        label = f"{types[index]}"
+        plt.figure(figsize=(15,9))
+        plt.scatter(x=list_of_heat_demand_hisim_of_one_type, y=list_of_heat_demand_tabula_of_one_type, c="red")
+        plt.plot([minimum, maximum],[minimum,maximum], "-")
 
-        plt.annotate(label, # this is the text
-                    (building_code_index,ratio))# these are the coordinates to position the label
-                    # textcoords="offset points", # how to position the text
-                    # xytext=(0,10), # distance from text to points (x,y)
-                    # ha='center') # horizontal alignment can be left, right or center
-        index = index + 1
+        index = 0
+        for demand_hisim, demand_tabula in zip(list_of_heat_demand_hisim_of_one_type, list_of_heat_demand_tabula_of_one_type):
+
+            label = f"{list_of_type_details_of_one_type[index]} \n Ratio: {list_of_ratios_of_one_type[index]}"
+
+            plt.annotate(label, # this is the text
+                        (demand_hisim, demand_tabula),# these are the coordinates to position the label
+                        textcoords="offset points", # how to position the text
+                        xytext=(0,10), # distance from text to points (x,y)
+                        ha='center',
+                        fontsize=8) # horizontal alignment can be left, right or center
+            index = index + 1
+        plt.title(f"Validation of Heating Demand of for Tabula Type {tabula_type}", fontsize=14)
+        plt.xlabel("Heating Demand given by Idealized Electric Heater HiSim [kWh/a*m2]", fontsize=12)
+        plt.ylabel("Heating Demand given by Tabula [kWh/a*m2]", fontsize=12)
+        plt.xticks(fontsize=10)
+        plt.savefig(f"C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Tests\\Heating_Test\\Nineth_try_only_DE_with_15min_timesteps_Aachen_weather\\Evaluation\\{tabula_type}.png")
+        plt.close()
+
+        list_of_indices.append(list_of_indices_of_one_type)
+        list_of_ratios.append(list_of_ratios_of_one_type)
+
+
+    max_length_of_list_of_ratios = max(len(list) for list in list_of_ratios)
+
+    for index, list_in_list_of_ratios in enumerate(list_of_ratios):
+        if len(list_in_list_of_ratios) < max_length_of_list_of_ratios:
+            length_difference = max_length_of_list_of_ratios - len(list_in_list_of_ratios)
+            list_of_ratios[index] = list_in_list_of_ratios +  (list(np.repeat(np.nan, length_difference)))
+
+
+    dictionary_countries_and_indices = dict(zip(tabula_types, list_of_indices))
+    dictionary_countries_and_ratios = dict(zip(tabula_types, list_of_ratios))
+
+    df = pd.DataFrame(dictionary_countries_and_ratios)
+
+    df.index.name="Index Name"
+    df.columns.name="Tabula Types"
+    fig =plt.figure(figsize=(16,10))
+
+    seaborn.boxplot(data=df)
+    seaborn.swarmplot(data=df, color="grey", size=4)
+    fig.autofmt_xdate(rotation=45)
+    plt.xticks(fontsize=9)
     plt.axhline(y=1, color="red")
-    plt.title("Heating Test for DE")
-    #plt.ylabel("Ratio Heating Need Idealized Electric Heater/Tabula")
-    # plt.axis([-1,22,0,10])
-    #plt.xlabel("Tabula Building Code")
-    plt.show()
+    plt.title("Validation of Heating Demand of German Houses", fontsize=14)
+    plt.ylabel("Ratio of Heating Demand given by HiSim/Tabula", fontsize=12)
+    plt.xlabel("Tabula Building Codes", fontsize=12)
+    plt.tight_layout()
+    plt.savefig(f"C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Tests\\Heating_Test\\Nineth_try_only_DE_with_15min_timesteps_Aachen_weather\\Evaluation\\All_DE_types_ratio.png")
+
+
+
 
