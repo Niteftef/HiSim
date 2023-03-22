@@ -22,7 +22,7 @@ from hisim.components import (
 )
 from hisim.modular_household import component_connections
 from hisim.modular_household.interface_configs.modular_household_config import (
-    read_in_configs,
+    read_in_configs
 )
 from hisim.postprocessingoptions import PostProcessingOptions
 from hisim.simulator import SimulationParameters
@@ -91,7 +91,7 @@ def modular_household_explicit(
         )
         my_simulation_parameters.post_processing_options.append(PostProcessingOptions.PLOT_CARPET)
         my_simulation_parameters.post_processing_options.append(PostProcessingOptions.GENERATE_PDF_REPORT)
-        # my_simulation_parameters.post_processing_options.append(PostProcessingOptions.GENERATE_CSV_FOR_HOUSING_DATA_BASE)
+        my_simulation_parameters.post_processing_options.append(PostProcessingOptions.GENERATE_CSV_FOR_HOUSING_DATA_BASE)
         my_simulation_parameters.post_processing_options.append(
             PostProcessingOptions.COMPUTE_AND_WRITE_KPIS_TO_REPORT
         )
@@ -300,9 +300,9 @@ def modular_household_explicit(
             ev_included=ev_included,
             occupancy_config=my_occupancy_config,
         )
-    if clever is False:
-        for car in my_cars:
-            consumption.append(car)
+        if clever is False:
+            for car in my_cars:
+                consumption.append(car)
 
     # """SMART DEVICES"""
     if utsp_connected:
@@ -447,7 +447,6 @@ def modular_household_explicit(
                 heating_season=heating_season,
                 count=count,
             )
-
             """TODO: repair! """
             # heatpump_cost = heatpump_cost + preprocessing.calculate_heating_investment_cost(economic_parameters, heatpump_included, my_heater.power_th)
         else:
