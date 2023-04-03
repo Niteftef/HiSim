@@ -676,6 +676,9 @@ class Building(dynamic_component.DynamicComponent):
                 timestep
             ]
 
+        solar_heat_gain_through_windows = 0
+        self.internal_heat_gains_through_occupancy_in_watt = 0
+
         (
             thermal_mass_average_bulk_temperature_in_celsius,
             heat_loss_in_watt,
