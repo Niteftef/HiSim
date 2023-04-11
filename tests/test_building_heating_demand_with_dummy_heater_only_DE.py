@@ -51,7 +51,7 @@ def test_house_with_dummy_heater_for_heating_test(
 
     # Set Simulation Parameters
     year = 2021
-    seconds_per_timestep = 60
+    seconds_per_timestep = 60*60
 
     # Set Occupancy
     occupancy_profile = "CH01"
@@ -349,7 +349,7 @@ def test_house_with_dummy_heater_for_heating_test(
                 + ";"
                 + "Ratio HiSim/TABULA internal gains"
                 + ";"
-                + "Solar gains from Occupancy [kWh/(a*m2)]"
+                + "Solar gains from Windows [kWh/(a*m2)]"
                 + ";"
                 + "Solar gains from TABULA [kWh/(a*m2)]"
                 + ";"
@@ -369,10 +369,6 @@ def test_house_with_dummy_heater_for_heating_test(
                 + ";"
                 + "Conditioned Floor Area (A_f) [m2]"
                 + ";"
-                + "Effective Mass Area (A_m), based on ISO 13790 [m2]"
-                + ";"
-                + "Total Internal Surface Area, based on ISO 13790 (A_t) [m2]"
-                + ";"
                 + "Floor Related Thermal Capacitance of Thermal Mass, based on ISO 13790 [kWh/m2.K]"
                 + ";"
                 + "Floor Related Thermal Capacitance of Thermal Mass, based on TABULA [kWh/m2.K]"
@@ -387,22 +383,21 @@ def test_house_with_dummy_heater_for_heating_test(
                 + ";"
                 + "\n"
             )
+    # for building_code in d_f["Code_BuildingVariant"]:
+    #     country_abbreviation = building_code.split(".")[0]
+    #     if country_abbreviation == "DE":
 
-            # for building_code in d_f["Code_BuildingVariant"]:
-            #     country_abbreviation = building_code.split(".")[0]
-            #     if country_abbreviation == "DE":
+    #         buildingdata = d_f.loc[
+    #             d_f["Code_BuildingVariant"] == building_code
+    #         ]
 
-            #         buildingdata = d_f.loc[
-            #             d_f["Code_BuildingVariant"] == building_code
-            #         ]
-      
-            #         tabula_conditioned_floor_area = buildingdata["A_C_Ref"].values[0]
-            #         if isinstance(building_code, str) and tabula_conditioned_floor_area != 0:
+    #         tabula_conditioned_floor_area = buildingdata["A_C_Ref"].values[0]
+    #         if isinstance(building_code, str) and tabula_conditioned_floor_area != 0:
 
-            #             log.information(str(country_abbreviation))
-            #             log.information(str(tabula_conditioned_floor_area))
-            #             weather_location_enum = weather.LocationEnum["Aachen"]
-            #             heating_reference_temperature_in_celsius = -14.0
+    #             log.information(str(country_abbreviation))
+    #             log.information(str(tabula_conditioned_floor_area))
+    #             weather_location_enum = weather.LocationEnum["Aachen"]
+    #             heating_reference_temperature_in_celsius = -14.0
 
             for building_code in d_f["Code_BuildingVariant"]:
                 if isinstance(building_code, str): #and tabula_conditioned_floor_area != 0:
@@ -691,3 +686,6 @@ def test_house_with_dummy_heater_for_heating_test(
     csv_one=pd.read_csv("test_building_heating_demand_dummy_heater_DE_energy_needs1.csv")
 
     csv_one.to_csv("test_building_heating_demand_dummy_heater_DE_energy_needs0.csv", mode="a", index=False, header=True)
+
+    read_file = pd.read_csv(r'test_building_heating_demand_dummy_heater_DE_energy_needs0.csv', delimiter=';')
+    read_file.to_excel(r'test_building_heating_demand_dummy_heater_DE_energy_needs0.xlsx', index=None, header=True)
