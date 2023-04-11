@@ -52,7 +52,6 @@ def test_house_with_dummy_heater_for_heating_test(
     # Set Simulation Parameters
     year = 2021
     seconds_per_timestep = 60*60
-
     # Set Occupancy
     occupancy_profile = "CH01"
 
@@ -355,6 +354,32 @@ def test_house_with_dummy_heater_for_heating_test(
                 + ";"
                 + "Ratio HiSim/TABULA solar gains"
                 + ";"
+                + "Heat Loss from Building [kWh//a*m2)]"
+                + ";"
+                + "Total Heat Transfer from TABULA [kWh/(a*m2)]"
+                + ";"
+                + "Mean Outside Temperature HiSim Weather [°C]"
+                + ";"
+                + "Mean Outside Temperature HiSim Input Data [°C]"
+                + ";"
+                + "Ratio Weather/Input Outside Temperatures"
+                + ";"
+                + "Mean GHI HiSim Weather [W/m2]"
+                + ";"
+                + "Mean GHI HiSim Input Data [W/m2]"
+                + ";"
+                + "Ratio Weather/Input GHI"
+                + ";"
+                + "Sum GHI HiSim Weather [W/m2]"
+                + ";"
+                + "Sum GHI HiSim Input Data [W/m2]"
+                + ";"
+                + "Ratio Weather/Input GHI Sum"
+                + ";"
+                + "Mean Thermal Mass Temperature [°C]"
+                + ";"
+                + "Mean Indoor Air Temperature [°C]"
+                + ";"
                 + "Max Thermal Demand [W]"
                 + ";"
                 + "Transmission for Windows and Doors, based on ISO 13790 (H_tr_w) [W/K]"
@@ -372,8 +397,6 @@ def test_house_with_dummy_heater_for_heating_test(
                 + "Floor Related Thermal Capacitance of Thermal Mass, based on ISO 13790 [kWh/m2.K]"
                 + ";"
                 + "Floor Related Thermal Capacitance of Thermal Mass, based on TABULA [kWh/m2.K]"
-                + ";"
-                + "Annual Floor Related Total Heat Loss, based on TABULA (Q_ht) [kWh/m2.a]"
                 + ";"
                 + "Annual Floor Related Internal Heat Gain, based on TABULA (Q_int) [kWh/m2.a]"
                 + ";"
@@ -583,7 +606,6 @@ def test_house_with_dummy_heater_for_heating_test(
                             "Occupancy - HeatingByResidents [Heating - W]"
                         ]
                         sum_internal_heat_gains_in_watt_timestep = sum(results_occupancy_internal_heat_gains)
-                        timestep_factor = seconds_per_timestep / 3600
                         sum_internal_heat_gains_in_watt_hour = sum_internal_heat_gains_in_watt_timestep * timestep_factor
                         sum_internal_heat_gains_in_kilowatt_hour = sum_internal_heat_gains_in_watt_hour / 1000
                         # =========================================================================================================================================================
@@ -616,11 +638,10 @@ def test_house_with_dummy_heater_for_heating_test(
                             "TabulaBuilding - SolarGainThroughWindows [Heating - W]"
                         ]
                         sum_solar_heat_gains_in_watt_timestep = sum(results_building_solar_heat_gains)
-                        timestep_factor = seconds_per_timestep / 3600
                         sum_solar_heat_gains_in_watt_hour = sum_solar_heat_gains_in_watt_timestep * timestep_factor
                         sum_solar_heat_gains_in_kilowatt_hour = sum_solar_heat_gains_in_watt_hour / 1000
                         # =========================================================================================================================================================
-                        # Test annual floor related internal heat gains
+                        # Test annual floor related solar heat gains
 
                         solar_gains_given_by_tabula_in_kilowatt_hour_per_year_per_m2 = (
                             my_building.buildingdata["q_sol"].values[0]
@@ -641,6 +662,91 @@ def test_house_with_dummy_heater_for_heating_test(
                             / solar_gains_given_by_tabula_in_kilowatt_hour_per_year_per_m2,
                             2,
                         )
+                        # =========================================================================================================================================================
+                        # Calculate annual heat loss
+
+                        results_building_heat_loss = my_sim.results_data_frame[
+                            "TabulaBuilding - HeatLoss [Heating - W]"
+                        ]
+                        sum_heat_loss_in_watt_timestep = sum(results_building_heat_loss)
+                        sum_heat_loss_in_watt_hour = sum_heat_loss_in_watt_timestep * timestep_factor
+                        sum_heat_loss_in_kilowatt_hour = sum_heat_loss_in_watt_hour / 1000
+                        # =========================================================================================================================================================
+                        # Test annual floor related heat loss
+
+                        total_heat_transfer_given_by_tabula_in_kilowatt_hour_per_year_per_m2 = (
+                            my_building.buildingdata["q_ht"].values[0]
+                        )
+
+                        heat_loss_given_by_dummy_heater_in_kilowatt_hour_per_year_per_m2 = (
+                            np.round(
+                                (
+                                    sum_heat_loss_in_kilowatt_hour
+                                    / my_building_config.absolute_conditioned_floor_area_in_m2
+                                ),
+                                1,
+                            )
+                        )
+                        # =========================================================================================================================================================
+                        # Calculate mean outside temperature 
+
+                        results_weather_outside_temperature = my_sim.results_data_frame[
+                            "Weather - DailyAverageOutsideTemperatures [Temperature - °C]"
+                        ]
+                        mean_weather_outside_temperature = np.mean(results_weather_outside_temperature)
+                        # =========================================================================================================================================================
+                        # Test mean outside temperature
+
+                        weather_original_source = weather.read_test_reference_year_data(weatherconfig=my_weather_config, year=my_simulation_parameters.year)
+                        weather_outside_temperature_original = weather_original_source["T"]
+                        mean_weather_outside_temperature_original = np.mean(weather_outside_temperature_original)
+
+                        ratio_hisimweather_inputdata_outside_temperatures = np.round(
+                            mean_weather_outside_temperature
+                            / mean_weather_outside_temperature_original,
+                            3,
+                        )
+
+                        # =========================================================================================================================================================
+                        # Calculate mean GHI and total GHI
+
+                        results_weather_ghi = my_sim.results_data_frame[
+                            "Weather - GlobalHorizontalIrradiance [Irradiance - W per square meter]"
+                        ]
+                        mean_weather_ghi = np.mean(results_weather_ghi)
+                        sum_weather_ghi = sum(results_weather_ghi)
+                        # =========================================================================================================================================================
+                        # Test mean GHI and total GHI
+
+
+                        weather_ghi_original = weather_original_source["GHI"] # weather_original_source["D"] + weather_original_source["B"]
+                        mean_weather_ghi_original = np.mean(weather_ghi_original)
+                        sum_weather_ghi_original = sum(weather_ghi_original)
+
+                        ratio_hisimweather_inputdata_ghi = np.round(
+                            mean_weather_ghi
+                            / mean_weather_ghi_original,
+                            3,
+                        )
+
+                        ratio_hisim_weather_inputdata_ghi_sum = np.round(sum_weather_ghi / sum_weather_ghi_original, 3)
+
+                        # =========================================================================================================================================================
+                        # Calculate mean thermal mass temperature
+
+                        results_building_thermal_mass_temperature = my_sim.results_data_frame[
+                            "TabulaBuilding - TemperatureMeanThermalMass [Temperature - °C]"
+                        ]
+                        mean_building_thermal_mass_temperature = np.mean(results_building_thermal_mass_temperature)
+
+                        # =========================================================================================================================================================
+                        # Calculate mean indoor air temperature
+
+                        results_building_indoor_air_temperature = my_sim.results_data_frame[
+                            "TabulaBuilding - TemperatureIndoorAir [Temperature - °C]"
+                        ]
+                        mean_building_indoor_air_temperature = np.mean(results_building_indoor_air_temperature)
+
 
                         building_report = my_building.write_for_heating_demand_test()
 
@@ -679,6 +785,32 @@ def test_house_with_dummy_heater_for_heating_test(
                                 + ";"
                                 + str(ratio_hisim_tabula_solar_gains)
                                 + ";"
+                                + str(heat_loss_given_by_dummy_heater_in_kilowatt_hour_per_year_per_m2)
+                                + ";"
+                                + str(total_heat_transfer_given_by_tabula_in_kilowatt_hour_per_year_per_m2)
+                                + ";"
+                                + str(mean_weather_outside_temperature)
+                                + ";"
+                                + str(mean_weather_outside_temperature_original)
+                                + ";"
+                                + str(ratio_hisimweather_inputdata_outside_temperatures)
+                                + ";"
+                                + str(mean_weather_ghi)
+                                + ";"
+                                + str(mean_weather_ghi_original)
+                                + ";"
+                                + str(ratio_hisimweather_inputdata_ghi)
+                                + ";"
+                                + str(sum_weather_ghi)
+                                + ";"
+                                + str(sum_weather_ghi_original)
+                                + ";"
+                                + str(ratio_hisim_weather_inputdata_ghi_sum)
+                                + ";"
+                                + str(mean_building_thermal_mass_temperature)
+                                + ";"
+                                + str(mean_building_indoor_air_temperature)
+                                + ";"
                                 + building_report
                                 + "\n"
                             )
@@ -687,5 +819,5 @@ def test_house_with_dummy_heater_for_heating_test(
 
     csv_one.to_csv("test_building_heating_demand_dummy_heater_DE_energy_needs0.csv", mode="a", index=False, header=True)
 
-    read_file = pd.read_csv(r'test_building_heating_demand_dummy_heater_DE_energy_needs0.csv', delimiter=';')
+    read_file = pd.read_csv(r'test_building_heating_demand_dummy_heater_DE_energy_needs0.csv', delimiter=';', encoding='unicode_escape')
     read_file.to_excel(r'test_building_heating_demand_dummy_heater_DE_energy_needs0.xlsx', index=None, header=True)

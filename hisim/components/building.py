@@ -1239,7 +1239,6 @@ class Building(dynamic_component.DynamicComponent):
         + f"{self.scaled_conditioned_floor_area_in_m2:.2f};"
         + f"{(self.thermal_capacity_of_building_thermal_mass_in_joule_per_kelvin * 3600 / (1000 *self.scaled_conditioned_floor_area_in_m2)):.2f};"
         + f"{(self.thermal_capacity_of_building_thermal_mass_reference_in_watthour_per_m2_per_kelvin / 1000):.2f};"
-        + f"{self.total_heat_transfer_reference_in_kilowatthour_per_m2_per_year:.2f};"
         + f"{self.internal_heat_sources_reference_in_kilowatthour_per_m2_per_year:.2f};"
         + f"{self.solar_heat_load_during_heating_seasons_reference_in_kilowatthour_per_m2_per_year:.2f};"
         + f"{self.energy_need_for_heating_reference_in_kilowatthour_per_m2_per_year:.2f};")
