@@ -2,6 +2,8 @@
 # clean
 from __future__ import annotations
 from typing import List, Optional
+import enum
+
 import datetime
 from dataclasses import dataclass
 from dataclass_wizard import JSONWizard
@@ -57,6 +59,8 @@ class SimulationParameters(JSONWizard):
         self.predictive_control = predictive_control
         self.prediction_horizon = prediction_horizon
 
+        self.figure_format = FigureFormat.PNG
+
     @classmethod
     def full_year(cls, year: int, seconds_per_timestep: int) -> SimulationParameters:
         """Generates a parameter set for a full year without any post processing, primarily for unit testing."""
@@ -71,6 +75,30 @@ class SimulationParameters(JSONWizard):
         """Enables all the post processing options ."""
         for option in PostProcessingOptions:
             self.post_processing_options.append(option)
+
+    def enable_plots_only(self) -> None:
+        """Enables line and carpet plots."""
+        self.post_processing_options.append(PostProcessingOptions.PLOT_LINE)
+        self.post_processing_options.append(PostProcessingOptions.PLOT_CARPET)
+        self.post_processing_options.append(PostProcessingOptions.PLOT_SANKEY)
+        self.post_processing_options.append(PostProcessingOptions.PLOT_SINGLE_DAYS)
+        self.post_processing_options.append(PostProcessingOptions.PLOT_BAR_CHARTS)
+        self.post_processing_options.append(
+            PostProcessingOptions.OPEN_DIRECTORY_IN_EXPLORER
+        )
+        # self.post_processing_options.append(PostProcessingOptions.EXPORT_TO_CSV)
+        self.post_processing_options.append(PostProcessingOptions.MAKE_NETWORK_CHARTS)
+        self.post_processing_options.append(
+            PostProcessingOptions.PLOT_SPECIAL_TESTING_SINGLE_DAY
+        )
+        # self.post_processing_options.append(PostProcessingOptions.GENERATE_CSV_FOR_HOUSING_DATA_BASE)
+        # self.post_processing_options.append(PostProcessingOptions.GENERATE_PDF_REPORT)
+        # self.post_processing_options.append(PostProcessingOptions.WRITE_COMPONENTS_TO_REPORT)
+        # self.post_processing_options.append(PostProcessingOptions.WRITE_ALL_OUTPUTS_TO_REPORT)
+        # self.post_processing_options.append(PostProcessingOptions.INCLUDE_CONFIGS_IN_PDF_REPORT)
+        # self.post_processing_options.append(PostProcessingOptions.INCLUDE_IMAGES_IN_PDF_REPORT)
+        # self.post_processing_options.append(PostProcessingOptions.WRITE_NETWORK_CHARTS_TO_REPORT)
+        # self.post_processing_options.append(PostProcessingOptions.COMPUTE_AND_WRITE_KPIS_TO_REPORT)
 
     @classmethod
     def full_year_all_options(
@@ -87,14 +115,46 @@ class SimulationParameters(JSONWizard):
         return pars
 
     @classmethod
-    def january_only(cls, year: int, seconds_per_timestep: int) -> SimulationParameters:
+    def full_year_plots_only(
+        cls, year: int, seconds_per_timestep: int
+    ) -> SimulationParameters:
+        """Generates a parameter set for a full year with all the post processing, primarily for unit testing."""
+        pars = cls(
+            datetime.datetime(year, 1, 1),
+            datetime.datetime(year + 1, 1, 1),
+            seconds_per_timestep,
+            "",
+        )
+        pars.enable_plots_only()
+        return pars
+
+    @classmethod
+    def january_only_with_all_options(
+        cls, year: int, seconds_per_timestep: int
+    ) -> SimulationParameters:
         """Generates a parameter set for a single january, primarily for unit testing."""
-        return cls(
+        pars = cls(
             datetime.datetime(year, 1, 1),
             datetime.datetime(year, 1, 31),
             seconds_per_timestep,
             "",
         )
+        pars.enable_all_options()
+        return pars
+
+    @classmethod
+    def january_only_with_only_charts(
+        cls, year: int, seconds_per_timestep: int
+    ) -> SimulationParameters:
+        """Generates a parameter set for a single january, primarily for unit testing."""
+        pars = cls(
+            datetime.datetime(year, 1, 1),
+            datetime.datetime(year, 1, 31),
+            seconds_per_timestep,
+            "",
+        )
+        pars.enable_plots_only()
+        return pars
 
     @classmethod
     def three_months_only(
@@ -146,6 +206,20 @@ class SimulationParameters(JSONWizard):
         pars.enable_all_options()
         return pars
 
+    @classmethod
+    def one_day_only_with_only_plots(
+        cls, year: int, seconds_per_timestep: int
+    ) -> SimulationParameters:
+        """Generates a parameter set for a single day, primarily for unit testing."""
+        pars = cls(
+            datetime.datetime(year, 1, 1),
+            datetime.datetime(year, 1, 2),
+            seconds_per_timestep,
+            "",
+        )
+        pars.enable_plots_only()
+        return pars
+
     def get_unique_key(self) -> str:
         """Gets a unique key from a simulation parameter class."""
         return (
@@ -169,3 +243,11 @@ class SimulationParameters(JSONWizard):
         lines.append(f"Seconds per timestep: {self.seconds_per_timestep}")
         lines.append(f"Total number of timesteps: {self.timesteps}")
         return lines
+
+
+class FigureFormat(str, enum.Enum):
+
+    """Set Figure Formats."""
+
+    PNG = ".png"
+    JPG = ".jpg"

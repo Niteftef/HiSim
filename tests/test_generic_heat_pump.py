@@ -1,3 +1,4 @@
+import pytest
 from hisim import component as cp
 #import components as cps
 #import components
@@ -6,6 +7,8 @@ from hisim import loadtypes as lt
 from hisim.simulationparameters import SimulationParameters
 from tests import functions_for_testing as fft
 
+
+@pytest.mark.base
 def test_heat_pump():
 
     seconds_per_timestep = 60

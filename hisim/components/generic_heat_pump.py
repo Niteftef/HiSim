@@ -11,9 +11,10 @@ This module contains the following classes:
 # Generic/Built-in
 import copy
 from typing import List, Any, Optional
+from dataclasses import dataclass
 import numpy as np
 from dataclasses_json import dataclass_json
-from dataclasses import dataclass
+
 
 from hisim import component as cp
 from hisim import log
@@ -42,6 +43,9 @@ __status__ = "development"
 @dataclass_json
 @dataclass
 class GenericHeatPumpConfig(cp.ConfigBase):
+
+    """ Config for the generic heat pump. """
+
     @classmethod
     def get_main_classname(cls):
         """Returns the full class name of the base class."""
@@ -68,6 +72,9 @@ class GenericHeatPumpConfig(cp.ConfigBase):
 @dataclass_json
 @dataclass
 class GenericHeatPumpControllerConfig(cp.ConfigBase):
+
+    """ Controller for the generic heat pump. """
+
     @classmethod
     def get_main_classname(cls):
         """Returns the full class name of the base class."""
@@ -445,15 +452,13 @@ class GenericHeatPump(cp.Component):
     def write_to_report(self) -> List[str]:
         """Write important variables to report."""
         lines = []
-        for config_string in self.heatpump_config.get_string_dict():
-            lines.append(config_string)
         lines.append(
             f"Max Heating Power [kW]: {(self.max_heating_power_in_watt) * 1e-3:4.3f}"
         )
         lines.append(
             f"Max Peating Power Variation Restriction [W]: {self.max_heating_power_variation_restriction_in_watt:4.3f}"
         )
-        return lines
+        return self.heatpump_config.get_string_dict() + lines
 
     def i_simulate(
         self, timestep: int, stsv: cp.SingleTimeStepValues, force_convergence: bool
@@ -726,10 +731,7 @@ class GenericHeatPumpController(cp.Component):
 
     def write_to_report(self) -> List[str]:
         """Write important variables to report."""
-        lines = []
-        for config_string in self.heatpump_controller_config.get_string_dict():
-            lines.append(config_string)
-        return lines
+        return self.heatpump_controller_config.get_string_dict()
 
     def i_simulate(
         self, timestep: int, stsv: cp.SingleTimeStepValues, force_convergence: bool

@@ -1,3 +1,4 @@
+import pytest
 from hisim import component as cp
 #import components as cps
 #import components
@@ -6,6 +7,8 @@ from hisim.components import controller_l1_heatpump
 from hisim import loadtypes as lt
 from hisim.simulationparameters import SimulationParameters
 
+
+@pytest.mark.base
 def test_heat_pump_modular():
 
     #simulation parameters
@@ -49,18 +52,17 @@ def test_heat_pump_modular():
                                             lt.Units.WATT)
     
     #connection of in- and outputs
-    my_heat_pump.TemperatureOutsideC.source_output = t_air_outdoorC
-    my_heat_pump.L1HeatControllerTargetPercentage.source_output = my_heat_pump_controller_l1.heat_pump_target_percentage_channel
+    my_heat_pump.temperature_outside_channel.source_output = t_air_outdoorC
+    my_heat_pump.heat_controller_power_modifier_channel.source_output = my_heat_pump_controller_l1.heat_pump_target_percentage_channel
     my_heat_pump_controller_l1.storage_temperature_channel.source_output = t_mC
-    my_heat_pump_controller_l1.flexible_electricity_input.source_output = ElectricityTargetC
 
     # indexing of in- and outputs
     t_mC.global_index = 0
     ElectricityTargetC.global_index = 1
     t_air_outdoorC.global_index = 2
     my_heat_pump_controller_l1.heat_pump_target_percentage_channel.global_index = 3
-    my_heat_pump.ThermalPowerDeliveredC.global_index = 4
-    my_heat_pump.ElectricityOutputC.global_index = 5
+    my_heat_pump.thermal_power_delicered_channel.global_index = 4
+    my_heat_pump.electricity_output_channel.global_index = 5
     
     #test: after five hour temperature in building is 10 °C 
     stsv.values[0] = 10

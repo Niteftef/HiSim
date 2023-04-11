@@ -6,7 +6,7 @@
 # Owned
 from typing import List, Any, Dict, Optional
 from hisim.component import Component, SingleTimeStepValues
-from hisim.components.generic_heat_pump import GenericHeatPumpController
+from hisim.components.generic_heat_pump import GenericHeatPumpController, GenericHeatPumpControllerConfig
 from hisim.components.generic_ev_charger import EVChargerController
 from hisim.simulationparameters import SimulationParameters
 
@@ -18,7 +18,7 @@ class SmartController(Component):
     def __init__(
         self,
         my_simulation_parameters: SimulationParameters,
-        controllers: Optional[Dict[str, list[str]]],
+        controllers: Optional[Dict[str, List[str]]],
     ) -> None:
         """Construct all necessary attributes."""
         super().__init__(
@@ -29,13 +29,19 @@ class SmartController(Component):
         self.wrapped_controllers: List[Any] = []
         self.build(controllers)
 
-    def build(self, controllers: Dict[str, list[str]]) -> None:
+    def build(self, controllers: Dict[str, List[str]]) -> None:
         """Build wrapped controllers."""
         for controller_name in controllers:
             if "HeatPump" in controller_name:
+                ghpcc = GenericHeatPumpControllerConfig("generic heat pump controller",
+                                                        temperature_air_heating_in_celsius=15,
+                                                        temperature_air_cooling_in_celsius=25,
+                                                        offset=0,
+                                                        mode=1)
                 self.wrapped_controllers.append(
+
                     GenericHeatPumpController(
-                        my_simulation_parameters=self.my_simulation_parameters
+                        my_simulation_parameters=self.my_simulation_parameters, config=ghpcc
                     )
                 )
 

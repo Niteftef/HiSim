@@ -4,14 +4,14 @@
 import os
 from typing import Optional
 import numpy as np
-import pandas as pd
+import pytest
+
 import hisim.simulator as sim
 from hisim.simulator import SimulationParameters
 from hisim.components import loadprofilegenerator_connector
 from hisim.components import weather
 from hisim.components import building
-from hisim.components import fake_heater
-from hisim import utils, log
+from hisim.components import idealized_electric_heater
 
 
 __authors__ = "Katharina Rieck, Noah Pflugradt"
@@ -24,23 +24,24 @@ __status__ = "development"
 
 # PATH and FUNC needed to build simulator, PATH is fake
 PATH = "../examples/household_for_test_building_theoretical_heat_demand.py"
-FUNC = "house_with_fake_heater_for_heating_test"
+FUNC = "house_with_idealized_electric_heater_for_heating_test"
 
 
-def test_house_with_fake_heater_for_heating_test(
+@pytest.mark.buildingtest
+def test_house_with_idealized_electric_heater_for_heating_test(
     my_simulation_parameters: Optional[SimulationParameters] = None,
 ) -> None:  # noqa: too-many-statements
     """Test for heating energy demand.
 
     This setup function emulates an household including the basic components. Here the residents have their
-    heating needs covered by a fake heater that returns exactly the heat that the building needs.
+    heating needs covered by a idealized electric heater that returns exactly the heat that the building needs.
 
     - Simulation Parameters
     - Components
         - Occupancy (Residents' Demands)
         - Weather
         - Building
-        - Fake Heater
+        - Idealized Electric Heater
     """
 
     # =========================================================================================================================================================
@@ -48,10 +49,7 @@ def test_house_with_fake_heater_for_heating_test(
 
     # Set Simulation Parameters
     year = 2021
-    seconds_per_timestep = 60 * 60
-
-    # Set Occupancy
-    occupancy_profile = "CH01"
+    seconds_per_timestep = 60
 
     # Set Fake Heater
     set_heating_temperature_for_building_in_celsius = 20
@@ -95,13 +93,11 @@ def test_house_with_fake_heater_for_heating_test(
             )
             my_sim.set_simulation_parameters(my_simulation_parameters)
 
-            # Build Occupancy
-            my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig(
-                profile_name=occupancy_profile, name="Occupancy"
-            )
-            my_occupancy = loadprofilegenerator_connector.Occupancy(
-                config=my_occupancy_config, my_simulation_parameters=my_simulation_parameters
-            )
+    # Build Occupancy
+    my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig.get_default_CHS01()
+    my_occupancy = loadprofilegenerator_connector.Occupancy(
+        config=my_occupancy_config, my_simulation_parameters=my_simulation_parameters
+    )
 
             # Build Weather
             my_weather_config = weather.WeatherConfig.get_default(
@@ -123,86 +119,86 @@ def test_house_with_fake_heater_for_heating_test(
                 config=my_building_config, my_simulation_parameters=my_simulation_parameters
             )
 
-            # Build Fake Heater
-            my_fake_heater = fake_heater.FakeHeater(
-                my_simulation_parameters=my_simulation_parameters,
-                set_heating_temperature_for_building_in_celsius=set_heating_temperature_for_building_in_celsius,
-                set_cooling_temperature_for_building_in_celsius=set_cooling_temperature_for_building_in_celsius
-            )
+    # Build Fake Heater
+    my_idealized_electric_heater = idealized_electric_heater.IdealizedElectricHeater(
+        my_simulation_parameters=my_simulation_parameters,
+        set_heating_temperature_for_building_in_celsius=set_heating_temperature_for_building_in_celsius,
+        set_cooling_temperature_for_building_in_celsius=set_cooling_temperature_for_building_in_celsius
+    )
 
             # =========================================================================================================================================================
             # Connect Components
 
-            # Building
-            my_building.connect_input(
-                my_building.Altitude, my_weather.component_name, my_weather.Altitude
-            )
-            my_building.connect_input(
-                my_building.Azimuth, my_weather.component_name, my_weather.Azimuth
-            )
-            my_building.connect_input(
-                my_building.DirectNormalIrradiance,
-                my_weather.component_name,
-                my_weather.DirectNormalIrradiance,
-            )
-            my_building.connect_input(
-                my_building.DiffuseHorizontalIrradiance,
-                my_weather.component_name,
-                my_weather.DiffuseHorizontalIrradiance,
-            )
-            my_building.connect_input(
-                my_building.GlobalHorizontalIrradiance,
-                my_weather.component_name,
-                my_weather.GlobalHorizontalIrradiance,
-            )
-            my_building.connect_input(
-                my_building.DirectNormalIrradianceExtra,
-                my_weather.component_name,
-                my_weather.DirectNormalIrradianceExtra,
-            )
-            my_building.connect_input(
-                my_building.ApparentZenith, my_weather.component_name, my_weather.ApparentZenith
-            )
-            my_building.connect_input(
-                my_building.TemperatureOutside,
-                my_weather.component_name,
-                my_weather.TemperatureOutside,
-            )
-            my_building.connect_input(
-                my_building.HeatingByResidents,
-                my_occupancy.component_name,
-                my_occupancy.HeatingByResidents,
-            )
-            my_building.connect_input(
-                my_building.ThermalPowerDelivered,
-                my_fake_heater.component_name,
-                my_fake_heater.ThermalPowerDelivered,
-            )
-            my_building.connect_input(
-                my_building.SetHeatingTemperature,
-                my_fake_heater.component_name,
-                my_fake_heater.SetHeatingTemperatureForBuilding,
-            )
-            my_building.connect_input(
-                my_building.SetCoolingTemperature,
-                my_fake_heater.component_name,
-                my_fake_heater.SetCoolingTemperatureForBuilding,
-            )
+    # Building
+    my_building.connect_input(
+        my_building.Altitude, my_weather.component_name, my_weather.Altitude
+    )
+    my_building.connect_input(
+        my_building.Azimuth, my_weather.component_name, my_weather.Azimuth
+    )
+    my_building.connect_input(
+        my_building.DirectNormalIrradiance,
+        my_weather.component_name,
+        my_weather.DirectNormalIrradiance,
+    )
+    my_building.connect_input(
+        my_building.DiffuseHorizontalIrradiance,
+        my_weather.component_name,
+        my_weather.DiffuseHorizontalIrradiance,
+    )
+    my_building.connect_input(
+        my_building.GlobalHorizontalIrradiance,
+        my_weather.component_name,
+        my_weather.GlobalHorizontalIrradiance,
+    )
+    my_building.connect_input(
+        my_building.DirectNormalIrradianceExtra,
+        my_weather.component_name,
+        my_weather.DirectNormalIrradianceExtra,
+    )
+    my_building.connect_input(
+        my_building.ApparentZenith, my_weather.component_name, my_weather.ApparentZenith
+    )
+    my_building.connect_input(
+        my_building.TemperatureOutside,
+        my_weather.component_name,
+        my_weather.TemperatureOutside,
+    )
+    my_building.connect_input(
+        my_building.HeatingByResidents,
+        my_occupancy.component_name,
+        my_occupancy.HeatingByResidents,
+    )
+    my_building.connect_input(
+        my_building.ThermalPowerDelivered,
+        my_idealized_electric_heater.component_name,
+        my_idealized_electric_heater.ThermalPowerDelivered,
+    )
+    my_building.connect_input(
+        my_building.SetHeatingTemperature,
+        my_idealized_electric_heater.component_name,
+        my_idealized_electric_heater.SetHeatingTemperatureForBuilding,
+    )
+    my_building.connect_input(
+        my_building.SetCoolingTemperature,
+        my_idealized_electric_heater.component_name,
+        my_idealized_electric_heater.SetCoolingTemperatureForBuilding,
+    )
 
-            # Fake Heater
-            my_fake_heater.connect_input(
-                my_fake_heater.TheoreticalThermalBuildingDemand,
-                my_building.component_name,
-                my_building.TheoreticalThermalBuildingDemand,
-            )
+    # Fake Heater
+    my_idealized_electric_heater.connect_input(
+        my_idealized_electric_heater.TheoreticalThermalBuildingDemand,
+        my_building.component_name,
+        my_building.TheoreticalThermalBuildingDemand,
+    )
 
             # =========================================================================================================================================================
             # Add Components to Simulator and run all timesteps
 
-            my_sim.add_component(my_weather)
-            my_sim.add_component(my_occupancy)
-            my_sim.add_component(my_building)
-            my_sim.add_component(my_fake_heater)
+    my_sim.add_component(my_weather)
+    my_sim.add_component(my_occupancy)
+    my_sim.add_component(my_building)
+    my_sim.add_component(my_idealized_electric_heater)
 
             my_sim.run_all_timesteps()
 

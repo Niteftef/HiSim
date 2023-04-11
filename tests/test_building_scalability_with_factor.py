@@ -6,6 +6,7 @@ The window areas are scaled via the ratio of window area to wall area.
 """
 # clean
 import numpy as np
+import pytest
 from hisim import component
 from hisim.components import loadprofilegenerator_connector
 from hisim.components import weather
@@ -17,12 +18,12 @@ from tests import functions_for_testing as fft
 import pandas as pd
 
 
+@pytest.mark.buildingtest
 @utils.measure_execution_time
 def test_building_scalability():
     """Test function for the building module."""
 
     # Sets inputs
-    my_occupancy_profile = "CH01"
     absolute_conditioned_floor_area_in_m2 = 121.2
     seconds_per_timestep = 60
     my_simulation_parameters = SimulationParameters.full_year(
@@ -59,9 +60,7 @@ def test_building_scalability():
     log.information(my_residence_config.building_code)
 
     # Set Occupancy
-    my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig(
-        profile_name=my_occupancy_profile, name="Occupancy-1"
-    )
+    my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig.get_default_CHS01()
     my_occupancy = loadprofilegenerator_connector.Occupancy(
         config=my_occupancy_config,
         my_simulation_parameters=my_simulation_parameters,

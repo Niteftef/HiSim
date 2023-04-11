@@ -1,3 +1,4 @@
+import pytest
 from hisim import component as cp
 #import components as cps
 #import components
@@ -6,6 +7,8 @@ from hisim.components import controller_l1_heatpump
 from hisim import loadtypes as lt
 from hisim.simulationparameters import SimulationParameters
 
+
+@pytest.mark.base
 def test_heat_source():
 
     #simulation parameters
@@ -42,8 +45,8 @@ def test_heat_source():
     # indexing of in- and outputs
     t_mC.global_index = 0
     my_heat_source_controller_l1.heat_pump_target_percentage_channel.global_index = 1  
-    my_heat_source.FuelDeliveredC.global_index = 2
-    my_heat_source.ThermalPowerDeliveredC.global_index = 3
+    my_heat_source.fuel_delivered_channel.global_index = 2
+    my_heat_source.thermal_power_delivered_channel.global_index = 3
     
     #test: after five hour temperature in building is 10 °C 
     stsv.values[0] = 10

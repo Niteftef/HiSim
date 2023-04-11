@@ -1,5 +1,6 @@
 """Test for generic gas heater module."""
 # clean
+import pytest
 from hisim import component as cp
 # import components as cps
 # import components
@@ -10,6 +11,7 @@ from hisim import log
 from tests import functions_for_testing as fft
 
 
+@pytest.mark.base
 def test_gas_heater():
     """Test for the gas heater."""
 

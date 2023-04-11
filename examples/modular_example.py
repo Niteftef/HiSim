@@ -1,7 +1,5 @@
 """Example sets up a modular household according to json input file."""
 
-# clean
-
 import json
 import os
 import shutil
@@ -9,28 +7,29 @@ from os import path
 from typing import Any, List, Optional, Tuple
 
 import pandas as pd
-from utspclient.helpers.lpgdata import (TransportationDeviceSets,
-                                        TravelRouteSets)
+from utspclient.helpers.lpgdata import TransportationDeviceSets, TravelRouteSets
 
 import hisim.loadtypes as lt
 import hisim.log
 import hisim.utils
-from hisim.components import (building, controller_l2_energy_management_system,
-                              generic_price_signal,
-                              loadprofilegenerator_connector,
-                              loadprofilegenerator_utsp_connector, weather)
+from hisim.components import (
+    building,
+    controller_l2_energy_management_system,
+    generic_price_signal,
+    loadprofilegenerator_connector,
+    loadprofilegenerator_utsp_connector,
+    weather,
+)
 from hisim.modular_household import component_connections
-from hisim.modular_household.interface_configs.modular_household_config import \
+from hisim.modular_household.interface_configs.modular_household_config import (
     read_in_configs
+)
 from hisim.postprocessingoptions import PostProcessingOptions
 from hisim.simulator import SimulationParameters
 
 
 def cleanup_old_result_folders():
-    """
-    Removes old result folders of previous modular_household_explicit
-    simulations.
-    """
+    """ Removes old result folders of previous modular_household_explicit simulations. """
     base_path = os.path.join(
         hisim.utils.hisim_abs_path, os.path.pardir, "examples", "results"
     )
@@ -42,20 +41,22 @@ def cleanup_old_result_folders():
 
 
 def get_heating_reference_temperature_and_season_from_location(location: str) -> Tuple[float, List[int]]:
-    """ Reads in temperature of coldest day for sizing of heating system and heating season for control of the heating system. Both relies on the location.
+    """ Reads in temperature of coldest day for sizing of heating system and heating season for control of the heating system.
+
+    Both relies on the location.
     :param location: location of the building, reference temperature and heating season depend on the climate (at the location)
     :type location: str
 
     :return: heating reference temperature and heating season of the location,
     heating season is given by julian day of the year when heating period starts (third entry) and ends (first entry).
     :rtype: Tuple[float, List[int]]
-    """    
+    """
 
-    converting_data = pd.read_csv(
-        hisim.utils.HISIMPATH["housing_reference_temperatures"]
-    )
+    converting_data = pd.read_csv(hisim.utils.HISIMPATH["housing_reference_temperatures"])
     converting_data.index = converting_data["Location"]
-    return ( float(converting_data.loc[location]["HeatingReferenceTemperature"]), [int(converting_data.loc[location]['HeatingSeasonEnd']), int(converting_data.loc[location]['HeatingSeasonBegin'])])
+    return (float(converting_data.loc[location]["HeatingReferenceTemperature"]),
+            [int(converting_data.loc[location]['HeatingSeasonEnd']),
+             int(converting_data.loc[location]['HeatingSeasonBegin'])])
 
 
 def modular_household_explicit(
@@ -89,11 +90,13 @@ def modular_household_explicit(
             year=year, seconds_per_timestep=seconds_per_timestep
         )
         # my_simulation_parameters.post_processing_options.append(PostProcessingOptions.PLOT_CARPET)
-        # my_simulation_parameters.post_processing_options.append(PostProcessingOptions.GENERATE_PDF_REPORT)
+        my_simulation_parameters.post_processing_options.append(PostProcessingOptions.GENERATE_PDF_REPORT)
         my_simulation_parameters.post_processing_options.append(PostProcessingOptions.GENERATE_CSV_FOR_HOUSING_DATA_BASE)
-        # my_simulation_parameters.post_processing_options.append(
-        #     PostProcessingOptions.COMPUTE_AND_WRITE_KPIS_TO_REPORT
-        # )
+        my_simulation_parameters.post_processing_options.append(PostProcessingOptions.WRITE_COMPONENTS_TO_REPORT)
+        my_simulation_parameters.post_processing_options.append(PostProcessingOptions.INCLUDE_CONFIGS_IN_PDF_REPORT)
+        my_simulation_parameters.post_processing_options.append(
+            PostProcessingOptions.COMPUTE_AND_WRITE_KPIS_TO_REPORT
+        )
         # my_simulation_parameters.post_processing_options.append(
         #     PostProcessingOptions.MAKE_NETWORK_CHARTS
         # )
@@ -116,15 +119,14 @@ def modular_household_explicit(
     # select if utsp is needed based on defined occupancy_profile:
     if occupancy_profile_utsp is None and occupancy_profile is None:
         raise Exception('Either occupancy_profile_utsp or occupancy_profile need to be defined in archetype_config file.')
-    elif occupancy_profile_utsp is not None and occupancy_profile is not None:
-        hisim.log.warning("Both occupancy_profile_utsp and occupancy_profile are defined, so the connection to the UTSP is considered by default. " )
+    if occupancy_profile_utsp is not None and occupancy_profile is not None:
+        hisim.log.warning("Both occupancy_profile_utsp and occupancy_profile are defined, so the connection to the UTSP is considered by default. ")
     if occupancy_profile_utsp is not None:
         occupancy_profile = occupancy_profile_utsp
         utsp_connected = True
     else:
         utsp_connected = False
     del occupancy_profile_utsp
-    
 
     # get system configuration: technical equipment
     heatpump_included = system_config_.heatpump_included
@@ -136,7 +138,9 @@ def modular_household_explicit(
         heatpump_power = 1
         hisim.log.information("Default power is used for heat pump. ")
     if heatpump_power < 1:
-        raise Exception('Heat pump power cannot be smaller than default: choose values greater than one')
+        raise Exception(
+            "Heat pump power cannot be smaller than default: choose values greater than one"
+        )
     clever = my_simulation_parameters.surplus_control
     pv_included = system_config_.pv_included  # True or False
     if pv_included:
@@ -148,7 +152,9 @@ def modular_household_explicit(
         buffer_volume = 1
         hisim.log.information("Default volume is used for buffer storage. ")
     elif buffer_volume < 1:
-        raise Exception('Buffer volume cannot be smaller than default: choose values greater than one')
+        raise Exception(
+            "Buffer volume cannot be smaller than default: choose values greater than one"
+        )
     battery_included = system_config_.battery_included
     if battery_included:
         battery_capacity = system_config_.battery_capacity
@@ -164,51 +170,7 @@ def modular_household_explicit(
     ev_included = system_config_.ev_included
     charging_station = system_config_.charging_station
 
-    """BASICS"""
-    if utsp_connected:
-        if mobility_set is None:
-            this_mobility_set = TransportationDeviceSets.Bus_and_one_30_km_h_Car
-            hisim.log.information("Default is used for mobility set, because None was defined.")
-        else:
-            this_mobility_set = mobility_set
-        if mobility_distance is None:
-            this_mobility_distance = TravelRouteSets.Travel_Route_Set_for_10km_Commuting_Distance
-            hisim.log.information("Default is used for mobility distance, because None was defined.")
-        else:
-            this_mobility_distance=mobility_distance
-
-        my_occupancy_config = (
-            loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig(
-                name="UTSPConnector",
-                url=system_config_.url,
-                api_key=system_config_.api_key,
-                household=occupancy_profile,
-                result_path=hisim.utils.HISIMPATH["results"],
-                travel_route_set=this_mobility_distance,
-                transportation_device_set=this_mobility_set,
-                charging_station_set=charging_station,
-            )
-        )
-            
-        my_occupancy = loadprofilegenerator_utsp_connector.UtspLpgConnector(
-            config=my_occupancy_config,
-            my_simulation_parameters=my_simulation_parameters,
-        )
-    else:
-        # Build occupancy
-        my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig(
-            "Occupancy", occupancy_profile or ""
-        )
-        my_occupancy = loadprofilegenerator_connector.Occupancy(
-            config=my_occupancy_config,
-            my_simulation_parameters=my_simulation_parameters,
-        )
-
-    """TODO: pass url and api, chose bettery directory or use inputs"""
-
-    my_sim.add_component(my_occupancy)
-    consumption.append(my_occupancy)
-
+    # BASICS
     # Build Weather
     my_weather_config = weather.WeatherConfig.get_default(
         location_entry=weather.LocationEnum[location]
@@ -222,7 +184,7 @@ def modular_household_explicit(
     reference_temperature, heating_season = get_heating_reference_temperature_and_season_from_location(
         location=location
     )
-    
+
     my_building_config = building.BuildingConfig(
         name="Building_1",
         building_code=building_code,
@@ -235,8 +197,60 @@ def modular_household_explicit(
     my_building = building.Building(
         config=my_building_config, my_simulation_parameters=my_simulation_parameters
     )
-    my_building.connect_only_predefined_connections(my_weather, my_occupancy)
     my_sim.add_component(my_building)
+
+    # build occupancy
+    if utsp_connected:
+        if mobility_set is None:
+            this_mobility_set = TransportationDeviceSets.Bus_and_one_30_km_h_Car
+            hisim.log.information(
+                "Default is used for mobility set, because None was defined."
+            )
+        else:
+            this_mobility_set = mobility_set
+        if mobility_distance is None:
+            this_mobility_distance = (
+                TravelRouteSets.Travel_Route_Set_for_10km_Commuting_Distance
+            )
+            hisim.log.information(
+                "Default is used for mobility distance, because None was defined."
+            )
+        else:
+            this_mobility_distance = mobility_distance
+
+        my_occupancy_config = (
+            loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig(
+                name="UTSPConnector",
+                url=arche_type_config_.url,
+                api_key=arche_type_config_.api_key,
+                household=occupancy_profile,
+                result_path=hisim.utils.HISIMPATH["results"],
+                travel_route_set=this_mobility_distance,
+                transportation_device_set=this_mobility_set,
+                charging_station_set=charging_station,
+            )
+        )
+
+        my_occupancy = loadprofilegenerator_utsp_connector.UtspLpgConnector(
+            config=my_occupancy_config,
+            my_simulation_parameters=my_simulation_parameters,
+        )
+    else:
+        # Build occupancy
+        my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig(
+            "Occupancy", occupancy_profile or "", location, int(my_building.buildingdata["n_Apartment"])
+        )
+        my_occupancy = loadprofilegenerator_connector.Occupancy(
+            config=my_occupancy_config,
+            my_simulation_parameters=my_simulation_parameters,
+        )
+
+    my_building.connect_only_predefined_connections(my_weather, my_occupancy)
+
+    """TODO: pass url and api, chose better directory or use inputs"""
+
+    my_sim.add_component(my_occupancy)
+    consumption.append(my_occupancy)
 
     # load economic parameters:
     economic_parameters_file = path.join(
@@ -290,9 +304,9 @@ def modular_household_explicit(
             ev_included=ev_included,
             occupancy_config=my_occupancy_config,
         )
-    if clever is False:
-        for car in my_cars:
-            consumption.append(car)
+        if clever is False:
+            for car in my_cars:
+                consumption.append(car)
 
     # """SMART DEVICES"""
     if utsp_connected:
@@ -314,12 +328,14 @@ def modular_household_explicit(
         heating_system_installed,
         smart_devices_included,
         water_heating_system_installed,
-    ):  
-        my_electricity_controller_config = controller_l2_energy_management_system.EMSConfig.get_default_config_EMS()
+    ):
+        my_electricity_controller_config = (
+            controller_l2_energy_management_system.EMSConfig.get_default_config_ems()
+        )
         my_electricity_controller = (
             controller_l2_energy_management_system.L2GenericEnergyManagementSystem(
                 my_simulation_parameters=my_simulation_parameters,
-                config=my_electricity_controller_config
+                config=my_electricity_controller_config,
             )
         )
 
@@ -362,7 +378,7 @@ def modular_household_explicit(
     # """ EV BATTERY """
     if ev_included:
         if mobility_set is None:
-            raise Exception("If EV should be simulated mobility set needs to be defined." )
+            raise Exception("If EV should be simulated mobility set needs to be defined.")
         _ = component_connections.configure_ev_batteries(
             my_sim=my_sim,
             my_simulation_parameters=my_simulation_parameters,  # noqa
@@ -398,6 +414,7 @@ def modular_household_explicit(
             my_electricity_controller=my_electricity_controller,
             my_weather=my_weather,
             water_heating_system_installed=water_heating_system_installed,
+            number_of_households=int(my_building.buildingdata["n_Apartment"]),
             controlable=clever,
             count=count,
         )
@@ -409,6 +426,7 @@ def modular_household_explicit(
             my_simulation_parameters=my_simulation_parameters,
             my_occupancy=my_occupancy,
             water_heating_system_installed=water_heating_system_installed,
+            number_of_households=int(my_building.buildingdata["n_Apartment"]),
             count=count,
         )
 
@@ -435,7 +453,6 @@ def modular_household_explicit(
                 heating_season=heating_season,
                 count=count,
             )
-
             """TODO: repair! """
             # heatpump_cost = heatpump_cost + preprocessing.calculate_heating_investment_cost(economic_parameters, heatpump_included, my_heater.power_th)
         else:
@@ -517,7 +534,7 @@ def modular_household_explicit(
             my_building.connect_input(
                 input_fieldname=my_building.ThermalPowerDelivered,
                 src_object_name=my_chp.component_name,
-                src_field_name=my_chp.ThermalPowerDelivered
+                src_field_name=my_chp.ThermalPowerDelivered,
             )
 
         # chp_cost = preprocessing.calculate_chp_investment_cost(

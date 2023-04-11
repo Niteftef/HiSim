@@ -10,7 +10,6 @@ import time
 
 import pandas as pd
 
-# Owned
 from hisim.postprocessing.postprocessing_datatransfer import PostProcessingDataTransfer
 from hisim.component_wrapper import ComponentWrapper
 from hisim import sim_repository
@@ -19,7 +18,7 @@ import hisim.component as cp
 from hisim import log
 from hisim.simulationparameters import SimulationParameters
 from hisim import utils
-
+from hisim import postprocessingoptions
 
 __authors__ = "Noah Pflugradt, Vitor Hugo Bellotto Zago, Maximillian Hillen"
 __copyright__ = "Copyright 2020-2022, FZJ-IEK-3"
@@ -48,11 +47,13 @@ class Simulator:
         if my_simulation_parameters is not None:
             self._simulation_parameters = my_simulation_parameters
             log.LOGGING_LEVEL = self._simulation_parameters.logging_level
+
         self.wrapped_components: List[ComponentWrapper] = []
         self.all_outputs: List[cp.ComponentOutput] = []
         self.module_directory = module_directory
         self.simulation_repository = sim_repository.SimRepository()
         self.results_data_frame: pd.DataFrame
+        self.iteration_logging_path: str = ""
 
     def set_simulation_parameters(
         self, my_simulation_parameters: SimulationParameters
@@ -88,7 +89,7 @@ class Simulator:
 
     def process_one_timestep(
         self, timestep: int, previous_stsv: cp.SingleTimeStepValues
-    ) -> Tuple[cp.SingleTimeStepValues, int]:
+    ) -> Tuple[cp.SingleTimeStepValues, int, bool]:
         """Executes one simulation timestep.
 
         Some components can be connected in a circle.
@@ -132,7 +133,11 @@ class Simulator:
             # actual values and previous values
             if stsv.is_close_enough_to_previous(previous_values):
                 continue_calculation = False
-
+            if iterative_tries > 2 and postprocessingoptions.PostProcessingOptions.PROVIDE_DETAILED_ITERATION_LOGGING \
+                    in self._simulation_parameters.post_processing_options:
+                myerr = stsv.get_differences_for_error_msg(previous_values,  self.all_outputs)
+                with open(self.iteration_logging_path, 'a', encoding="utf-8") as filestream:
+                    filestream.write(myerr + "\n")
             if iterative_tries > 10:
                 force_convergence = True
             if iterative_tries > 100:
@@ -151,7 +156,7 @@ class Simulator:
 
         for wrapped_component in self.wrapped_components:
             wrapped_component.doublecheck(timestep, stsv)
-        return (stsv, iterative_tries)
+        return (stsv, iterative_tries, force_convergence)
 
     def prepare_simulation_directory(self):
         """Prepares the simulation directory. Determines the filename if nothing is set."""
@@ -170,6 +175,7 @@ class Simulator:
             "Using result directory: " + self._simulation_parameters.result_directory
         )
         log.LOGGING_LEVEL = self._simulation_parameters.logging_level
+        self.iteration_logging_path = os.path.join(self._simulation_parameters.result_directory, "Detailed_Iteration_Log.txt")
 
     # @profile
     # @utils.measure_execution_time
@@ -226,7 +232,7 @@ class Simulator:
             if self._simulation_parameters.timesteps % 500 == 0:
                 log.information("Starting step " + str(step))
 
-            (resulting_stsv, iteration_tries) = self.process_one_timestep(step, stsv)
+            (resulting_stsv, iteration_tries, force_convergence) = self.process_one_timestep(step, stsv)
             stsv = cp.SingleTimeStepValues(number_of_outputs)
             # Accumulates iteration counter
             total_iteration_tries_since_last_msg += iteration_tries
@@ -239,9 +245,7 @@ class Simulator:
 
             # For simulation longer than 5 seconds
             if elapsed.total_seconds() > 5:
-                lastmessage = self.show_progress(
-                    starttime, step, total_iteration_tries_since_last_msg, last_step
-                )
+                lastmessage = self.show_progress(starttime, step, total_iteration_tries_since_last_msg, last_step, force_convergence)
                 last_step = step
                 total_iteration_tries_since_last_msg = 0
         postprocessing_datatransfer = self.prepare_post_processing(
@@ -303,14 +307,8 @@ class Simulator:
         log.information("Finished preparing post processing")
         return ppdt
 
-    def show_progress(
-        self,
-        starttime: datetime.datetime,
-        step: int,
-        total_iteration_tries: int,
-        last_step: int,
-    ) -> datetime.datetime:
-        """Makes the pretty progress messages with time estimate."""
+    def show_progress(self, starttime: datetime.datetime, step: int, total_iteration_tries: int, last_step: int, force_covergence: bool) -> datetime.datetime:
+        """ Makes the pretty progress messages with time estimate. """
         # calculates elapsed time
         elapsed = datetime.datetime.now() - starttime
         elapsed_minutes, elapsed_seconds = divmod(elapsed.seconds, 60)
@@ -334,6 +332,8 @@ class Simulator:
         simulation_status += f"| Speed: {steps_per_second:.0f} step/s "
         simulation_status += f"| Time Left: {time_left_minutes}:{time_left_seconds} min"
         simulation_status += f"| Avg. iterations {average_iteration_tries:.1f}"
+        if force_covergence:
+            simulation_status += " (forced)"
         log.information(simulation_status)
         return datetime.datetime.now()
 

@@ -5,6 +5,7 @@ The aim is to compare the calculated heat demand in the building module with the
 # clean
 import os
 from typing import Optional
+import pytest
 import numpy as np
 import pandas as pd
 
@@ -30,6 +31,8 @@ PATH = "../examples/household_for_test_building_heat_demand.py"
 FUNC = "house_with_pv_and_hp_for_heating_test"
 
 
+@pytest.mark.buildingtest
+@utils.measure_execution_time
 def test_house_with_pv_and_hp_for_heating_test(
     my_simulation_parameters: Optional[SimulationParameters] = None,
 ) -> None:  # noqa: too-many-statements
@@ -82,7 +85,7 @@ def test_house_with_pv_and_hp_for_heating_test(
 
     # Build Simulation Parameters
     if my_simulation_parameters is None:
-        my_simulation_parameters = SimulationParameters.full_year_all_options(
+        my_simulation_parameters = SimulationParameters.full_year_plots_only(
             year=year, seconds_per_timestep=seconds_per_timestep
         )
         my_simulation_parameters.post_processing_options.clear()
