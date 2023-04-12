@@ -13,7 +13,7 @@ from hisim.simulator import SimulationParameters
 from hisim.components import loadprofilegenerator_connector
 from hisim.components import weather
 from hisim.components import building
-from hisim.components import fake_heater
+from hisim.components import idealized_electric_heater
 from hisim import utils
 from hisim import log
 
@@ -51,7 +51,7 @@ def test_house_with_dummy_heater_for_heating_test(
 
     # Set Simulation Parameters
     year = 2021
-    seconds_per_timestep = 60*60
+    seconds_per_timestep = 60
     # Set Occupancy
     occupancy_profile = "CH01"
 
@@ -66,7 +66,7 @@ def test_house_with_dummy_heater_for_heating_test(
         my_simulation_parameters = SimulationParameters.full_year_all_options(
             year=year, seconds_per_timestep=seconds_per_timestep
         )
-        my_simulation_parameters.post_processing_options.clear()
+        # my_simulation_parameters.post_processing_options.clear()
 
     # in case ou want to check on all TABULA buildings -> run test over all building_codes
     d_f = pd.read_csv(
@@ -424,8 +424,8 @@ def test_house_with_dummy_heater_for_heating_test(
 
             for building_code in d_f["Code_BuildingVariant"]:
                 if isinstance(building_code, str): #and tabula_conditioned_floor_area != 0:
-                    country_abbreviation = ".".join(building_code.split(".")[0:-2])
-                    if country_abbreviation == "DE.N.SFH.03.Gen.ReEx":
+                    country_abbreviation = ".".join(building_code.split("."))#[0:-2])
+                    if country_abbreviation == "DE.N.SFH.03.Gen.ReEx.001.003":
 
                         buildingdata = d_f.loc[
                             d_f["Code_BuildingVariant"] == building_code
@@ -450,7 +450,7 @@ def test_house_with_dummy_heater_for_heating_test(
 
                         # Build Occupancy
                         my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig(
-                            profile_name=occupancy_profile, name="Occupancy"
+                            profile_name=occupancy_profile, name="Occupancy", country_name="DE", number_of_apartments=1
                         )
                         my_occupancy = loadprofilegenerator_connector.Occupancy(
                             config=my_occupancy_config,
@@ -486,7 +486,7 @@ def test_house_with_dummy_heater_for_heating_test(
                         )
 
                         # Build Dummy Heater
-                        my_dummy_heater = fake_heater.FakeHeater(
+                        my_idealized_electric_heater = idealized_electric_heater.IdealizedElectricHeater(
                             my_simulation_parameters=my_simulation_parameters,
                             set_heating_temperature_for_building_in_celsius=set_heating_temperature_for_building_in_celsius,
                             set_cooling_temperature_for_building_in_celsius=set_cooling_temperature_for_building_in_celsius,
@@ -538,22 +538,22 @@ def test_house_with_dummy_heater_for_heating_test(
                         )
                         my_building.connect_input(
                             my_building.ThermalPowerDelivered,
-                            my_dummy_heater.component_name,
-                            my_dummy_heater.ThermalPowerDelivered,
+                            my_idealized_electric_heater.component_name,
+                            my_idealized_electric_heater.ThermalPowerDelivered,
                         )
                         my_building.connect_input(
                             my_building.SetHeatingTemperature,
-                            my_dummy_heater.component_name,
-                            my_dummy_heater.SetHeatingTemperatureForBuilding,
+                            my_idealized_electric_heater.component_name,
+                            my_idealized_electric_heater.SetHeatingTemperatureForBuilding,
                         )
                         my_building.connect_input(
                             my_building.SetCoolingTemperature,
-                            my_dummy_heater.component_name,
-                            my_dummy_heater.SetCoolingTemperatureForBuilding,
+                            my_idealized_electric_heater.component_name,
+                            my_idealized_electric_heater.SetCoolingTemperatureForBuilding,
                         )
                         # Dummy Heater
-                        my_dummy_heater.connect_input(
-                            my_dummy_heater.TheoreticalThermalBuildingDemand,
+                        my_idealized_electric_heater.connect_input(
+                            my_idealized_electric_heater.TheoreticalThermalBuildingDemand,
                             my_building.component_name,
                             my_building.TheoreticalThermalBuildingDemand,
                         )
@@ -563,7 +563,7 @@ def test_house_with_dummy_heater_for_heating_test(
                         my_sim.add_component(my_weather)
                         my_sim.add_component(my_occupancy)
                         my_sim.add_component(my_building)
-                        my_sim.add_component(my_dummy_heater)
+                        my_sim.add_component(my_idealized_electric_heater)
 
                         my_sim.run_all_timesteps()
 
@@ -571,7 +571,7 @@ def test_house_with_dummy_heater_for_heating_test(
                         # Calculate annual dummy heater heating energy
 
                         results_dummy_heater_heating = my_sim.results_data_frame[
-                            "FakeHeaterSystem - HeatingPowerDelivered [Heating - W]"
+                            "IdealizedElectricHeater - HeatingPowerDelivered [Heating - W]"
                         ]
                         sum_heating_in_watt_timestep = sum(results_dummy_heater_heating)
                         timestep_factor = seconds_per_timestep / 3600
