@@ -138,8 +138,10 @@ class IdealizedElectricHeater(cp.Component):
 
         self.thermal_power_delivered_in_watt = self.theoretical_thermal_building_in_watt
 
-        if self.thermal_power_delivered_in_watt > 0:
+        if self.thermal_power_delivered_in_watt >= 0:
             self.heating_in_watt = self.thermal_power_delivered_in_watt
+        else:
+            self.heating_in_watt = 0
 
         # Set outputs -----------------------------------------------------------------------------------------------------------
 
