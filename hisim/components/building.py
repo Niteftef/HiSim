@@ -864,23 +864,23 @@ class Building(dynamic_component.DynamicComponent):
         # Reference properties from TABULA, but not used in the model (scaling factor added in case floor area is different to tabula floor area A_C_ref)
         # Floor area related heat load during heating season
         self.solar_heat_load_during_heating_seasons_reference_in_kilowatthour_per_m2_per_year = float(
-            (self.buildingdata["q_sol"].values[0]) * (1 / self.scaling_factor)
+            (self.buildingdata["q_sol"].values[0])
         )
         # Floor area related internal heat sources during heating season
         self.internal_heat_sources_reference_in_kilowatthour_per_m2_per_year = float(
-            self.buildingdata["q_int"].values[0] * (1 / self.scaling_factor)
+            self.buildingdata["q_int"].values[0]
         )
         # Floor area related annual losses
         self.total_heat_transfer_reference_in_kilowatthour_per_m2_per_year = float(
-            self.buildingdata["q_ht"].values[0] * (1 / self.scaling_factor)
+            self.buildingdata["q_ht"].values[0]
         )
         # Energy need for heating
         self.energy_need_for_heating_reference_in_kilowatthour_per_m2_per_year = float(
-            self.buildingdata["q_h_nd"].values[0] * (1 / self.scaling_factor)
+            self.buildingdata["q_h_nd"].values[0]
         )
         # Internal heat capacity per m2 reference area [Wh/(m^2.K)] (TABULA: Internal heat capacity)
         self.thermal_capacity_of_building_thermal_mass_reference_in_watthour_per_m2_per_kelvin = float(
-            self.buildingdata["c_m"].values[0] / self.scaling_factor
+            self.buildingdata["c_m"].values[0]
         )
 
         # Heat transfer coefficient by ventilation
@@ -1009,7 +1009,8 @@ class Building(dynamic_component.DynamicComponent):
             raise ValueError(
                 "Only one variable can be used, the other one must be None."
             )
-        elif self.buildingconfig.absolute_conditioned_floor_area_in_m2 is not None:
+
+        if self.buildingconfig.absolute_conditioned_floor_area_in_m2 is not None:
 
             # this is for preventing that the conditioned_floor_area is 0 (some buildings in TABULA have conditioned_floor_area (A_C_Ref) = 0)
             if self.conditioned_floor_area_in_m2 == 0:
@@ -1029,7 +1030,7 @@ class Building(dynamic_component.DynamicComponent):
                     * factor_of_absolute_floor_area_to_tabula_floor_area
                 )
             self.scaling_factor = factor_of_absolute_floor_area_to_tabula_floor_area
-            # log.information("scaling factor " + str(self.scaling_factor))
+
         elif self.buildingconfig.total_base_area_in_m2 is not None:
             # this is for preventing that the conditioned_floor_area is 0
             if self.conditioned_floor_area_in_m2 == 0:
@@ -1055,13 +1056,15 @@ class Building(dynamic_component.DynamicComponent):
             if self.conditioned_floor_area_in_m2 == 0:
                 self.scaled_conditioned_floor_area_in_m2 = 500
                 self.buildingdata["A_C_Ref"] = self.scaled_conditioned_floor_area_in_m2
-                log.warning("There is no reference given for absolute conditioned floor area in m^2, so a default of 500 m^2 is used.")
+                log.warning(
+                    "There is no reference given for absolute conditioned floor area in m^2, so a default of 500 m^2 is used."
+                )
             else:
-                self.scaled_conditioned_floor_area_in_m2 = self.conditioned_floor_area_in_m2
+                self.scaled_conditioned_floor_area_in_m2 = (
+                    self.conditioned_floor_area_in_m2
+                )
 
             self.scaling_factor = 1
-
-
 
         for w_i in self.windows_and_door:
             self.scaled_windows_and_door_envelope_areas_in_m2.append(
@@ -1225,27 +1228,6 @@ class Building(dynamic_component.DynamicComponent):
         )
         return self.buildingconfig.get_string_dict() + lines
 
-
-    def write_for_heating_demand_test(self) -> str:
-        """Write some values to check in heating demand test."""
-        
-        # for config_string in self.buildingconfig.get_string_dict():
-        #     lines.join(config_string + ";")
-        lines = (f"{self.max_thermal_building_demand_in_watt:.2f};"
-        + f"{self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin:.2f};"
-        + f"{self.external_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin:.2f};"
-        + f"{self.internal_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin:.2f};"
-        + f"{self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_in_watt_per_kelvin:.2f};"
-        + f"{self.heat_transfer_coefficient_by_ventilation_reference_in_watt_per_kelvin:.2f};"
-        + f"{self.scaled_conditioned_floor_area_in_m2:.2f};"
-        + f"{(self.thermal_capacity_of_building_thermal_mass_in_joule_per_kelvin * 3600 / (1000 *self.scaled_conditioned_floor_area_in_m2)):.2f};"
-        + f"{(self.thermal_capacity_of_building_thermal_mass_reference_in_watthour_per_m2_per_kelvin / 1000):.2f};"
-        + f"{self.internal_heat_sources_reference_in_kilowatthour_per_m2_per_year:.2f};"
-        + f"{self.solar_heat_load_during_heating_seasons_reference_in_kilowatthour_per_m2_per_year:.2f};"
-        + f"{self.energy_need_for_heating_reference_in_kilowatthour_per_m2_per_year:.2f};")
-
-        return lines
-
     # =====================================================================================================================================
     # Calculation of the heat transfer coefficients or thermal conductances.
     # (**/*** Check header)
@@ -1314,7 +1296,6 @@ class Building(dynamic_component.DynamicComponent):
                 * self.scaled_windows_and_door_envelope_areas_in_m2[index]
                 * 1.0
             )
-            log.information("H_Transmission Windows and Door " + str(h_tr_i))
             self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin += float(
                 h_tr_i
             )
@@ -1348,7 +1329,6 @@ class Building(dynamic_component.DynamicComponent):
                 * self.scaled_opaque_surfaces_envelope_area_in_m2[index]
                 * self.buildingdata["b_Transmission_" + o_w].values[0]
             )
-            log.information("H_Transmission Wall, Roof, Floor " + str(h_tr_i))
             self.transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin += float(
                 h_tr_i
             )
@@ -1733,13 +1713,13 @@ class Building(dynamic_component.DynamicComponent):
 
         self.vals1_in_watt_per_m2_per_kelvin = float(
             self.buildingdata["h_Transmission"].values[0]
-        ) * (1 / self.scaling_factor)
+        )
 
         if self.vals1_in_watt_per_m2_per_kelvin is None:
             raise ValueError("h_Transmission was none.")
         self.vals2_in_watt_per_m2_per_kelvin = float(
             self.buildingdata["h_Ventilation"].values[0]
-        ) * (1 / self.scaling_factor)
+        )
 
         # with with dQ/dt = h * (T2-T1) * A -> [W]
         max_thermal_building_demand_in_watt = (
