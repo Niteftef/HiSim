@@ -1228,6 +1228,25 @@ class Building(dynamic_component.DynamicComponent):
         )
         return self.buildingconfig.get_string_dict() + lines
 
+    def write_for_heating_demand_test(self) -> str:
+            """Write some values to check in heating demand test."""
+            
+            # for config_string in self.buildingconfig.get_string_dict():
+            #     lines.join(config_string + ";")
+            lines = (f"{self.max_thermal_building_demand_in_watt:.2f};"
+            + f"{self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin:.2f};"
+            + f"{self.external_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin:.2f};"
+            + f"{self.internal_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin:.2f};"
+            + f"{self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_in_watt_per_kelvin:.2f};"
+            + f"{self.heat_transfer_coefficient_by_ventilation_reference_in_watt_per_kelvin:.2f};"
+            + f"{self.scaled_conditioned_floor_area_in_m2:.2f};"
+            + f"{(self.thermal_capacity_of_building_thermal_mass_in_joule_per_kelvin * 3600 / (1000 *self.scaled_conditioned_floor_area_in_m2)):.2f};"
+            + f"{(self.thermal_capacity_of_building_thermal_mass_reference_in_watthour_per_m2_per_kelvin / 1000):.2f};"
+            + f"{self.internal_heat_sources_reference_in_kilowatthour_per_m2_per_year:.2f};"
+            + f"{self.solar_heat_load_during_heating_seasons_reference_in_kilowatthour_per_m2_per_year:.2f};"
+            + f"{self.energy_need_for_heating_reference_in_kilowatthour_per_m2_per_year:.2f};")
+
+            return lines
     # =====================================================================================================================================
     # Calculation of the heat transfer coefficients or thermal conductances.
     # (**/*** Check header)
