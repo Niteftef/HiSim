@@ -15,6 +15,7 @@ from hisim import loadtypes as lt
 from hisim import utils
 from hisim import log
 from hisim.simulationparameters import SimulationParameters
+# from hisim.components.building import Building
 
 __authors__ = "Vitor Hugo Bellotto Zago"
 __copyright__ = "Copyright 2021, the House Infrastructure Project"
@@ -89,6 +90,7 @@ class Occupancy(cp.Component):
     # Inputs
     WW_MassInput = "Warm Water Mass Input"  # kg/s
     WW_TemperatureInput = "Warm Water Temperature Input"  # °C
+    RealNumberOfApartments = "RealNumberOfApartments"
 
     # Outputs
     # output
@@ -130,6 +132,13 @@ class Occupancy(cp.Component):
             self.WW_TemperatureInput,
             lt.LoadTypes.WARM_WATER,
             lt.Units.CELSIUS,
+            False,
+        )
+        self.real_number_of_apartments_channel: cp.ComponentInput = self.add_input(
+            self.component_name,
+            self.RealNumberOfApartments,
+            lt.LoadTypes.ANY,
+            lt.Units.ANY,
             False,
         )
 
@@ -177,6 +186,22 @@ class Occupancy(cp.Component):
             lt.Units.LITER,
             output_description=f"here a description for {self.WaterConsumption} will follow.",
         )
+        
+    # def get_default_connections_from_building(
+    #     self,
+    # ):
+    #     """Get building default connections."""
+    #     log.information("setting building default connections")
+    #     connections = []
+    #     building_classname = Building.get_classname()
+    #     connections.append(
+    #         cp.ComponentConnection(
+    #             Occupancy.RealNumberOfApartments,
+    #             building_classname,
+    #             Building.NumberOfApartments,
+    #         )
+    #     )
+    #     return connections
 
     def i_save_state(self) -> None:
         pass
@@ -247,16 +272,19 @@ class Occupancy(cp.Component):
         # stsv.set_output_value(self.ww_mass_output, ww_mass_output)  # stsv.set_output_value(self.ww_temperature_output, ww_temperature_output)
         # stsv.set_output_value(self.demand_satisfied, demand_satisfied)  # stsv.set_output_value(self.energy_discharged, energy_discharged)
 
+        real_number_of_apartments = stsv.get_input_value(self.real_number_of_apartments_channel)
+        scaling_factor_according_to_number_of_apartments = self.get_scaling_factor_according_to_number_of_apartments(real_number_of_apartments=real_number_of_apartments)
+
         stsv.set_output_value(
-            self.number_of_residentsC, self.number_of_residents[timestep]
+            self.number_of_residentsC, self.number_of_residents[timestep] * scaling_factor_according_to_number_of_apartments
         )
         stsv.set_output_value(
-            self.heating_by_residentsC, self.heating_by_residents[timestep]
+            self.heating_by_residentsC, self.heating_by_residents[timestep] * scaling_factor_according_to_number_of_apartments
         )
         stsv.set_output_value(
-            self.electricity_outputC, self.electricity_consumption[timestep]
+            self.electricity_outputC, self.electricity_consumption[timestep] * scaling_factor_according_to_number_of_apartments
         )
-        stsv.set_output_value(self.water_consumptionC, self.water_consumption[timestep])
+        stsv.set_output_value(self.water_consumptionC, self.water_consumption[timestep] * scaling_factor_according_to_number_of_apartments)
 
         if self.my_simulation_parameters.predictive_control:
             last_forecast_timestep = int(
@@ -443,3 +471,18 @@ class Occupancy(cp.Component):
     def write_to_report(self):
         """Writes a report."""
         return self.occupancyConfig.get_string_dict()
+
+
+    def get_scaling_factor_according_to_number_of_apartments(self, real_number_of_apartments: float) -> float:
+        """Get scaling factor according to the real number of apartments which is given by the building component."""
+
+        scaling_factor = real_number_of_apartments / self.occupancyConfig.number_of_apartments
+
+        if scaling_factor > 0:
+            scaling_factor_according_to_number_of_apartments = scaling_factor
+        
+        else:
+            # raise ValueError("scaling factor according to number of apartments can not be zero or negative.")
+            scaling_factor_according_to_number_of_apartments = 1
+
+        return scaling_factor_according_to_number_of_apartments
