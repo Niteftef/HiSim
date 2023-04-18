@@ -9,7 +9,7 @@ from ordered_set import OrderedSet
 
 
         
-directory = "C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Tests\\Heating_Test\\Eleventh_try_only_DE_all_time_resolutions_Aachen_fixed_idealized_heater"
+directory = "C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Tests\\Heating_Test\\\Twelwth_try_only_DE_Aachen_fixed_window_areas"
 
 read_csv_file = pd.read_csv(directory + "\\test_building_heating_demand_dummy_heater_DE_energy_needs1.csv", sep=";", header=None)
 read_csv_file.to_excel(directory + "\\test_building_heating_demand_dummy_heater_DE_energy_needs11.xlsx", header=True)
