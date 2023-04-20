@@ -1174,29 +1174,37 @@ class Building(dynamic_component.DynamicComponent):
         #         * math.sqrt(self.conditioned_floor_area_in_m2)
         #         * self.room_height_in_m2
         #     )
-
+        
+        
         total_wall_area_in_m2_tabula = (
                 4
                 * math.sqrt(self.conditioned_floor_area_in_m2)
                 * self.room_height_in_m2
             )
+        scaled_total_wall_area_in_m2 = (
+                4
+                * math.sqrt(self.scaled_conditioned_floor_area_in_m2)
+                * self.room_height_in_m2
+            )
+
         self.scaled_window_areas_in_m2 = []
         for windows_direction in self.windows_directions:
             window_area_in_m2 = float(
                 self.buildingdata["A_Window_" + windows_direction]
             )
-            factor_window_area_to_wall_area_tabula = (
-                window_area_in_m2 / total_wall_area_in_m2_tabula
-            )
-            scaled_total_wall_area_in_m2 = (
-                4
-                * math.sqrt(self.scaled_conditioned_floor_area_in_m2)
-                * self.room_height_in_m2
-            )
-            self.scaled_window_areas_in_m2.append(
-                scaled_total_wall_area_in_m2
-                * factor_window_area_to_wall_area_tabula
-            )
+            if self.scaling_factor != 1:
+                factor_window_area_to_wall_area_tabula = (
+                    window_area_in_m2 / total_wall_area_in_m2_tabula
+                )
+                self.scaled_window_areas_in_m2.append(
+                    scaled_total_wall_area_in_m2
+                    * factor_window_area_to_wall_area_tabula
+                )
+            else:
+                self.scaled_window_areas_in_m2.append(window_area_in_m2)
+
+            
+            
 
 
 
@@ -1332,12 +1340,14 @@ class Building(dynamic_component.DynamicComponent):
             + f"{self.internal_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin:.2f};"
             + f"{self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_in_watt_per_kelvin:.2f};"
             + f"{self.heat_transfer_coefficient_by_ventilation_reference_in_watt_per_kelvin:.2f};"
-            + f"{self.scaled_conditioned_floor_area_in_m2:.2f};"
             + f"{(self.thermal_capacity_of_building_thermal_mass_in_joule_per_kelvin * 3600 / (1000 *self.scaled_conditioned_floor_area_in_m2)):.2f};"
             + f"{(self.thermal_capacity_of_building_thermal_mass_reference_in_watthour_per_m2_per_kelvin / 1000):.2f};"
             + f"{self.internal_heat_sources_reference_in_kilowatthour_per_m2_per_year:.2f};"
             + f"{self.solar_heat_load_during_heating_seasons_reference_in_kilowatthour_per_m2_per_year:.2f};"
-            + f"{self.energy_need_for_heating_reference_in_kilowatthour_per_m2_per_year:.2f};")
+            + f"{self.energy_need_for_heating_reference_in_kilowatthour_per_m2_per_year:.2f};"
+            + f"{self.conditioned_floor_area_in_m2:.2f};"
+            + f"{self.scaled_conditioned_floor_area_in_m2:.2f};"
+            + f"{self.scaling_factor:.2f};")
 
 
             return lines

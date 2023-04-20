@@ -9,8 +9,9 @@ from ordered_set import OrderedSet
 
 
         
-directory = "C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Tests\\Heating_Test\\\Twelwth_try_only_DE_Aachen_fixed_window_areas"
-
+# directory = "C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Tests\\Heating_Test\\\Twelwth_try_only_DE_Aachen_fixed_window_areas"
+# directory = "C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Tests\\Heating_Test\\Eleventh_try_only_DE_all_time_resolutions_Aachen_fixed_idealized_heater"
+directory = "C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Tests\\Heating_Test\\Thirteenth_try_DE_Aachen_heater_occupancy_window_areas_fixed"
 read_csv_file = pd.read_csv(directory + "\\test_building_heating_demand_dummy_heater_DE_energy_needs1.csv", sep=";", header=None)
 read_csv_file.to_excel(directory + "\\test_building_heating_demand_dummy_heater_DE_energy_needs11.xlsx", header=True)
 
@@ -167,7 +168,8 @@ plt.savefig(directory + "\\Evaluation\\All_DE_types_area.png")
 plt.close()
 
 fig = plt.figure(figsize=(8,8))
-seaborn.swarmplot(data=xl[4])
+seaborn.boxplot(data=xl[4])
+seaborn.swarmplot(data=xl[4], color="grey", size=4)
 plt.axhline(y=1, color="red")
 plt.xlabel("Tabula DE buildings", fontsize=12)
 plt.ylabel("Ratio of Heating Demand given by HiSim/Tabula", fontsize=12)
