@@ -51,7 +51,7 @@ def test_house_with_dummy_heater_for_heating_test(
 
     # Set Simulation Parameters
     year = 2021
-    seconds_per_timestep = 60*60
+    seconds_per_timestep = 60*15
     # Set Occupancy
     occupancy_profile = "CH01"
 

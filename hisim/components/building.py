@@ -1148,44 +1148,16 @@ class Building(dynamic_component.DynamicComponent):
             "West",
             "Horizontal",
         ]
+
         # assumption: building is a cuboid with square floor area (area_of_one_wall = wall_length * wall_height, with wall_length = sqrt(floor_area))
-        # then the total_wall_area = 4 * area_of_one_wall
-        # if (
-        #     self.conditioned_floor_area_in_m2 == 0
-        #     and self.buildingconfig.total_base_area_in_m2 is not None
-        # ):
-        #     total_wall_area_in_m2 = (
-        #         4
-        #         * math.sqrt(self.buildingconfig.total_base_area_in_m2)
-        #         * self.room_height_in_m2
-        #     )
-        # elif (
-        #     self.conditioned_floor_area_in_m2 == 0
-        #     and self.buildingconfig.absolute_conditioned_floor_area_in_m2 is not None
-        # ):
-        #     total_wall_area_in_m2 = (
-        #         4
-        #         * math.sqrt(self.buildingconfig.absolute_conditioned_floor_area_in_m2)
-        #         * self.room_height_in_m2
-        #     )
-        # else:
-        #     total_wall_area_in_m2 = (
-        #         4
-        #         * math.sqrt(self.conditioned_floor_area_in_m2)
-        #         * self.room_height_in_m2
-        #     )
-        
-        
         total_wall_area_in_m2_tabula = (
-                4
-                * math.sqrt(self.conditioned_floor_area_in_m2)
-                * self.room_height_in_m2
-            )
+            4 * math.sqrt(self.conditioned_floor_area_in_m2) * self.room_height_in_m2
+        )
         scaled_total_wall_area_in_m2 = (
-                4
-                * math.sqrt(self.scaled_conditioned_floor_area_in_m2)
-                * self.room_height_in_m2
-            )
+            4
+            * math.sqrt(self.scaled_conditioned_floor_area_in_m2)
+            * self.room_height_in_m2
+        )
 
         self.scaled_window_areas_in_m2 = []
         for windows_direction in self.windows_directions:
@@ -1202,26 +1174,6 @@ class Building(dynamic_component.DynamicComponent):
                 )
             else:
                 self.scaled_window_areas_in_m2.append(window_area_in_m2)
-
-            
-            
-
-
-
-        # self.scaled_window_areas_in_m2 = []
-        # for windows_direction in self.windows_directions:
-        #     window_area_in_m2 = float(
-        #         self.buildingdata["A_Window_" + windows_direction]
-        #     )
-        #     factor_window_area_to_wall_area_tabula = (
-        #         window_area_in_m2 / total_wall_area_in_m2
-        #     )
-        #     log.information("building factor window/total wall " + str(factor_window_area_to_wall_area_tabula))
-        #     self.scaled_window_areas_in_m2.append(
-        #         self.scaled_conditioned_floor_area_in_m2
-        #         * factor_window_area_to_wall_area_tabula
-        #     )
-        #     log.information("scaled conditioned floor area " + str(self.scaled_conditioned_floor_area_in_m2))
 
     # =====================================================================================================================================
 
@@ -1330,11 +1282,12 @@ class Building(dynamic_component.DynamicComponent):
         return self.buildingconfig.get_string_dict() + lines
 
     def write_for_heating_demand_test(self) -> str:
-            """Write some values to check in heating demand test."""
-            
-            # for config_string in self.buildingconfig.get_string_dict():
-            #     lines.join(config_string + ";")
-            lines = (f"{self.max_thermal_building_demand_in_watt:.2f};"
+        """Write some values to check in heating demand test."""
+
+        # for config_string in self.buildingconfig.get_string_dict():
+        #     lines.join(config_string + ";")
+        lines = (
+            f"{self.max_thermal_building_demand_in_watt:.2f};"
             + f"{self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin:.2f};"
             + f"{self.external_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin:.2f};"
             + f"{self.internal_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin:.2f};"
@@ -1347,10 +1300,11 @@ class Building(dynamic_component.DynamicComponent):
             + f"{self.energy_need_for_heating_reference_in_kilowatthour_per_m2_per_year:.2f};"
             + f"{self.conditioned_floor_area_in_m2:.2f};"
             + f"{self.scaled_conditioned_floor_area_in_m2:.2f};"
-            + f"{self.scaling_factor:.2f};")
+            + f"{self.scaling_factor:.2f};"
+        )
 
+        return lines
 
-            return lines
     # =====================================================================================================================================
     # Calculation of the heat transfer coefficients or thermal conductances.
     # (**/*** Check header)
@@ -2056,7 +2010,6 @@ class Window:
         )
 
         self.reduction_factor_with_area = self.reduction_factor * self.area
-
 
     def calc_direct_solar_factor(
         self,
