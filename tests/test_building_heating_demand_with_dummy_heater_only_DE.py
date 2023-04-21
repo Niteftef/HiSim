@@ -51,7 +51,7 @@ def test_house_with_dummy_heater_for_heating_test(
 
     # Set Simulation Parameters
     year = 2021
-    seconds_per_timestep = 60*15
+    seconds_per_timestep = 60*60
     # Set Occupancy
     occupancy_profile = "CH01"
 
@@ -159,12 +159,11 @@ def test_house_with_dummy_heater_for_heating_test(
                 + ";"
                 + "Annual Floor Related Heating Demand, based on TABULA (Q_h_nd) [kWh/m2.a]"
                 + ";"
-                + "Conditioned Floor Area (A_f) [m2]"
+                + "Conditioned Floor Area [m2]"
                 + ";"
                 + "Scaled Conditioned Floor Area [m2]"
                 + ";"
                 + "Scaling factor"
-                + ";"
                 + "\n"
             )
     for building_code in d_f["Code_BuildingVariant"]:
@@ -524,7 +523,7 @@ def test_house_with_dummy_heater_for_heating_test(
                 with open(
                     "test_building_heating_demand_dummy_heater_DE_energy_needs1.csv", "a") as myfile:
                     myfile.write(
-                        building_code
+                        str(building_code)
                         + ";"
                         + str(seconds_per_timestep)
                         + ";"
@@ -588,13 +587,15 @@ def test_house_with_dummy_heater_for_heating_test(
                         + "\n"
                     )
 
-                csv_one=pd.read_csv("test_building_heating_demand_dummy_heater_DE_energy_needs1.csv")
+                csv_one=pd.read_csv("test_building_heating_demand_dummy_heater_DE_energy_needs1.csv", sep=";", encoding='unicode_escape')
 
+                csv_zero = pd.read_csv("test_building_heating_demand_dummy_heater_DE_energy_needs0.csv", sep=";", encoding='unicode_escape')
 
-    csv_zero = pd.read_csv("test_building_heating_demand_dummy_heater_DE_energy_needs0.csv", encoding='unicode_escape')
-
-    csv_one.to_csv("test_building_heating_demand_dummy_heater_DE_energy_needs0.csv", mode="a", index=None, header=True)
-
-    read_file = pd.read_csv(r'test_building_heating_demand_dummy_heater_DE_energy_needs0.csv', delimiter=';', encoding='unicode_escape', decimal=".")
-    read_file.to_excel(r'test_building_heating_demand_dummy_heater_DE_energy_needs0.xlsx', index=None, header=True)
+                if len(csv_zero.columns) == len(csv_one.columns):
+                     
+                    new_df = pd.DataFrame(columns=csv_zero.columns, data=csv_one.values)
+                    new_df.to_excel("test_building_heating_demand_dummy_heater_DE_energy_needs0.xlsx", index=None, header=True)
+                
+                else:
+                    raise IndexError("The dataframes do not have the same number of columns.")
 

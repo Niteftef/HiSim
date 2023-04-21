@@ -1300,7 +1300,7 @@ class Building(dynamic_component.DynamicComponent):
             + f"{self.energy_need_for_heating_reference_in_kilowatthour_per_m2_per_year:.2f};"
             + f"{self.conditioned_floor_area_in_m2:.2f};"
             + f"{self.scaled_conditioned_floor_area_in_m2:.2f};"
-            + f"{self.scaling_factor:.2f};"
+            + f"{self.scaling_factor:.2f}"
         )
 
         return lines
