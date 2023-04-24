@@ -10,8 +10,9 @@ from typing import Any
 import os
 
 
-directory = "C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Tests\\Heating_Test\\Twelwth_try_focus_on_solar_and_internal_gains\\"
-file = "test_building_heating_demand_dummy_heater_DE_energy_needs1.csv"
+directory = "C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Tests\\Heating_Test\\Fifteenth_try_only_DE_solar_gains_and_internal_gains_from_tabula\\"
+#directory = "C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Tests\\Heating_Test\\Twelwth_try_only_DE_Aachen_fixed_window_areas\\"
+#file = "test_building_heating_demand_dummy_heater_DE_energy_needs1.xlsx"
 file = "test_building_heating_demand_dummy_heater_DE_energy_needs0.xlsx"
 
 
@@ -21,7 +22,7 @@ class TestBuildingHeatingDemandEvaluation:
     def __init__(self, directory_path: str, file_name: str) -> None:
         self.directory_path = directory_path
         self.data_file_path = self.directory_path + file_name
-        self.evaluation_of = "Internal Gains"
+        self.evaluation_of = "Heat Demand"
         print(f"{self.evaluation_of} of HiSim vs Tabula will be evaluated.")
         if (
             os.path.exists(self.directory_path + f"\\Evaluation_{self.evaluation_of}")
@@ -156,11 +157,16 @@ class TestBuildingHeatingDemandEvaluation:
 
         for index, row in dataframe.iterrows():
 
-            if list_to_be_checked[index] <= 0.70 or list_to_be_checked[index] >= 1.30:
+            if list_to_be_checked[index] <= 0.80 or list_to_be_checked[index] >= 1.20:
                 dataframe_outliers.loc[len(dataframe_outliers)] = row
-
+        
         self.min_ratio = min(list_to_be_checked)
         self.max_ratio = max(list_to_be_checked)
+        self.median = np.median(list_to_be_checked)
+        self.mean = np.mean(list_to_be_checked)
+        self.std = np.std(list_to_be_checked)
+        print(list_to_be_checked)
+        print(self.mean)
         dataframe_outliers.to_excel(
             self.directory_path
             + f"\\Evaluation_{self.evaluation_of}\\buildings_with_ratio_outliers.xlsx"
@@ -255,7 +261,6 @@ class TestBuildingHeatingDemandEvaluation:
     def give_lists_the_same_length_for_plotting(self, list_of_lists: list[list]):
 
         max_length_of_list_of_ratios = max(len(list) for list in list_of_lists)
-        print(max_length_of_list_of_ratios)
 
         for index, list_in_list_of_ratios in enumerate(list_of_lists):
             if len(list_in_list_of_ratios) < max_length_of_list_of_ratios:
@@ -265,7 +270,6 @@ class TestBuildingHeatingDemandEvaluation:
                 list_of_lists[index] = list_in_list_of_ratios + (
                     list(np.repeat(np.nan, length_difference))
                 )
-        print(list_of_lists)
         return list_of_lists
 
     def create_dictionary_and_dataframe(
@@ -302,7 +306,7 @@ class TestBuildingHeatingDemandEvaluation:
 
         fig = plt.figure(figsize=(8, 8))
         seaborn.boxplot(data=data)
-        seaborn.swarmplot(data=data, color="grey", size=4)
+        seaborn.swarmplot(data=data, color="grey", size=3)
         plt.axhline(y=1, color="red")
         plt.xlabel("Tabula DE buildings", fontsize=12)
         plt.ylabel(f"Ratio of {evaluation} given by HiSim/Tabula", fontsize=12)
@@ -310,6 +314,10 @@ class TestBuildingHeatingDemandEvaluation:
             (
                 f"Min Ratio {np.round(self.min_ratio,2)}",
                 f"Max Ratio {np.round(self.max_ratio,2)}",
+                f"Mean Ratio {np.round(self.mean,2)}",
+                f"Median Ratio {np.round(self.median,2)}",
+                f"Std Ratio {np.round(self.std,2)}"
+
             )
         )
         plt.text(

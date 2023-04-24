@@ -645,9 +645,10 @@ class Building(dynamic_component.DynamicComponent):
             )
             apparent_zenith = stsv.get_input_value(self.apparent_zenith_channel)
 
-        self.internal_heat_gains_through_occupancy_in_watt = stsv.get_input_value(
-            self.occupancy_heat_gain_channel
-        )
+        # self.internal_heat_gains_through_occupancy_in_watt = stsv.get_input_value(
+        #     self.occupancy_heat_gain_channel
+        # )
+        self.internal_heat_gains_through_occupancy_in_watt = self.get_tabula_internal_gains()
 
         temperature_outside_in_celsius = stsv.get_input_value(
             self.temperature_outside_channel
@@ -677,20 +678,20 @@ class Building(dynamic_component.DynamicComponent):
         )
 
         # Performs calculations
-        if hasattr(self, "solar_gain_through_windows") is False:
-            solar_heat_gain_through_windows = self.get_solar_heat_gain_through_windows(
-                azimuth=azimuth,
-                direct_normal_irradiance=direct_normal_irradiance,
-                direct_horizontal_irradiance=direct_horizontal_irradiance,
-                global_horizontal_irradiance=global_horizontal_irradiance,
-                direct_normal_irradiance_extra=direct_normal_irradiance_extra,
-                apparent_zenith=apparent_zenith,
-            )
-        else:
-            solar_heat_gain_through_windows = self.solar_heat_gain_through_windows[
-                timestep
-            ]
-
+        # if hasattr(self, "solar_gain_through_windows") is False:
+        #     solar_heat_gain_through_windows = self.get_solar_heat_gain_through_windows(
+        #         azimuth=azimuth,
+        #         direct_normal_irradiance=direct_normal_irradiance,
+        #         direct_horizontal_irradiance=direct_horizontal_irradiance,
+        #         global_horizontal_irradiance=global_horizontal_irradiance,
+        #         direct_normal_irradiance_extra=direct_normal_irradiance_extra,
+        #         apparent_zenith=apparent_zenith,
+        #     )
+        # else:
+        #     solar_heat_gain_through_windows = self.solar_heat_gain_through_windows[
+        #         timestep
+        #     ]
+        solar_heat_gain_through_windows = self.get_tabula_solar_gains()
         (
             thermal_mass_average_bulk_temperature_in_celsius,
             heat_loss_in_watt,
@@ -764,10 +765,6 @@ class Building(dynamic_component.DynamicComponent):
                     decimal=".",
                     index=False,
                 )
-        # log.information("building timestep " + str(timestep))
-        # log.information("building thermal power input " + str(thermal_power_delivered_in_watt))
-        # log.information("building real indoor air temperature " + str(indoor_air_temperature_in_celsius))
-        # log.information("buiding theoretical demand " + str(theoretical_thermal_building_demand_in_watt))
 
     # =================================================================================================================================
 
@@ -1965,7 +1962,14 @@ class Building(dynamic_component.DynamicComponent):
 
         return theoretical_thermal_building_demand_in_watt
 
+    def get_tabula_internal_gains(self):
 
+        internal_gains_from_tabula_in_watt = self.buildingdata["q_int"].values[0] * 1000 / (self.seconds_per_timestep / 3600) * self.buildingconfig.absolute_conditioned_floor_area_in_m2 / self.my_simulation_parameters.timesteps
+        return internal_gains_from_tabula_in_watt
+    
+    def get_tabula_solar_gains(self):
+        solar_gains_from_tabula_in_watt = self.buildingdata["q_sol"].values[0] * 1000 / (self.seconds_per_timestep / 3600) * self.buildingconfig.absolute_conditioned_floor_area_in_m2 / self.my_simulation_parameters.timesteps
+        return solar_gains_from_tabula_in_watt
 # =====================================================================================================================================
 class Window:
 

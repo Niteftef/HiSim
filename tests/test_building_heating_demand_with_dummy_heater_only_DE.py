@@ -16,6 +16,8 @@ from hisim.components import building
 from hisim.components import idealized_electric_heater
 from hisim import utils
 from hisim import log
+from hisim import component as cp
+from hisim import loadtypes as lt
 
 __authors__ = "Katharina Rieck, Noah Pflugradt"
 __copyright__ = "Copyright 2022, FZJ-IEK-3"
@@ -67,6 +69,7 @@ def test_house_with_dummy_heater_for_heating_test(
             year=year, seconds_per_timestep=seconds_per_timestep
         )
         # my_simulation_parameters.post_processing_options.clear()
+    timestep_factor = seconds_per_timestep / 3600
 
     # in case ou want to check on all TABULA buildings -> run test over all building_codes
     d_f = pd.read_csv(
@@ -344,7 +347,7 @@ def test_house_with_dummy_heater_for_heating_test(
                     "TabulaBuilding - TheoreticalThermalBuildingDemand [Heating - W]"
                 ]
                 sum_heating_in_watt_timestep = sum(results_dummy_heater_heating)
-                timestep_factor = seconds_per_timestep / 3600
+                
                 sum_heating_in_watt_hour = sum_heating_in_watt_timestep * timestep_factor
                 sum_heating_in_kilowatt_hour = sum_heating_in_watt_hour / 1000
                 # =========================================================================================================================================================
@@ -372,29 +375,32 @@ def test_house_with_dummy_heater_for_heating_test(
                 # =========================================================================================================================================================
                 # Calculate annual internal heat gains
 
-                results_occupancy_internal_heat_gains = my_sim.results_data_frame[
-                    "Occupancy - HeatingByResidents [Heating - W]"
-                ]
-                sum_internal_heat_gains_in_watt_timestep = sum(results_occupancy_internal_heat_gains)
-                sum_internal_heat_gains_in_watt_hour = sum_internal_heat_gains_in_watt_timestep * timestep_factor
-                sum_internal_heat_gains_in_kilowatt_hour = sum_internal_heat_gains_in_watt_hour / 1000
+                # results_occupancy_internal_heat_gains = my_sim.results_data_frame[
+                #     "Occupancy - HeatingByResidents [Heating - W]"
+                # ]
+                results_occupancy_internal_heat_gains = my_building.internal_heat_gains_through_occupancy_in_watt
+                
+                # sum_internal_heat_gains_in_watt_timestep = sum(results_occupancy_internal_heat_gains)
+                # sum_internal_heat_gains_in_watt_hour = sum_internal_heat_gains_in_watt_timestep * timestep_factor
+                # sum_internal_heat_gains_in_kilowatt_hour = sum_internal_heat_gains_in_watt_hour / 1000
                 # =========================================================================================================================================================
                 # Test annual floor related internal heat gains
 
                 internal_gains_given_by_tabula_in_kilowatt_hour_per_year_per_m2 = (
                     my_building.buildingdata["q_int"].values[0]
                 )
-
-                internal_gains_given_by_dummy_heater_in_kilowatt_hour_per_year_per_m2 = (
-                    np.round(
-                        (
-                            sum_internal_heat_gains_in_kilowatt_hour
-                            / my_building_config.absolute_conditioned_floor_area_in_m2
-                        ),
-                        1,
-                    )
-                )
-
+                
+                # internal_gains_given_by_dummy_heater_in_kilowatt_hour_per_year_per_m2 = (
+                    # np.round(
+                    #     (
+                    #         sum_internal_heat_gains_in_kilowatt_hour
+                    #         / my_building_config.absolute_conditioned_floor_area_in_m2
+                    #     ),
+                    #     1,
+                    # )
+                # )
+                internal_gains_given_by_dummy_heater_in_kilowatt_hour_per_year_per_m2 = results_occupancy_internal_heat_gains * my_simulation_parameters.timesteps / my_building_config.absolute_conditioned_floor_area_in_m2 * timestep_factor / 1000
+                print("results interna gains tabula hisim kwh/m2a ", internal_gains_given_by_tabula_in_kilowatt_hour_per_year_per_m2, internal_gains_given_by_dummy_heater_in_kilowatt_hour_per_year_per_m2)
                 ratio_hisim_tabula_internal_gains = np.round(
                     internal_gains_given_by_dummy_heater_in_kilowatt_hour_per_year_per_m2
                     / internal_gains_given_by_tabula_in_kilowatt_hour_per_year_per_m2,
@@ -407,6 +413,7 @@ def test_house_with_dummy_heater_for_heating_test(
                 results_building_solar_heat_gains = my_sim.results_data_frame[
                     "TabulaBuilding - SolarGainThroughWindows [Heating - W]"
                 ]
+
                 sum_solar_heat_gains_in_watt_timestep = sum(results_building_solar_heat_gains)
                 sum_solar_heat_gains_in_watt_hour = sum_solar_heat_gains_in_watt_timestep * timestep_factor
                 sum_solar_heat_gains_in_kilowatt_hour = sum_solar_heat_gains_in_watt_hour / 1000
@@ -426,7 +433,7 @@ def test_house_with_dummy_heater_for_heating_test(
                         1,
                     )
                 )
-
+                print("results solar gains tabula hisim kwh/m2a ", solar_gains_given_by_tabula_in_kilowatt_hour_per_year_per_m2, solar_gains_given_by_dummy_heater_in_kilowatt_hour_per_year_per_m2)
                 ratio_hisim_tabula_solar_gains = np.round(
                     solar_gains_given_by_dummy_heater_in_kilowatt_hour_per_year_per_m2
                     / solar_gains_given_by_tabula_in_kilowatt_hour_per_year_per_m2,
