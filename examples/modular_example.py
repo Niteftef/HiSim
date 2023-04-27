@@ -534,7 +534,7 @@ def modular_household_explicit(
             my_building.connect_input(
                 input_fieldname=my_building.ThermalPowerDelivered,
                 src_object_name=my_chp.component_name,
-                src_field_name=my_chp.ThermalPowerDelivered,
+                src_field_name=my_chp.ThermalPowerOutputBuilding,
             )
 
         # chp_cost = preprocessing.calculate_chp_investment_cost(
