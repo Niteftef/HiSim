@@ -337,11 +337,14 @@ def modular_household_explicit(
             source_weight=999,
         )
 
-        # surplus_controller_cost = (
-        #     preprocessing.calculate_surplus_controller_investment_cost(
-        #         economic_parameters
-        #     )
-        # )
+        my_electricity_controller.add_component_inputs_and_connect(
+            source_component_classes=production,
+            outputstring="ElectricityOutput",
+            source_load_type=lt.LoadTypes.ELECTRICITY,
+            source_unit=lt.Units.WATT,
+            source_tags=[lt.InandOutputType.ELECTRICITY_PRODUCTION],
+            source_weight=999,
+        )
 
     if not needs_ems(
         battery_included,
@@ -496,24 +499,26 @@ def modular_household_explicit(
         # battery_cost = preprocessing.calculate_battery_investment_cost(economic_parameters, battery_included, battery_capacity)
 
     # """CHP + H2 STORAGE + ELECTROLYSIS"""
-    if chp_included and not buffer_included and clever:
-        production, count = component_connections.configure_chp(
+    if chp_included and not buffer_included:
+        count = component_connections.configure_chp(
             my_sim=my_sim,
             my_simulation_parameters=my_simulation_parameters,
             my_building=my_building,
             my_boiler=my_boiler,
+            my_electricity_controller=my_electricity_controller,
             chp_power=chp_power,
-            production=production,
+            controlable=clever,
             count=count,
         )
-    if chp_included and buffer_included and clever:
-        production, count = component_connections.configure_chp_with_buffer(
+    if chp_included and buffer_included:
+        count = component_connections.configure_chp_with_buffer(
             my_sim=my_sim,
             my_simulation_parameters=my_simulation_parameters,
             my_buffer=my_buffer,
             my_boiler=my_boiler,
+            my_electricity_controller=my_electricity_controller,
             chp_power=chp_power,
-            production=production,
+            controlable=clever,
             count=count,
         )
 
@@ -559,14 +564,6 @@ def modular_household_explicit(
         smart_devices_included,
         water_heating_system_installed,
     ):
-        my_electricity_controller.add_component_inputs_and_connect(
-            source_component_classes=production,
-            outputstring="ElectricityOutput",
-            source_load_type=lt.LoadTypes.ELECTRICITY,
-            source_unit=lt.Units.WATT,
-            source_tags=[lt.InandOutputType.ELECTRICITY_PRODUCTION],
-            source_weight=999,
-        )
         my_sim.add_component(my_electricity_controller)
 
     # co2_cost = 1000  # CO2 von Herstellung der Komponenten plus CO2 für den Stromverbrauch der Komponenten
