@@ -7,7 +7,6 @@ from threading import Lock
 import pydot
 import seaborn as sns
 
-
 # https://refactoring.guru/design-patterns/singleton/python/example#example-1
 
 """Graph call path factory function."""
@@ -49,8 +48,10 @@ def register_method(func):
         start_time = time.perf_counter()
         result = func(*args, **kwargs)
         end_time = time.perf_counter()
-        total_time = end_time - start_time
-        SingletonForCallGraph().edit_timer(entry=methodcall, timer=total_time)
+        total_time_in_miliseconds = (end_time - start_time) * 1000
+        SingletonForCallGraph().edit_timer(
+            entry=methodcall, timer=total_time_in_miliseconds
+        )
 
         # when the function execution is completed, the function will not call any other functions anymore and can be deleted from source function list
         if SingletonForCallGraph().exist_entry(
@@ -185,36 +186,44 @@ class MethodChart:
         )
 
         """Set node color scheme."""
-        max_value = max(
-            [
-                SingletonForCallGraph().my_info[item.name]["callcounter"]
-                for item in SingletonForCallGraph().my_list_all_functions
-            ]
-        )
-        palette = sns.color_palette("light:#5A9", max_value + 1).as_hex()
+
+        timer_values_as_integer = [
+            int(SingletonForCallGraph().my_info[item.name]["timer"])
+            for item in SingletonForCallGraph().my_list_all_functions
+        ]
+        sorted_timer_values_as_integer = sorted(timer_values_as_integer)
+
+        # here it must be noted that the palette has maximum 205 different color values
+        palette = sns.color_palette(
+            "light:#5A9", len(sorted_timer_values_as_integer)
+        ).as_hex()
 
         """Generate callgraph."""
         for methodcall in SingletonForCallGraph().my_list_all_functions:
-            count_label = "Count: " + str(
+            count_label = "Number of Calls: " + str(
                 SingletonForCallGraph().my_info[methodcall.name]["callcounter"]
             )
-            time_label = "Time: " + str(
-                round(
-                    SingletonForCallGraph().my_info[methodcall.name]["timer"],
-                    time_resolution,
+            time_label = (
+                str(
+                    round(
+                        SingletonForCallGraph().my_info[methodcall.name]["timer"],
+                        time_resolution,
+                    )
                 )
+                + " ms"
             )
 
             methodcall.node = pydot.Node(
                 methodcall.name,
                 label=methodcall.name + "\\n" + count_label + "\\n" + time_label,
                 fillcolor=palette[
-                    SingletonForCallGraph().my_info[methodcall.name]["callcounter"]
+                    sorted_timer_values_as_integer.index(
+                        int(SingletonForCallGraph().my_info[methodcall.name]["timer"])
+                    )
                 ],
             )
 
             graph.add_node(methodcall.node)
-
             for src_node in SingletonForCallGraph().my_info[methodcall.name][
                 "source_functions"
             ]:

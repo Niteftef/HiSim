@@ -20,7 +20,7 @@ class PyCallGraphObject:
         self.execute()
         methodchart = MethodChart()
         methodchart.make_graphviz_chart(
-            time_resolution=10, filename="HISIM_Method_Pattern.png"
+            time_resolution=3, filename="HISIM_Method_Pattern.png"
         )
         profiler.disable()
 
