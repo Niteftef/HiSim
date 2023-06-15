@@ -24,7 +24,7 @@ from hisim.component import ComponentOutput
 from hisim.postprocessing.postprocessing_datatransfer import PostProcessingDataTransfer
 from hisim.postprocessing.report_image_entries import ReportImageEntry
 from hisim.postprocessing.system_chart import SystemChartEntry
-from wrappedcallgraph.callgraphwrap_test import MethodChart
+from wrappedcallgraph.callgraphwrap_updated import MethodChart
 
 
 class PostProcessor:

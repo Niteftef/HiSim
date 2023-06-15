@@ -4,7 +4,7 @@ import cProfile
 from hisim import hisim_main
 from hisim.simulationparameters import SimulationParameters
 from hisim import log
-from wrappedcallgraph.callgraphwrap_test import MethodChart
+from wrappedcallgraph.callgraphwrap_updated import MethodChart
 
 profiler = cProfile.Profile()
 profiler.enable()

@@ -8,7 +8,7 @@ from typing import Optional
 from hisim import log
 import hisim.simulator as sim
 from hisim.simulationparameters import SimulationParameters
-from wrappedcallgraph.callgraphwrap_test import register_method
+from wrappedcallgraph.callgraphwrap_updated import register_method
 
 
 @register_method

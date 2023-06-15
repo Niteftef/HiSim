@@ -14,7 +14,7 @@ from hisim import loadtypes as lt
 from hisim import utils
 from hisim import log
 from hisim.simulationparameters import SimulationParameters
-from wrappedcallgraph.callgraphwrap_test import register_method
+from wrappedcallgraph.callgraphwrap_updated import register_method
 
 from hisim.sim_repository_singleton import SingletonSimRepository, SingletonDictKeyEnum
 

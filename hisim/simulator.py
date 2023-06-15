@@ -19,7 +19,7 @@ from hisim import log
 from hisim.simulationparameters import SimulationParameters
 from hisim import utils
 from hisim import postprocessingoptions
-from wrappedcallgraph.callgraphwrap_test import register_method
+from wrappedcallgraph.callgraphwrap_updated import register_method
 
 
 __authors__ = "Noah Pflugradt, Vitor Hugo Bellotto Zago, Maximillian Hillen"
