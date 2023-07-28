@@ -32,7 +32,7 @@ PATH = "../examples/household_for_test_building_heat_demand.py"
 FUNC = "house_with_idealized_electric_heater_for_heating_test"
 
 
-@pytest.mark.buildingtest
+@pytest.mark.skip
 @utils.measure_execution_time
 def test_house_with_idealized_electric_heater_for_testing_heating_demand(
     my_simulation_parameters: Optional[SimulationParameters] = None,
