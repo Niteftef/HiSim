@@ -11,6 +11,7 @@ from hisim.components import building
 from hisim.components import generic_heat_pump
 from hisim.components import sumbuilder
 
+
 __authors__ = "Vitor Hugo Bellotto Zago, Noah Pflugradt"
 __copyright__ = "Copyright 2022, FZJ-IEK-3"
 __credits__ = ["Noah Pflugradt"]
@@ -44,21 +45,6 @@ def basic_household_explicit(
     year = 2021
     seconds_per_timestep = 60
 
-    # Set Weather
-    location = "Aachen"
-
-    # Set Photovoltaic System
-    time = 2019
-    power = 10e3
-    load_module_data = False
-    module_name = "Hanwha_HSL60P6_PA_4_250T__2013_"
-    integrate_inverter = True
-    inverter_name = "ABB__MICRO_0_25_I_OUTD_US_208_208V__CEC_2014_"
-    name = "PVSystem"
-    azimuth = 180
-    tilt = 30
-    source_weight = -1
-
     # Set Heat Pump Controller
     temperature_air_heating_in_celsius = 19.0
     temperature_air_cooling_in_celsius = 24.0
@@ -70,13 +56,22 @@ def basic_household_explicit(
 
     # Build Simulation Parameters
     if my_simulation_parameters is None:
-        my_simulation_parameters = SimulationParameters.full_year_only_plots(
+        my_simulation_parameters = SimulationParameters.full_year_with_only_plots(
             year=year, seconds_per_timestep=seconds_per_timestep
         )
+
     my_sim.set_simulation_parameters(my_simulation_parameters)
 
+    # Build Building
+    my_building_config = building.BuildingConfig.get_default_german_single_family_home()
+
+    my_building = building.Building(
+        config=my_building_config, my_simulation_parameters=my_simulation_parameters
+    )
     # Build Occupancy
-    my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig.get_default_CHS01()
+    my_occupancy_config = (
+        loadprofilegenerator_connector.OccupancyConfig.get_default_CHS01()
+    )
     my_occupancy = loadprofilegenerator_connector.Occupancy(
         config=my_occupancy_config, my_simulation_parameters=my_simulation_parameters
     )
@@ -90,29 +85,12 @@ def basic_household_explicit(
     )
 
     # Build PV
-    my_photovoltaic_system_config = generic_pv_system.PVSystemConfig(
-        time=time,
-        location=location,
-        power=power,
-        load_module_data=load_module_data,
-        module_name=module_name,
-        integrate_inverter=integrate_inverter,
-        tilt=tilt,
-        azimuth=azimuth,
-        inverter_name=inverter_name,
-        source_weight=source_weight,
-        name=name,
+    my_photovoltaic_system_config = (
+        generic_pv_system.PVSystemConfig.get_default_PV_system()
     )
     my_photovoltaic_system = generic_pv_system.PVSystem(
         config=my_photovoltaic_system_config,
         my_simulation_parameters=my_simulation_parameters,
-    )
-
-    # Build Building
-    my_building_config = building.BuildingConfig.get_default_german_single_family_home()
-
-    my_building = building.Building(
-        config=my_building_config, my_simulation_parameters=my_simulation_parameters
     )
 
     # Build Base Electricity Load Profile

@@ -3,9 +3,9 @@
 # Generic/Built-in
 import json
 from typing import Any, Tuple
-from os import path, listdir, makedirs
-import shutil
+from os import path, makedirs
 from dataclasses import dataclass
+from dataclasses_json import dataclass_json
 import pandas as pd
 import numpy as np
 
@@ -15,7 +15,7 @@ from hisim import loadtypes as lt
 from hisim import utils
 from hisim import log
 from hisim.simulationparameters import SimulationParameters
-# from hisim.components.building import Building
+from hisim.sim_repository_singleton import SingletonSimRepository, SingletonDictKeyEnum
 
 __authors__ = "Vitor Hugo Bellotto Zago"
 __copyright__ = "Copyright 2021, the House Infrastructure Project"
@@ -27,6 +27,7 @@ __email__ = "vitor.zago@rwth-aachen.de"
 __status__ = "development"
 
 
+@dataclass_json
 @dataclass
 class OccupancyConfig(cp.ConfigBase):
     @classmethod
@@ -37,38 +38,61 @@ class OccupancyConfig(cp.ConfigBase):
     name: str
     profile_name: str
     country_name: str
-    number_of_apartments: int
 
     @classmethod
     def get_default_CHS01(cls) -> Any:
-        config = OccupancyConfig("Occupancy_1", "CH01", "DE", 1)
+        config = OccupancyConfig(
+            name="Occupancy_1", profile_name="CH01", country_name="DE"
+        )
         return config
 
-    def get_factors_from_country_and_profile(self) -> Tuple[float, float, int]:
-        """ Evaluates country specific scaling factors of profiles.
+    def get_factors_from_country_and_profile(self) -> Tuple[float, float]:
+        """Evaluates country specific scaling factors of profiles.
+
         This is especially relevant when european average profile (AVG) is used.
         """
         if self.profile_name != "AVG":
-            return float(self.number_of_apartments), float(self.number_of_apartments), self.number_of_apartments
-        scaling_factors = pd.read_csv(utils.HISIMPATH["occupancy_scaling_factors_per_country"], encoding="utf-8", sep=";", index_col=1)
+            return (1, 1)
+        scaling_factors = pd.read_csv(
+            utils.HISIMPATH["occupancy_scaling_factors_per_country"],
+            encoding="utf-8",
+            sep=";",
+            index_col=1,
+        )
         if self.country_name in scaling_factors.index:
             scaling_factor_line = scaling_factors.loc[self.country_name]
         else:
             scaling_factor_line = scaling_factors.loc["EU"]
-            log.warning("Scaling Factor for " + self.country_name + "is not available, EU average is used per default." )
-        factor_electricity_consumption = (
-            float(scaling_factor_line["Unit consumption per dwelling for cooking (toe/dw)"]) * 1.163e4 +
-            float(scaling_factor_line["Unit consumption per dwelling for lighting and electrical appliances (kWh/dw)"])
-            ) * self.number_of_apartments  # 1 toe = 1.163e4 kWh
-        factor_hot_water_consumption = float(scaling_factor_line["Unit consumption of hot water per dwelling (toe/dw)"]) * 4.1868e7 \
-            * self.number_of_apartments / ((40 - 10) * 0.977 * 4.182)  # 1 toe = 4.1868e7 kJ, than Joule to liter with given temperature difference
-        return factor_electricity_consumption, factor_hot_water_consumption, self.number_of_apartments
+            log.warning(
+                "Scaling Factor for "
+                + self.country_name
+                + "is not available, EU average is used per default."
+            )
+        factor_electricity_consumption = float(
+            scaling_factor_line["Unit consumption per dwelling for cooking (toe/dw)"]
+        ) * 1.163e4 + float(
+            scaling_factor_line[
+                "Unit consumption per dwelling for lighting and electrical appliances (kWh/dw)"
+            ]
+        )  # 1 toe = 1.163e4 kWh
+        factor_hot_water_consumption = (
+            float(
+                scaling_factor_line[
+                    "Unit consumption of hot water per dwelling (toe/dw)"
+                ]
+            )
+            * 4.1868e7
+            / ((40 - 10) * 0.977 * 4.182)
+        )  # 1 toe = 4.1868e7 kJ, than Joule to liter with given temperature difference
+        return (factor_electricity_consumption, factor_hot_water_consumption)
 
 
 class Occupancy(cp.Component):
+
     """
-    Class component that provides heating generated, the electricity consumed
-    by the residents. Data provided or based on LPG exports.
+    Class component that provides heating generated, the electricity consumed by the residents.
+
+    Data provided or based on LPG exports.
 
     Parameters
     -----------------------------------------------
@@ -85,6 +109,7 @@ class Occupancy(cp.Component):
        Heating by Residents: W
        Electricity Consumption: kWh
        Water Consumption: L
+
     """
 
     # Inputs
@@ -113,12 +138,34 @@ class Occupancy(cp.Component):
         self, my_simulation_parameters: SimulationParameters, config: OccupancyConfig
     ) -> None:
         super().__init__(
-            name="Occupancy", my_simulation_parameters=my_simulation_parameters
+            name="Occupancy",
+            my_simulation_parameters=my_simulation_parameters,
+            my_config=config,
         )
         self.profile_name = config.profile_name
         self.occupancyConfig = config
         self.build()
 
+        if SingletonSimRepository().exist_entry(
+            key=SingletonDictKeyEnum.NUMBEROFAPARTMENTS
+        ):
+            self.real_number_of_apartments_from_building = (
+                SingletonSimRepository().get_entry(
+                    key=SingletonDictKeyEnum.NUMBEROFAPARTMENTS
+                )
+            )
+        else:
+            raise KeyError(
+                "Key for number of apartments was not found in the singleton sim repository."
+                + "This might be because the building was not initialized before the loadprofilegenerator_connector."
+                + "Please check the order of the initialization of the components in your example."
+            )
+
+        self.scaling_factor_according_to_number_of_apartments = (
+            self.get_scaling_factor_according_to_number_of_apartments(
+                real_number_of_apartments=self.real_number_of_apartments_from_building
+            )
+        )
         # Inputs - Not Mandatories
         self.ww_mass_input: cp.ComponentInput = self.add_input(
             self.component_name,
@@ -276,15 +323,26 @@ class Occupancy(cp.Component):
         scaling_factor_according_to_number_of_apartments = self.get_scaling_factor_according_to_number_of_apartments(real_number_of_apartments=real_number_of_apartments)
 
         stsv.set_output_value(
-            self.number_of_residentsC, self.number_of_residents[timestep] * scaling_factor_according_to_number_of_apartments
+            self.number_of_residentsC,
+            self.number_of_residents[timestep]
+            * self.scaling_factor_according_to_number_of_apartments,
+        )
+
+        stsv.set_output_value(
+            self.heating_by_residentsC,
+            self.heating_by_residents[timestep]
+            * self.scaling_factor_according_to_number_of_apartments,
         )
         stsv.set_output_value(
-            self.heating_by_residentsC, self.heating_by_residents[timestep] * scaling_factor_according_to_number_of_apartments
+            self.electricity_outputC,
+            self.electricity_consumption[timestep]
+            * self.scaling_factor_according_to_number_of_apartments,
         )
         stsv.set_output_value(
-            self.electricity_outputC, self.electricity_consumption[timestep] * scaling_factor_according_to_number_of_apartments
+            self.water_consumptionC,
+            self.water_consumption[timestep]
+            * self.scaling_factor_according_to_number_of_apartments,
         )
-        stsv.set_output_value(self.water_consumptionC, self.water_consumption[timestep] * scaling_factor_according_to_number_of_apartments)
 
         if self.my_simulation_parameters.predictive_control:
             last_forecast_timestep = int(
@@ -293,7 +351,7 @@ class Occupancy(cp.Component):
             )
             if last_forecast_timestep > len(self.electricity_consumption):
                 last_forecast_timestep = len(self.electricity_consumption)
-            # log.information( type(self.temperature))
+
             demandforecast = self.electricity_consumption[
                 timestep:last_forecast_timestep
             ]
@@ -308,7 +366,7 @@ class Occupancy(cp.Component):
             )
             if last_forecast_timestep > len(self.electricity_consumption):
                 last_forecast_timestep = len(self.electricity_consumption)
-            # log.information( type(self.temperature))
+
             demandforecast = self.electricity_consumption[
                 timestep:last_forecast_timestep
             ]
@@ -340,7 +398,7 @@ class Occupancy(cp.Component):
             self.heating_by_residents = dataframe["heating_by_residents"].tolist()
             self.electricity_consumption = dataframe["electricity_consumption"].tolist()
             self.water_consumption = dataframe["water_consumption"].tolist()
-            print(sum(self.water_consumption))
+
         else:
             ################################
             # Calculates heating generated by residents and loads number of residents
@@ -349,7 +407,10 @@ class Occupancy(cp.Component):
             # mode 2: sleeping
             gain_per_person = [150, 100]
 
-            scaling_electricity_consumption, scaling_water_consumption, scaling_number_of_residents = self.occupancyConfig.get_factors_from_country_and_profile()
+            (
+                scaling_electricity_consumption,
+                scaling_water_consumption,
+            ) = self.occupancyConfig.get_factors_from_country_and_profile()
             # load occupancy profile
             occupancy_profile = []
             filepaths = utils.HISIMPATH["occupancy"][self.profile_name][
@@ -389,7 +450,10 @@ class Occupancy(cp.Component):
 
             # convert electricity consumption and water consumption to desired format and unit
             self.electricity_consumption = pd.to_numeric(
-                pre_electricity_consumption["Sum [kWh]"] * 1000 * 60 * scaling_electricity_consumption
+                pre_electricity_consumption["Sum [kWh]"]
+                * 1000
+                * 60
+                * scaling_electricity_consumption
             ).tolist()  # 1 kWh/min == 60 000 W / min
             self.water_consumption = pd.to_numeric(
                 pre_water_consumption["Sum [L]"] * scaling_water_consumption
@@ -401,11 +465,11 @@ class Occupancy(cp.Component):
                     for timestep in range(steps_original):
                         self.number_of_residents[timestep] += occupancy_profile[mode][
                             "Values"
-                        ][timestep] * scaling_number_of_residents
+                        ][timestep]
                         self.heating_by_residents[timestep] = (
                             self.heating_by_residents[timestep]
                             + gain_per_person[mode]
-                            * occupancy_profile[mode]["Values"][timestep] * scaling_number_of_residents
+                            * occupancy_profile[mode]["Values"][timestep]
                         )
 
             # average data, when time resolution of inputs is coarser than time resolution of simulation
@@ -416,11 +480,11 @@ class Occupancy(cp.Component):
                             sum(
                                 occupancy_profile[mode]["Values"][
                                     timestep
-                                    * steps_ratio: (timestep + 1)
+                                    * steps_ratio : (timestep + 1)
                                     * steps_ratio
                                 ]
                             )
-                            * scaling_number_of_residents / steps_ratio
+                            / steps_ratio
                         )
                         self.number_of_residents[timestep] += np.round(
                             number_of_residents_av
@@ -431,11 +495,11 @@ class Occupancy(cp.Component):
                         )
                 # power needs averaging, not sum
                 self.electricity_consumption = [
-                    sum(self.electricity_consumption[n: n + steps_ratio]) / steps_ratio
+                    sum(self.electricity_consumption[n : n + steps_ratio]) / steps_ratio
                     for n in range(0, steps_original, steps_ratio)
                 ]
                 self.water_consumption = [
-                    sum(self.water_consumption[n: n + steps_ratio])
+                    sum(self.water_consumption[n : n + steps_ratio])
                     for n in range(0, steps_original, steps_ratio)
                 ]
 
@@ -472,17 +536,18 @@ class Occupancy(cp.Component):
         """Writes a report."""
         return self.occupancyConfig.get_string_dict()
 
-
-    def get_scaling_factor_according_to_number_of_apartments(self, real_number_of_apartments: float) -> float:
+    def get_scaling_factor_according_to_number_of_apartments(
+        self, real_number_of_apartments: float
+    ) -> float:
         """Get scaling factor according to the real number of apartments which is given by the building component."""
 
-        scaling_factor = real_number_of_apartments / self.occupancyConfig.number_of_apartments
+        if real_number_of_apartments is not None and real_number_of_apartments > 0:
+            scaling_factor = real_number_of_apartments
+            log.information(
+                f"Occupancy outputs will be scaled with the factor {scaling_factor} according to the number of apartments"
+            )
 
-        if scaling_factor > 0:
-            scaling_factor_according_to_number_of_apartments = scaling_factor
-        
         else:
-            # raise ValueError("scaling factor according to number of apartments can not be zero or negative.")
-            scaling_factor_according_to_number_of_apartments = 1
+            scaling_factor = 1.0
 
-        return scaling_factor_according_to_number_of_apartments
+        return scaling_factor

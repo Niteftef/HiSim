@@ -14,7 +14,8 @@ from hisim.simulator import SimulationParameters
 from hisim.components import loadprofilegenerator_connector
 from hisim.components import weather
 from hisim.components import building
-from hisim.components import generic_heat_pump
+from hisim.components import idealized_electric_heater
+from hisim.sim_repository_singleton import SingletonDictKeyEnum, SingletonSimRepository
 from hisim import log
 from hisim import utils
 
@@ -28,12 +29,12 @@ __status__ = "development"
 
 # PATH and FUNC needed to build simulator, PATH is fake
 PATH = "../examples/household_for_test_building_heat_demand.py"
-FUNC = "house_with_pv_and_hp_for_heating_test"
+FUNC = "house_with_idealized_electric_heater_for_heating_test"
 
 
 @pytest.mark.buildingtest
 @utils.measure_execution_time
-def test_house_with_pv_and_hp_for_heating_test(
+def test_house_with_idealized_electric_heater_for_testing_heating_demand(
     my_simulation_parameters: Optional[SimulationParameters] = None,
 ) -> None:  # noqa: too-many-statements
     """Test for heating energy demand.
@@ -46,8 +47,7 @@ def test_house_with_pv_and_hp_for_heating_test(
         - Occupancy (Residents' Demands)
         - Weather
         - Building
-        - Heat Pump
-        - Heat Pump Controller
+        - Idealized Electric Heater
     """
 
     # =========================================================================================================================================================
@@ -68,24 +68,16 @@ def test_house_with_pv_and_hp_for_heating_test(
     absolute_conditioned_floor_area_in_m2 = 10000
     total_base_area_in_m2 = None
 
-    # Set Heat Pump Controller
-    temperature_air_heating_in_celsius = 19.5
-    temperature_air_cooling_in_celsius = 20.5
-    offset = 0.5
-    hp_mode = 2
-
-    # Set Heat Pump
-    hp_manufacturer = "Viessmann Werke GmbH & Co KG"
-    hp_name = "Vitocal 300-A AWO-AC 301.B07"
-    hp_min_operation_time = 1
-    hp_min_idle_time = 1
+    # Set Fake Heater
+    set_heating_temperature_for_building_in_celsius = 19.5
+    set_cooling_temperature_for_building_in_celsius = 20.5
 
     # =========================================================================================================================================================
     # Build Components
 
     # Build Simulation Parameters
     if my_simulation_parameters is None:
-        my_simulation_parameters = SimulationParameters.full_year_plots_only(
+        my_simulation_parameters = SimulationParameters.full_year(
             year=year, seconds_per_timestep=seconds_per_timestep
         )
         my_simulation_parameters.post_processing_options.clear()
@@ -123,12 +115,26 @@ def test_house_with_pv_and_hp_for_heating_test(
                 module_directory=path_to_be_added,
                 setup_function=FUNC,
                 my_simulation_parameters=my_simulation_parameters,
+                module_filename="household_for_test_building_heat_demand.py",
             )
             my_sim.set_simulation_parameters(my_simulation_parameters)
 
+            # set heating and cooling temperatures for building, because calculation with building temperature default values delivers different result
+            SingletonSimRepository().set_entry(
+                key=SingletonDictKeyEnum.SETHEATINGTEMPERATUREFORBUILDING, entry=20.0
+            )
+            SingletonSimRepository().set_entry(
+                key=SingletonDictKeyEnum.SETCOOLINGTEMPERATUREFORBUILDING, entry=23.0
+            )
+
+            # Build Building
+            my_building_config = building.BuildingConfig.get_default_german_single_family_home()
+            my_building = building.Building(
+                config=my_building_config, my_simulation_parameters=my_simulation_parameters
+            )
             # Build Occupancy
-            my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig(
-                profile_name=occupancy_profile, name="Occupancy"
+            my_occupancy_config = (
+                loadprofilegenerator_connector.OccupancyConfig.get_default_CHS01()
             )
             my_occupancy = loadprofilegenerator_connector.Occupancy(
                 config=my_occupancy_config, my_simulation_parameters=my_simulation_parameters
@@ -141,37 +147,16 @@ def test_house_with_pv_and_hp_for_heating_test(
             my_weather = weather.Weather(
                 config=my_weather_config, my_simulation_parameters=my_simulation_parameters
             )
-
-            # Build Building
-            my_building_config = building.BuildingConfig(
-                building_code=building_code,
-                building_heat_capacity_class=building_heat_capacity_class,
-                initial_internal_temperature_in_celsius=initial_temperature_in_celsius,
-                heating_reference_temperature_in_celsius=heating_reference_temperature_in_celsius,
-                name="Building1",
-                absolute_conditioned_floor_area_in_m2=absolute_conditioned_floor_area_in_m2,
-                total_base_area_in_m2=total_base_area_in_m2,
+            # Build Fake Heater Config
+            my_idealized_electric_heater_config = idealized_electric_heater.IdealizedHeaterConfig(
+                name="IdealizedElectricHeater",
+                set_heating_temperature_for_building_in_celsius=set_heating_temperature_for_building_in_celsius,
+                set_cooling_temperature_for_building_in_celsius=set_cooling_temperature_for_building_in_celsius,
             )
-            my_building = building.Building(
-                config=my_building_config, my_simulation_parameters=my_simulation_parameters
-            )
-
-            # Build Heat Pump
-            my_heat_pump = generic_heat_pump.GenericHeatPump(
-                manufacturer=hp_manufacturer,
-                name=hp_name,
-                min_operation_time=hp_min_operation_time,
-                min_idle_time=hp_min_idle_time,
+            # Build Fake Heater
+            my_idealized_electric_heater = idealized_electric_heater.IdealizedElectricHeater(
                 my_simulation_parameters=my_simulation_parameters,
-            )
-
-            # Build Heat Pump Controller
-            my_heat_pump_controller = generic_heat_pump.HeatPumpController(
-                temperature_air_heating_in_celsius=temperature_air_heating_in_celsius,
-                temperature_air_cooling_in_celsius=temperature_air_cooling_in_celsius,
-                offset=offset,
-                mode=hp_mode,
-                my_simulation_parameters=my_simulation_parameters,
+                config=my_idealized_electric_heater_config,
             )
             # =========================================================================================================================================================
             # Connect Components
@@ -218,27 +203,15 @@ def test_house_with_pv_and_hp_for_heating_test(
             )
             my_building.connect_input(
                 my_building.ThermalPowerDelivered,
-                my_heat_pump.component_name,
-                my_heat_pump.ThermalPowerDelivered,
+                my_idealized_electric_heater.component_name,
+                my_idealized_electric_heater.ThermalPowerDelivered,
             )
 
-            # Heat Pump
-            my_heat_pump.connect_input(
-                my_heat_pump.State,
-                my_heat_pump_controller.component_name,
-                my_heat_pump_controller.State,
-            )
-            my_heat_pump.connect_input(
-                my_heat_pump.TemperatureOutside,
-                my_weather.component_name,
-                my_weather.TemperatureOutside,
-            )
-
-            # Heat Pump Controller
-            my_heat_pump_controller.connect_input(
-                my_heat_pump_controller.TemperatureMean,
+            # Fake Heater
+            my_idealized_electric_heater.connect_input(
+                my_idealized_electric_heater.TheoreticalThermalBuildingDemand,
                 my_building.component_name,
-                my_building.TemperatureMeanThermalMass,
+                my_building.TheoreticalThermalBuildingDemand,
             )
 
             # =========================================================================================================================================================
@@ -247,24 +220,25 @@ def test_house_with_pv_and_hp_for_heating_test(
             my_sim.add_component(my_weather)
             my_sim.add_component(my_occupancy)
             my_sim.add_component(my_building)
-            my_sim.add_component(my_heat_pump)
-            my_sim.add_component(my_heat_pump_controller)
+            my_sim.add_component(my_idealized_electric_heater)
 
             my_sim.run_all_timesteps()
 
             # =========================================================================================================================================================
             # Calculate annual heat pump heating energy
 
-            results_heatpump_heating = my_sim.results_data_frame[
-                "HeatPump - Heating [Heating - W]"
+            results_heating = my_sim.results_data_frame[
+                "IdealizedElectricHeater - HeatingPowerDelivered [Heating - W]"
             ]
-            sum_heating_in_watt_timestep = sum(results_heatpump_heating)
+
+            sum_heating_in_watt_timestep = sum(results_heating)
+            log.information("sum heating [W*timestep] " + str(sum_heating_in_watt_timestep))
             timestep_factor = seconds_per_timestep / 3600
             sum_heating_in_watt_hour = sum_heating_in_watt_timestep * timestep_factor
             sum_heating_in_kilowatt_hour = sum_heating_in_watt_hour / 1000
             # =========================================================================================================================================================
             # Test annual floor related heating demand
-            
+
             energy_need_for_heating_given_by_tabula_in_kilowatt_hour_per_year_per_m2 = (
                 my_building.buildingdata["q_h_nd"].values[0]
             )

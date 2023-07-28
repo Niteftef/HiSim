@@ -49,12 +49,20 @@ def basic_household_only_heating(
     # =================================================================================================================================
     # Build Components
 
-    # Build system parameters
+    # Build Simulation Parameters
     if my_simulation_parameters is None:
-        my_simulation_parameters = SimulationParameters.full_year_all_options(
+        my_simulation_parameters = SimulationParameters.full_year_with_only_plots(
             year=year, seconds_per_timestep=seconds_per_timestep
         )
     my_sim.set_simulation_parameters(my_simulation_parameters)
+
+    # Build Building
+    my_building = building.Building(
+        config=building.BuildingConfig.get_default_german_single_family_home(),
+        my_simulation_parameters=my_simulation_parameters,
+    )
+    # my_building_controller = building.BuildingController(config=building.BuildingController.get_default_config(),
+    #                                                      my_simulation_parameters=my_simulation_parameters)
 
     # Build occupancy
     my_occupancy = loadprofilegenerator_connector.Occupancy(
@@ -73,14 +81,6 @@ def basic_household_only_heating(
         config=generic_gas_heater.GenericGasHeaterConfig.get_default_gasheater_config(),
         my_simulation_parameters=my_simulation_parameters,
     )
-
-    # Build Building
-    my_building = building.Building(
-        config=building.BuildingConfig.get_default_german_single_family_home(),
-        my_simulation_parameters=my_simulation_parameters,
-    )
-    # my_building_controller = building.BuildingController(config=building.BuildingController.get_default_config(),
-    #                                                      my_simulation_parameters=my_simulation_parameters)
 
     # Build Storage
     my_storage = generic_heat_water_storage.HeatStorage(
@@ -135,11 +135,11 @@ def basic_household_only_heating(
         my_building.component_name,
         my_building.TemperatureMeanThermalMass,
     )
-    my_storage_controller.connect_input(
-        my_storage_controller.ReferenceMaxHeatBuildingDemand,
-        my_building.component_name,
-        my_building.ReferenceMaxHeatBuildingDemand,
-    )
+    # my_storage_controller.connect_input(
+    #     my_storage_controller.ReferenceMaxHeatBuildingDemand,
+    #     my_building.component_name,
+    #     my_building.ReferenceMaxHeatBuildingDemand,
+    # )
     # my_storage_controller.connect_input(my_storage_controller.RealHeatBuildingDemand, my_building_controller.component_name,
     #                                     my_building_controller.RealHeatBuildingDemand)
 

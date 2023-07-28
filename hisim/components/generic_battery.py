@@ -1,5 +1,7 @@
 # Generic/Built-in
 import copy
+from dataclasses import dataclass
+from dataclasses_json import dataclass_json
 
 # Owned
 from hisim import component as cp
@@ -61,6 +63,56 @@ class GenericBatteryState:
         self.chargeWh = discharge
 
 
+@dataclass_json
+@dataclass
+class GenericBatteryConfig(cp.ConfigBase):
+
+    """Configuration of the Generic Battery."""
+
+    @classmethod
+    def get_main_classname(cls):
+        """Returns the full class name of the base class."""
+        return GenericBattery.get_full_classname()
+
+    name: str
+    manufacturer: str
+    model: str
+    soc: float
+    base: bool
+
+    @classmethod
+    def get_default_config(cls):
+        """Gets a default config."""
+        return GenericBatteryConfig(
+            name="Generic Battery",
+            manufacturer="sonnen",
+            model="sonnenBatterie 10 - 11,5 kWh",
+            soc=10 / 15,
+            base=False,
+        )
+
+
+@dataclass_json
+@dataclass
+class BatteryControllerConfig(cp.ConfigBase):
+
+    """Configuration of the Generic Battery Controller."""
+
+    @classmethod
+    def get_main_classname(cls):
+        """Returns the full class name of the base class."""
+        return BatteryController.get_full_classname()
+
+    name: str
+
+    @classmethod
+    def get_default_config(cls):
+        """Gets a default config."""
+        return BatteryControllerConfig(
+            name="Battery Controller",
+        )
+
+
 class GenericBattery(cp.Component):
     # Imports
     ElectricityInput = "ElectricityInput"
@@ -70,23 +122,30 @@ class GenericBattery(cp.Component):
     StoredEnergy = "StoredEnergy"
     StateOfCharge = "StateOfCharge"
     ElectricityOutput = "ElectricityOutput"
+    
+    # simulation repository
+    MaximumBatteryCapacity="MaximumBatteryCapacity"
+    MinimumBatteryCapacity="MinimumBatteryCapacity"
+    MaximalChargingPower="MaximalChargingPower"
+    MaximalDischargingPower="MaximalDischargingPower"
+    BatteryEfficiency="BatteryEfficiency"
+    InverterEfficiency="InverterEfficiency"
 
     def __init__(
         self,
         my_simulation_parameters: SimulationParameters,
-        manufacturer: str = "sonnen",
-        model: str = "sonnenBatterie 10 - 11,5 kWh",
-        soc: float = 10 / 15,
-        base: bool = False,
+        config: GenericBatteryConfig,
     ) -> None:
-        super().__init__("Battery", my_simulation_parameters)
+        super().__init__("Battery", my_simulation_parameters, my_config=config)
 
-        self.build(manufacturer=manufacturer, model=model, base=base)
+        self.build(
+            manufacturer=config.manufacturer, model=config.model, base=config.base
+        )
 
         self.state = SimpleStorageState(
             max_var_val=self.max_var_stored_energy,
             min_var_val=self.min_var_stored_energy,
-            stored_energy=self.max_stored_energy * soc,
+            stored_energy=self.max_stored_energy * config.soc,
         )
         self.previous_state = copy.deepcopy(self.state)
 
@@ -170,7 +229,14 @@ class GenericBattery(cp.Component):
 
     def i_prepare_simulation(self) -> None:
         """Prepares the simulation."""
-        pass
+        if self.my_simulation_parameters.system_config.predictive:
+            # send battery specification to the mpc controller for planning the cost optimal operation 
+            self.simulation_repository.set_entry(self.MaximumBatteryCapacity, self.max_stored_energy)
+            self.simulation_repository.set_entry(self.MinimumBatteryCapacity, self.min_stored_energy)
+            self.simulation_repository.set_entry(self.MaximalChargingPower, self.max_var_stored_energy/self.time_correction_factor)
+            self.simulation_repository.set_entry(self.MaximalDischargingPower, -self.min_var_stored_energy/self.time_correction_factor)
+            self.simulation_repository.set_entry(self.BatteryEfficiency, self.efficiency)
+            self.simulation_repository.set_entry(self.InverterEfficiency, self.efficiency_inverter)
 
     def i_restore_state(self) -> None:
         self.state = copy.deepcopy(self.previous_state)
@@ -217,9 +283,15 @@ class BatteryController(cp.Component):
     ElectricityInput = "ElectricityInput"
     State = "State"
 
-    def __init__(self, my_simulation_parameters: SimulationParameters) -> None:
+    def __init__(
+        self,
+        my_simulation_parameters: SimulationParameters,
+        config: BatteryControllerConfig,
+    ) -> None:
         super().__init__(
-            name="BatteryController", my_simulation_parameters=my_simulation_parameters
+            name=config.name,
+            my_simulation_parameters=my_simulation_parameters,
+            my_config=config,
         )
 
         self.inputC: cp.ComponentInput = self.add_input(

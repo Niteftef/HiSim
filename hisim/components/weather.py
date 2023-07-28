@@ -14,9 +14,9 @@ import pvlib
 
 from hisim import loadtypes as lt
 from hisim import log, utils
-from hisim.component import (Component, ComponentOutput, ConfigBase,
-                             SingleTimeStepValues)
+from hisim.component import Component, ComponentOutput, ConfigBase, SingleTimeStepValues
 from hisim.simulationparameters import SimulationParameters
+from hisim.sim_repository_singleton import SingletonSimRepository, SingletonDictKeyEnum
 
 __authors__ = "Vitor Hugo Bellotto Zago, Noah Pflugradt"
 __copyright__ = "Copyright 2021, the House Infrastructure Project"
@@ -165,17 +165,59 @@ class LocationEnum(Enum):
     Madrid = (
         "Madrid",
         "NSRDB",
-        "NSRDB",
         "Madrid",
+        "232500_40.45_-3.70_2019.csv",
         WeatherDataSourceEnum.NSRDB,
     )  # noqa: invalid-name
     Seville = (
         "Seville",
         "NSRDB",
-        "NSRDB",
         "Seville",
+        "172617_37.37_-5.98_2019.csv",
         WeatherDataSourceEnum.NSRDB,
-    )  # noqa: invalid-name,
+    )  # noqa: invalid-name
+    Athens = (
+        "Athens",
+        "NSRDB",
+        "Athens",
+        WeatherDataSourceEnum.NSRDB,
+    )  # noqa: invalid-name
+    Belgrade = (
+        "Belgrade",
+        "NSRDB",
+        "Belgrade",
+        WeatherDataSourceEnum.NSRDB,
+    )  # noqa: invalid-name
+    Cyprus = (
+        "Cyprus",
+        "NSRDB",
+        "Cyprus",
+        WeatherDataSourceEnum.NSRDB,
+    )  # noqa: invalid-name
+    Ljubljana = (
+        "Ljubljana",
+        "NSRDB",
+        "Ljubljana",
+        WeatherDataSourceEnum.NSRDB,
+    )  # noqa: invalid-name
+    Milan = (
+        "Milan",
+        "NSRDB",
+        "Milan",
+        WeatherDataSourceEnum.NSRDB,
+    )  # noqa: invalid-name
+    Sarajevo = (
+        "Sarajevo",
+        "NSRDB",
+        "Sarajevo",
+        WeatherDataSourceEnum.NSRDB,
+    )  # noqa: invalid-name
+    Vranje = (
+        "Vranje",
+        "NSRDB",
+        "Vranje",
+        WeatherDataSourceEnum.NSRDB,
+    )  # noqa: invalid-name
     FR = (
         "Paris",
         "NSRDB_15min",
@@ -398,12 +440,17 @@ class Weather(Component):
     ):
         """Initializes the entire class."""
         super().__init__(
-            name="Weather", my_simulation_parameters=my_simulation_parameters
+            name="Weather",
+            my_simulation_parameters=my_simulation_parameters,
+            my_config=config,
         )
         if my_simulation_parameters is None:
             raise Exception("Simparameters was none")
         self.last_timestep_with_update = -1
         self.weather_config = config
+        SingletonSimRepository().set_entry(
+            key=SingletonDictKeyEnum.LOCATION, entry=self.weather_config.location
+        )
         self.parameter_string = my_simulation_parameters.get_unique_key()
 
         self.air_temperature_output: ComponentOutput = self.add_output(
@@ -561,7 +608,10 @@ class Weather(Component):
         seconds_per_timestep = self.my_simulation_parameters.seconds_per_timestep
         log.information(self.weather_config.location)
         log.information(self.weather_config.to_json())  # type: ignore
-        location_dict = get_coordinates(filepath=self.weather_config.source_path, source_enum=self.weather_config.data_source)
+        location_dict = get_coordinates(
+            filepath=self.weather_config.source_path,
+            source_enum=self.weather_config.data_source,
+        )
         self.simulation_repository.set_entry("weather_location", location_dict)
         cachefound, cache_filepath = utils.get_cache_file(
             "Weather", self.weather_config, self.my_simulation_parameters
@@ -572,7 +622,9 @@ class Weather(Component):
                 cache_filepath, sep=",", decimal=".", encoding="cp1252"
             )
             self.temperature_list = my_weather["t_out"].tolist()
-            self.daily_average_outside_temperature_list_in_celsius = my_weather["t_out_daily_average"].tolist()
+            self.daily_average_outside_temperature_list_in_celsius = my_weather[
+                "t_out_daily_average"
+            ].tolist()
             self.dry_bulb_list = self.temperature_list
             self.DHI_list = my_weather["DHI"].tolist()
             self.DNI_list = my_weather[
@@ -590,20 +642,43 @@ class Weather(Component):
                 year=self.my_simulation_parameters.year,
             )
             if self.weather_config.data_source == WeatherDataSourceEnum.NSRDB_15min:
-                DNI = tmy_data["DNI"].resample("1T").asfreq().interpolate(method="linear")
-                temperature = tmy_data["T"].resample("1T").asfreq().interpolate(method="linear")
-                DHI = tmy_data["DHI"].resample("1T").asfreq().interpolate(method="linear")
-                GHI = tmy_data["GHI"].resample("1T").asfreq().interpolate(method="linear")
-                wind_speed = tmy_data["Wspd"].resample("1T").asfreq().interpolate(method="linear")
+                DNI = (
+                    tmy_data["DNI"].resample("1T").asfreq().interpolate(method="linear")
+                )
+                temperature = (
+                    tmy_data["T"].resample("1T").asfreq().interpolate(method="linear")
+                )
+                DHI = (
+                    tmy_data["DHI"].resample("1T").asfreq().interpolate(method="linear")
+                )
+                GHI = (
+                    tmy_data["GHI"].resample("1T").asfreq().interpolate(method="linear")
+                )
+                wind_speed = (
+                    tmy_data["Wspd"]
+                    .resample("1T")
+                    .asfreq()
+                    .interpolate(method="linear")
+                )
             else:
-                DNI = self.interpolate(tmy_data["DNI"], self.my_simulation_parameters.year)
-                temperature = self.interpolate(tmy_data["T"], self.my_simulation_parameters.year)
-                DHI = self.interpolate(tmy_data["DHI"], self.my_simulation_parameters.year)
-                GHI = self.interpolate(tmy_data["GHI"], self.my_simulation_parameters.year)
-                wind_speed = self.interpolate(tmy_data["Wspd"], self.my_simulation_parameters.year)
+                DNI = self.interpolate(
+                    tmy_data["DNI"], self.my_simulation_parameters.year
+                )
+                temperature = self.interpolate(
+                    tmy_data["T"], self.my_simulation_parameters.year
+                )
+                DHI = self.interpolate(
+                    tmy_data["DHI"], self.my_simulation_parameters.year
+                )
+                GHI = self.interpolate(
+                    tmy_data["GHI"], self.my_simulation_parameters.year
+                )
+                wind_speed = self.interpolate(
+                    tmy_data["Wspd"], self.my_simulation_parameters.year
+                )
             # calculate extra terrestrial radiation- n eeded for perez array diffuse irradiance models
             dni_extra = pd.Series(pvlib.irradiance.get_extra_radiation(DNI.index), index=DNI.index)  # type: ignore
-            
+
             solpos = pvlib.solarposition.get_solarposition(DNI.index, location_dict["latitude"], location_dict["longitude"])  # type: ignore
             altitude = solpos["elevation"]
             azimuth = solpos["azimuth"]
@@ -622,7 +697,8 @@ class Weather(Component):
                 )
                 self.calculate_daily_average_outside_temperature(
                     temperaturelist=self.temperature_list,
-                    seconds_per_timestep=seconds_per_timestep)
+                    seconds_per_timestep=seconds_per_timestep,
+                )
 
                 self.DHI_list = (
                     DHI.resample(str(seconds_per_timestep) + "S").mean().tolist()
@@ -656,7 +732,8 @@ class Weather(Component):
                 self.dry_bulb_list = temperature.to_list()
                 self.calculate_daily_average_outside_temperature(
                     temperaturelist=self.temperature_list,
-                    seconds_per_timestep=seconds_per_timestep)
+                    seconds_per_timestep=seconds_per_timestep,
+                )
                 self.DHI_list = DHI.tolist()
                 self.DNI_list = DNI.tolist()
                 self.DNIextra_list = dni_extra.tolist()
@@ -679,7 +756,7 @@ class Weather(Component):
                 self.dry_bulb_list,
                 self.wind_speed_list,
                 self.DNIextra_list,
-                self.daily_average_outside_temperature_list_in_celsius
+                self.daily_average_outside_temperature_list_in_celsius,
             ]
 
             database = pd.DataFrame(
@@ -695,7 +772,7 @@ class Weather(Component):
                     "DryBulb",
                     "Wspd",
                     "DNIextra",
-                    "t_out_daily_average"
+                    "t_out_daily_average",
                 ],
             )
             database.to_csv(cache_filepath)
@@ -864,10 +941,10 @@ def get_coordinates(filepath: str, source_enum: WeatherDataSourceEnum) -> Any:
         with open(filepath, encoding="utf-8") as csvfile:
             spamreader = csv.reader(csvfile)
             for (i, row) in enumerate(spamreader):
-                if i==1:
-                    location_name=row[1]
-                    lat=float(row[5])
-                    lon=float(row[6])
+                if i == 1:
+                    location_name = row[1]
+                    lat = float(row[5])
+                    lon = float(row[6])
                 elif i > 1:
                     break
     else:
@@ -933,9 +1010,7 @@ def read_dwd_data(filepath: str, year: int) -> Any:
         )
 
         # calculate direct normal
-        data["DNI"] = calculate_direct_normal_radiation(
-            data["B"], lon, lat
-        )
+        data["DNI"] = calculate_direct_normal_radiation(data["B"], lon, lat)
     return data
 
 
@@ -963,9 +1038,10 @@ def read_nsrdb_data(filepath, year):
     )
     return data
 
+
 def read_nsrdb_15min_data(filepath, year):
     """Reads a set of NSRDB data in 15 min resolution."""
-    data = pd.read_csv(filepath, encoding="utf-8", skiprows = [0, 1])
+    data = pd.read_csv(filepath, encoding="utf-8", skiprows=[0, 1])
     # get data
     data.index = pd.date_range(
         f"{year}-01-01 00:00:00", periods=24 * 4 * 365, freq="900S", tz="Europe/Berlin"

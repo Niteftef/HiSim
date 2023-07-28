@@ -1,24 +1,20 @@
 """ Car Battery implementation built upon the bslib library. It contains a CarBattery Class together with its Configuration and State. """
 
 # Import packages from standard library or the environment e.g. pandas, numpy etc.
-from typing import List, Any
 from dataclasses import dataclass
+from typing import Any, List, Tuple
+
+import pandas as pd
 from bslib import bslib as bsl
 from dataclasses_json import dataclass_json
 
 # Import modules from HiSim
 from hisim import log
-from hisim.component import (
-    Component,
-    ComponentInput,
-    ComponentOutput,
-    SingleTimeStepValues,
-    ComponentConnection,
-)
-from hisim.loadtypes import LoadTypes, Units, InandOutputType, ComponentType
-from hisim.simulationparameters import SimulationParameters
-from typing import Optional
+from hisim.component import (Component, ComponentConnection, ComponentInput,
+                             ComponentOutput, ConfigBase, SingleTimeStepValues)
 from hisim.components import controller_l1_generic_ev_charge
+from hisim.loadtypes import ComponentType, InandOutputType, LoadTypes, Units
+from hisim.simulationparameters import SimulationParameters
 
 __authors__ = "Tjarko Tjaden, Hauke Hoops, Kai Rösken"
 __copyright__ = "Copyright 2021, the House Infrastructure Project"
@@ -32,7 +28,7 @@ __status__ = "development"
 
 @dataclass_json
 @dataclass
-class CarBatteryConfig:
+class CarBatteryConfig(ConfigBase):
     """Configuration of a Car Battery. """
     #: name of the device
     name: str
@@ -44,21 +40,27 @@ class CarBatteryConfig:
     p_inv_custom: float
     #: battery capacity in in kWh
     e_bat_custom: float
+    #: amount of energy used to charge the car battery
+    charge: float
+    #: amount of energy discharged from the battery
+    discharge: float
 
-    @staticmethod
-    def get_default_config(
-        name: str = "CarBattery",
-        p_inv_custom: float = 5,
-        e_bat_custom: float = 10,
-        source_weight: int = 1,
-    ) -> Any:
-        """Returns default configuration of a Car Battery. """
+    @classmethod
+    def get_main_classname(cls):
+        """Return the full class name of the base class."""
+        return CarBattery.get_full_classname()
+
+    @classmethod
+    def get_default_config(cls) -> "CarBatteryConfig":
+        """Returns default configuration of a Car Battery."""
         config = CarBatteryConfig(
+            name="CarBattery",
             system_id="SG1",
-            p_inv_custom=p_inv_custom,
-            e_bat_custom=e_bat_custom,
-            name=name,
-            source_weight=source_weight,
+            p_inv_custom=1e4,
+            e_bat_custom=30,
+            source_weight=1,
+            charge=0,
+            discharge=0,
         )
         return config
 
@@ -91,6 +93,7 @@ class CarBattery(Component):
         super().__init__(
             name=config.name + "_w" + str(config.source_weight),
             my_simulation_parameters=my_simulation_parameters,
+            my_config=config,
         )
 
         self.source_weight = self.battery_config.source_weight
@@ -131,6 +134,7 @@ class CarBattery(Component):
                 InandOutputType.CHARGE_DISCHARGE,
                 ComponentType.CAR_BATTERY,
             ],
+            output_description="Charging power of the battery in Watt (Alternating current)",
         )
 
         self.p_bat: ComponentOutput = self.add_output(
@@ -138,6 +142,7 @@ class CarBattery(Component):
             field_name=self.DcBatteryPower,
             load_type=LoadTypes.ELECTRICITY,
             unit=Units.WATT,
+            output_description="Charging power of the battery in Watt (Direct current).",
         )
 
         self.soc: ComponentOutput = self.add_output(
@@ -146,6 +151,7 @@ class CarBattery(Component):
             load_type=LoadTypes.ANY,
             unit=Units.ANY,
             postprocessing_flag=[InandOutputType.STORAGE_CONTENT],
+            output_description="State of charge of the battery.",
         )
 
         self.add_default_connections(
@@ -208,9 +214,21 @@ class CarBattery(Component):
         self.state.soc = soc
 
     def write_to_report(self) -> List[str]:
-        lines = []
-        lines.append("Advanced Battery bslib: " + self.component_name)
-        return lines
+        """Writes Car Battery values to report."""
+        return self.battery_config.get_string_dict()
+
+    def get_cost_opex(self, all_outputs: List, postprocessing_results: pd.DataFrame, ) -> Tuple[float, float]:
+        for index, output in enumerate(all_outputs):
+            if output.postprocessing_flag is not None and \
+                    output.component_name == self.battery_config.name + "_w" + str(self.battery_config.source_weight):
+                if InandOutputType.CHARGE_DISCHARGE in output.postprocessing_flag:
+                    self.battery_config.charge = round(
+                        postprocessing_results.iloc[:, index].clip(lower=0).sum()
+                        * self.my_simulation_parameters.seconds_per_timestep / 3.6e6, 1)
+                    self.battery_config.discharge = round(
+                        postprocessing_results.iloc[:, index].clip(upper=0).sum()
+                        * self.my_simulation_parameters.seconds_per_timestep / 3.6e6, 1)
+        return 0, 0
 
 
 @dataclass
@@ -219,5 +237,5 @@ class EVBatteryState:
     soc: float = 0
 
     def clone(self):
-        "Creates a copy of the Car Battery State. "
+        "Creates a copy of the Car Battery State."
         return EVBatteryState(soc=self.soc)

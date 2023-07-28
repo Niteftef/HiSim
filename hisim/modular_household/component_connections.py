@@ -5,36 +5,49 @@
 The functions are all called in modular_household.
 """
 
-from typing import List, Optional, Tuple, Any
-from os import listdir, path
 import json
+from os import listdir, path
+from typing import Any, List, Optional, Tuple
 
+import pandas as pd
 from utspclient.helpers.lpgpythonbindings import JsonReference
 
 import hisim.loadtypes as lt
-from hisim.component import Component
-from hisim.simulator import SimulationParameters
-from hisim.components import generic_heat_pump_modular
-from hisim.components import generic_heat_source
-from hisim.components import controller_l1_building_heating
-from hisim.components import controller_l1_heatpump
-from hisim.components import controller_l2_generic_heat_simple
-from hisim.components import controller_l2_energy_management_system
-from hisim.components import generic_hot_water_storage_modular
-from hisim.components import loadprofilegenerator_connector
-from hisim.components import weather
-from hisim.components import building
-from hisim.components import generic_pv_system
-from hisim.components import generic_smart_device
-from hisim.components import generic_car
-from hisim.components import controller_l1_generic_ev_charge
-from hisim.components import advanced_battery_bslib
-from hisim.components import advanced_ev_battery_bslib
-from hisim.components import generic_CHP
-from hisim.components import generic_electrolyzer
-from hisim.components import generic_hydrogen_storage
-from hisim.components.configuration import HouseholdWarmWaterDemandConfig
 from hisim import utils
+from hisim.component import Component
+from hisim.components import (advanced_battery_bslib,
+                              advanced_ev_battery_bslib, building,
+                              controller_l1_building_heating,
+                              controller_l1_generic_ev_charge,
+                              controller_l1_heatpump,
+                              controller_l2_energy_management_system,
+                              controller_l2_generic_heat_simple, generic_car,
+                              generic_CHP, generic_electrolyzer,
+                              generic_heat_pump_modular, generic_heat_source,
+                              generic_hot_water_storage_modular,
+                              generic_hydrogen_storage, generic_pv_system,
+                              generic_smart_device,
+                              loadprofilegenerator_connector, weather)
+from hisim.components.configuration import HouseholdWarmWaterDemandConfig
+from hisim.simulator import SimulationParameters
+
+
+def get_heating_system_efficiency(
+        heating_system_installed: lt.HeatingSystems, water_vs_heating: lt.InandOutputType
+) -> float:
+    """Reads in type of heating system and returns related efficiency values.
+
+    :param heating_system_installed: type of installed heating system
+    :type heating_system_installed: lt.HeatingSystems
+    :param water_vs_heating: Heating vs. WaterHeating
+    :type water_vs_heating: lt.InandOutputType
+    :return: efficiency of the selected heater
+    :rtype: float
+    """
+
+    efficiency_data = pd.read_csv(utils.HISIMPATH["heater_efficiencies"], encoding="utf-8", index_col=0).astype("float")
+
+    return float(efficiency_data.loc[heating_system_installed.value][water_vs_heating.value])
 
 
 def configure_pv_system(
@@ -119,10 +132,8 @@ def configure_smart_devices(
     for device in device_collection:
         my_smart_devices.append(
             generic_smart_device.SmartDevice(
-                identifier=device,
-                source_weight=count,
+                config=generic_smart_device.SmartDeviceConfig(name="SmartDevice", identifier=device, source_weight=count, smart_devices_included=smart_devices_included),
                 my_simulation_parameters=my_simulation_parameters,
-                smart_devices_included=smart_devices_included,
             )
         )
         my_sim.add_component(my_smart_devices[-1])
@@ -160,15 +171,15 @@ def configure_cars(
     filepaths_location = [elem for elem in filepaths if "CarLocation." in elem]
     names = [elem.partition(",")[0].partition(".")[2] for elem in filepaths_location]
 
-    # decide if they are diesel driven or electricity driven
-    if ev_included:
-        my_car_config = generic_car.CarConfig.get_default_ev_config()
-    else:
-        my_car_config = generic_car.CarConfig.get_default_diesel_config()
-
     # create all cars
     my_cars: List[generic_car.Car] = []
     for car in names:
+        # decide if they are diesel driven or electricity driven and initialize config
+        if ev_included:
+            my_car_config = generic_car.CarConfig.get_default_ev_config()
+        else:
+            my_car_config = generic_car.CarConfig.get_default_diesel_config()
+        # reset name and source weight
         my_car_config.name = car
         my_car_config.source_weight = count
         my_cars.append(
@@ -217,43 +228,28 @@ def configure_ev_batteries(
 
     if mobility_set.Name is None:
         raise Exception("For EV configuration mobility set is obligatory.")
-    mobility_speed = (
-        mobility_set.Name.partition("and ")[2].partition(" ")[2].partition(" km/h")[0]
-    )
-    if mobility_speed == "30":
-        car_battery_config = (
-            advanced_ev_battery_bslib.CarBatteryConfig.get_default_config(
-                e_bat_custom=30, p_inv_custom=5000, name="CarBattery"
-            )
-        )
-        ev_capacities.append(30)
-    elif mobility_speed == "60":
-        car_battery_config = (
-            advanced_ev_battery_bslib.CarBatteryConfig.get_default_config(
-                e_bat_custom=50, p_inv_custom=11000, name="CarBattery"
-            )
-        )
-        ev_capacities.append(50)
+
     if charging_station_set is None:
         raise Exception("For EV configuration charging station set is obligatory.")
 
-    car_battery_controller_config = (
-        controller_l1_generic_ev_charge.ChargingStationConfig.get_default_config(
-            charging_station_set=charging_station_set
-        )
-    )
-
-    if clever:
-        car_battery_controller_config.battery_set = (
-            0.4  # lower threshold for soc of car battery in clever case
-        )
-
     for car in my_cars:
-        car_battery_config.source_weight = car.source_weight
-        car_battery_controller_config.source_weight = car.source_weight
+        car_battery_config = advanced_ev_battery_bslib.CarBatteryConfig.get_default_config()
+        car_battery_config.source_weight = car.config.source_weight
         my_carbattery = advanced_ev_battery_bslib.CarBattery(
             my_simulation_parameters=my_simulation_parameters, config=car_battery_config
         )
+        ev_capacities.append(car_battery_config.e_bat_custom)
+
+        car_battery_controller_config = (
+            controller_l1_generic_ev_charge.ChargingStationConfig.get_default_config(
+                charging_station_set=charging_station_set
+            )
+        )
+        car_battery_controller_config.source_weight = car.config.source_weight
+        if clever:
+            car_battery_controller_config.battery_set = (
+                0.4  # lower threshold for soc of car battery in clever case
+            )
         my_controller_carbattery = controller_l1_generic_ev_charge.L1Controller(
             my_simulation_parameters=my_simulation_parameters,
             config=car_battery_controller_config,
@@ -369,8 +365,8 @@ def configure_battery(
     if battery_capacity is not None:
         my_advanced_battery_config = (
             advanced_battery_bslib.BatteryConfig(
-                e_bat_custom=battery_capacity,
-                p_inv_custom=battery_capacity * 0.5 * 1e3,
+                custom_battery_capacity_generic_in_kilowatt_hour=battery_capacity,
+                custom_pv_inverter_power_generic_in_watt=battery_capacity * 0.5 * 1e3,
                 source_weight=count,
                 system_id='SG1',
                 name='Battery',
@@ -424,7 +420,6 @@ def configure_water_heating(
     my_simulation_parameters: SimulationParameters,
     my_occupancy: loadprofilegenerator_connector.Occupancy,
     water_heating_system_installed: lt.HeatingSystems,
-    number_of_households: int,
     count: int,
 ) -> int:
     """Sets Boiler with Heater, L1 Controller and L2 Controller for Water Heating System.
@@ -439,8 +434,6 @@ def configure_water_heating(
         The initialized occupancy component.
     water_heating_system_installed: str
         Type of installed WaterHeatingSystem
-    number_of_households: int
-        Number of households considered in reference building.
     count: int
         Integer tracking component hierachy for EMS.
 
@@ -454,13 +447,15 @@ def configure_water_heating(
         generic_heat_source.HeatSourceConfig.get_default_config_waterheating()
     )
     heater_config.fuel = fuel_translator[water_heating_system_installed]
+    heater_config.efficiency = get_heating_system_efficiency(
+        heating_system_installed=water_heating_system_installed, water_vs_heating=lt.InandOutputType.HEATING)
     heater_l1_config = controller_l1_heatpump.L1HeatPumpConfig.get_default_config_heat_source_controller_dhw(
         "DHW" + water_heating_system_installed.value
     )
     [heater_config.source_weight, heater_l1_config.source_weight] = [count] * 2
     count += 1
     boiler_config = (
-        generic_hot_water_storage_modular.StorageConfig.get_default_config_boiler(number_of_households)
+        generic_hot_water_storage_modular.StorageConfig.get_default_config_boiler()
     )
     boiler_config.compute_default_cycle(temperature_difference_in_kelvin=heater_l1_config.t_max_heating_in_celsius - heater_l1_config.t_min_heating_in_celsius)
 
@@ -471,8 +466,10 @@ def configure_water_heating(
         * (3600 / my_simulation_parameters.seconds_per_timestep)
         * (
             HouseholdWarmWaterDemandConfig.ww_temperature_demand
+            - HouseholdWarmWaterDemandConfig.temperature_difference_hot
             - HouseholdWarmWaterDemandConfig.freshwater_temperature
         )
+        * my_occupancy.scaling_factor_according_to_number_of_apartments
     )
 
     my_boiler = generic_hot_water_storage_modular.HotWaterStorage(
@@ -505,7 +502,6 @@ def configure_water_heating_electric(
     my_electricity_controller: controller_l2_energy_management_system.L2GenericEnergyManagementSystem,
     my_weather: weather.Weather,
     water_heating_system_installed: lt.HeatingSystems,
-    number_of_households: int,
     controlable: bool,
     count: int,
 ) -> int:
@@ -527,8 +523,6 @@ def configure_water_heating_electric(
         Type of installed WaterHeatingSystem
     controlable: bool
         True if control of heating device is smart, False if not.
-    number_of_households: int
-        Number of households considered in reference building.
     count: int
         Integer tracking component hierachy for EMS.
 
@@ -558,11 +552,13 @@ def configure_water_heating_electric(
         * (3600 / my_simulation_parameters.seconds_per_timestep)
         * (
             HouseholdWarmWaterDemandConfig.ww_temperature_demand
+            - HouseholdWarmWaterDemandConfig.temperature_difference_hot
             - HouseholdWarmWaterDemandConfig.freshwater_temperature
         )
+        * my_occupancy.scaling_factor_according_to_number_of_apartments
     )
     boiler_config = (
-        generic_hot_water_storage_modular.StorageConfig.get_default_config_boiler(number_of_households)
+        generic_hot_water_storage_modular.StorageConfig.get_default_config_boiler()
     )
     boiler_config.compute_default_cycle(temperature_difference_in_kelvin=heatpump_l1_config.t_max_heating_in_celsius - heatpump_l1_config.t_min_heating_in_celsius)
 
@@ -661,6 +657,8 @@ def configure_heating(
     }
     heater_config = generic_heat_source.HeatSourceConfig.get_default_config_heating()
     heater_config.fuel = fuel_translator[heating_system_installed]
+    heater_config.efficiency = get_heating_system_efficiency(
+        heating_system_installed=heating_system_installed, water_vs_heating=lt.InandOutputType.HEATING)
     heater_l1_config = controller_l1_heatpump.L1HeatPumpConfig.get_default_config_heat_source_controller(
         heating_system_installed.value
     )
@@ -1019,6 +1017,8 @@ def configure_heating_with_buffer(
     heater_config = generic_heat_source.HeatSourceConfig.get_default_config_heating()
     heater_config.fuel = fuel_translator[heating_system_installed]
     heater_config.power_th = my_building.max_thermal_building_demand_in_watt
+    heater_config.efficiency = get_heating_system_efficiency(
+        heating_system_installed=heating_system_installed, water_vs_heating=lt.InandOutputType.HEATING)
     heater_l1_config = controller_l1_heatpump.L1HeatPumpConfig.get_default_config_heat_source_controller_buffer(
         "Buffer" + heating_system_installed.value + "Controller"
     )
@@ -1244,19 +1244,23 @@ def configure_elctrolysis_h2storage_chp_system(
 
     if h2_storage_size is not None:
         h2_storage_config = (
-            generic_hydrogen_storage.GenericHydrogenStorageConfig.get_default_config(
-                capacity=h2_storage_size,
-                max_charging_rate=h2_storage_size * 1e-2,
-                max_discharging_rate=h2_storage_size * 1e-2,
+            generic_hydrogen_storage.GenericHydrogenStorageConfig(
+                name="HydrogenStorage",
                 source_weight=count,
+                min_capacity=0,
+                max_capacity=h2_storage_size,
+                max_charging_rate_hour=h2_storage_size * 1e-2,
+                max_discharging_rate_hour=h2_storage_size * 1e-2,
+                energy_for_charge=0,
+                energy_for_discharge=0,
+                loss_factor_per_day=0,
             )
         )
     else:
         h2_storage_config = (
-            generic_hydrogen_storage.GenericHydrogenStorageConfig.get_default_config(
-                source_weight=count
-            )
-        )
+            generic_hydrogen_storage.GenericHydrogenStorageConfig.get_default_config())
+        h2_storage_config.source_weigth = count
+
     my_h2storage = generic_hydrogen_storage.GenericHydrogenStorage(
         my_simulation_parameters=my_simulation_parameters, config=h2_storage_config
     )
