@@ -141,6 +141,10 @@ examples/results_for_scenario_comparison
 results/Results
 hisim/results
 
+tests/building_heating_test/evaluation results/
+tests/building_heating_test/*.csv
+tests/building_heating_test/*.xlsx
+
 # simulation log
 tests/mypath/
 tests\hisim_simulation.log

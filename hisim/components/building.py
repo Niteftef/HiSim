@@ -219,7 +219,6 @@ class Building(dynamic_component.DynamicComponent):
     SolarGainThroughWindows = "SolarGainThroughWindows"
     HeatLoss = "HeatLoss"
     TheoreticalThermalBuildingDemand = "TheoreticalThermalBuildingDemand"
-    NumberOfApartments = "NumberOfApartments"
 
     @utils.measure_execution_time
     def __init__(
@@ -658,10 +657,9 @@ class Building(dynamic_component.DynamicComponent):
             )
             apparent_zenith = stsv.get_input_value(self.apparent_zenith_channel)
 
-        # self.internal_heat_gains_through_occupancy_in_watt = stsv.get_input_value(
-        #     self.occupancy_heat_gain_channel
-        # )
-        self.internal_heat_gains_through_occupancy_in_watt = self.get_tabula_internal_gains()
+        self.internal_heat_gains_through_occupancy_in_watt = stsv.get_input_value(
+            self.occupancy_heat_gain_channel
+        )
 
         temperature_outside_in_celsius = stsv.get_input_value(
             self.temperature_outside_channel
@@ -684,20 +682,20 @@ class Building(dynamic_component.DynamicComponent):
         )
 
         # Performs calculations
-        # if hasattr(self, "solar_gain_through_windows") is False:
-        #     solar_heat_gain_through_windows = self.get_solar_heat_gain_through_windows(
-        #         azimuth=azimuth,
-        #         direct_normal_irradiance=direct_normal_irradiance,
-        #         direct_horizontal_irradiance=direct_horizontal_irradiance,
-        #         global_horizontal_irradiance=global_horizontal_irradiance,
-        #         direct_normal_irradiance_extra=direct_normal_irradiance_extra,
-        #         apparent_zenith=apparent_zenith,
-        #     )
-        # else:
-        #     solar_heat_gain_through_windows = self.solar_heat_gain_through_windows[
-        #         timestep
-        #     ]
-        solar_heat_gain_through_windows = self.get_tabula_solar_gains()
+        if hasattr(self, "solar_gain_through_windows") is False:
+            solar_heat_gain_through_windows = self.get_solar_heat_gain_through_windows(
+                azimuth=azimuth,
+                direct_normal_irradiance=direct_normal_irradiance,
+                direct_horizontal_irradiance=direct_horizontal_irradiance,
+                global_horizontal_irradiance=global_horizontal_irradiance,
+                direct_normal_irradiance_extra=direct_normal_irradiance_extra,
+                apparent_zenith=apparent_zenith,
+            )
+        else:
+            solar_heat_gain_through_windows = self.solar_heat_gain_through_windows[
+                timestep
+            ]
+
         (
             thermal_mass_average_bulk_temperature_in_celsius,
             heat_loss_in_watt,
@@ -749,9 +747,6 @@ class Building(dynamic_component.DynamicComponent):
         stsv.set_output_value(
             self.theoretical_thermal_building_demand_channel,
             theoretical_thermal_building_demand_in_watt,
-        )
-        stsv.set_output_value(
-            self.number_of_apartments_channel, self.number_of_apartments
         )
 
         # Saves solar gains cache
@@ -1283,30 +1278,6 @@ class Building(dynamic_component.DynamicComponent):
             f"{self.energy_need_for_heating_reference_in_kilowatthour_per_m2_per_year:.2f}"
         )
         return self.buildingconfig.get_string_dict() + lines
-
-    def write_for_heating_demand_test(self) -> str:
-        """Write some values to check in heating demand test."""
-
-        # for config_string in self.buildingconfig.get_string_dict():
-        #     lines.join(config_string + ";")
-        lines = (
-            f"{self.max_thermal_building_demand_in_watt:.2f};"
-            + f"{self.transmission_heat_transfer_coefficient_for_windows_and_door_in_watt_per_kelvin:.2f};"
-            + f"{self.external_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin:.2f};"
-            + f"{self.internal_part_of_transmission_heat_transfer_coefficient_for_opaque_elements_in_watt_per_kelvin:.2f};"
-            + f"{self.heat_transfer_coefficient_between_indoor_air_and_internal_surface_in_watt_per_kelvin:.2f};"
-            + f"{self.heat_transfer_coefficient_by_ventilation_reference_in_watt_per_kelvin:.2f};"
-            + f"{(self.thermal_capacity_of_building_thermal_mass_in_joule_per_kelvin * 3600 / (1000 *self.scaled_conditioned_floor_area_in_m2)):.2f};"
-            + f"{(self.thermal_capacity_of_building_thermal_mass_reference_in_watthour_per_m2_per_kelvin / 1000):.2f};"
-            + f"{self.internal_heat_sources_reference_in_kilowatthour_per_m2_per_year:.2f};"
-            + f"{self.solar_heat_load_during_heating_seasons_reference_in_kilowatthour_per_m2_per_year:.2f};"
-            + f"{self.energy_need_for_heating_reference_in_kilowatthour_per_m2_per_year:.2f};"
-            + f"{self.conditioned_floor_area_in_m2:.2f};"
-            + f"{self.scaled_conditioned_floor_area_in_m2:.2f};"
-            + f"{self.scaling_factor:.2f}"
-        )
-
-        return lines
 
     # =====================================================================================================================================
     # Calculation of the heat transfer coefficients or thermal conductances.
@@ -1971,14 +1942,7 @@ class Building(dynamic_component.DynamicComponent):
 
         return theoretical_thermal_building_demand_in_watt
 
-    def get_tabula_internal_gains(self):
 
-        internal_gains_from_tabula_in_watt = self.buildingdata["q_int"].values[0] * 1000 / (self.seconds_per_timestep / 3600) * self.buildingconfig.absolute_conditioned_floor_area_in_m2 / self.my_simulation_parameters.timesteps
-        return internal_gains_from_tabula_in_watt
-    
-    def get_tabula_solar_gains(self):
-        solar_gains_from_tabula_in_watt = self.buildingdata["q_sol"].values[0] * 1000 / (self.seconds_per_timestep / 3600) * self.buildingconfig.absolute_conditioned_floor_area_in_m2 / self.my_simulation_parameters.timesteps
-        return solar_gains_from_tabula_in_watt
 # =====================================================================================================================================
 class Window:
 
@@ -2095,9 +2059,9 @@ class Window:
         """
         if window_azimuth_angle is None:
             window_azimuth_angle = 0
-            # log.warning(
-            #     "window azimuth angle was set to 0 south because no value was set."
-            # )
+            log.warning(
+                "window azimuth angle was set to 0 south because no value was set."
+            )
         poa_irrad = pvlib.irradiance.get_total_irradiance(
             window_tilt_angle,
             window_azimuth_angle,

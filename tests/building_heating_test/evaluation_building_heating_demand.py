@@ -8,34 +8,34 @@ from hisim import log
 from ordered_set import OrderedSet
 from typing import Any
 import os
-
-
-directory = "C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Tests\\Heating_Test\\Fifteenth_try_only_DE_solar_gains_and_internal_gains_from_tabula\\"
-#directory = "C:\\Users\\k.rieck\\Documents\\Software_and_Tools_Documentation\\HiSim\\Tests\\Heating_Test\\Twelwth_try_only_DE_Aachen_fixed_window_areas\\"
-#file = "test_building_heating_demand_dummy_heater_DE_energy_needs1.xlsx"
-file = "test_building_heating_demand_dummy_heater_DE_energy_needs0.xlsx"
+import datetime
 
 
 class TestBuildingHeatingDemandEvaluation:
     """TestBuildingHeatingDemandEvalation."""
 
-    def __init__(self, directory_path: str, file_name: str) -> None:
-        self.directory_path = directory_path
-        self.data_file_path = self.directory_path + file_name
+    def __init__(self, file_name: str) -> None:
+
+        self.data_file_path = file_name
         self.evaluation_of = "Heat Demand"
-        print(f"{self.evaluation_of} of HiSim vs Tabula will be evaluated.")
-        if (
-            os.path.exists(self.directory_path + f"\\Evaluation_{self.evaluation_of}")
-            is False
-        ):
-            os.makedirs(self.directory_path + f"\\Evaluation_{self.evaluation_of}")
+        self.evaluation_path = os.path.join(
+            (os.getcwd()),
+            "evaluation results",
+            f"Evaluation_{self.evaluation_of}_"
+            + datetime.datetime.now().strftime("%Y%m%d_%H%M"),
+        )
+        log.information("Path " + self.evaluation_path)
+        log.information(f"{self.evaluation_of} of HiSim vs Tabula will be evaluated.")
+        if os.path.exists(self.evaluation_path) is False:
+            os.makedirs(self.evaluation_path)
 
         xl = self.read_data()
+        print(xl)
         (
             building_codes,
             tabula_types,
             tabula_type_details,
-            areas,
+            # areas,
             hisim_values,
             tabula_values,
             ratios_hisim_vs_tabula,
@@ -54,7 +54,7 @@ class TestBuildingHeatingDemandEvaluation:
             values_hisim=hisim_values,
             values_tabula=tabula_values,
             types_details=tabula_type_details,
-            areas=areas,
+            # areas=areas,
             evaluation=self.evaluation_of,
         )
         list_of_ratios_same_length = self.give_lists_the_same_length_for_plotting(
@@ -80,17 +80,18 @@ class TestBuildingHeatingDemandEvaluation:
 
         if data_file_ending == "csv":
             read_file = pd.read_csv(
-                filepath_or_buffer=self.data_file_path, sep=";", header=None
+                filepath_or_buffer=self.data_file_path, sep=";", header=0
             )
+            # write csv file also to excel
             excel_file = rest_of_data_file + ".xlsx"
             read_file.to_excel(excel_file, header=True)
+            return read_file
         elif data_file_ending == "xlsx":
             excel_file = self.data_file_path
+            xl = pd.read_excel(excel_file)
+            return xl
         else:
             raise TypeError("File format should be csv or xlsx.")
-
-        xl = pd.read_excel(excel_file)
-        return xl
 
     def get_data_from_dataframe(self, dataframe: pd.DataFrame) -> list:
 
@@ -104,8 +105,6 @@ class TestBuildingHeatingDemandEvaluation:
             tabula_types.append(tabula_type)
             tabula_type_details.append(tabula_type_detail)
 
-        areas = dataframe["Conditioned Floor Area [m2]"]
-
         (
             hisim_values,
             tabula_values,
@@ -118,7 +117,6 @@ class TestBuildingHeatingDemandEvaluation:
             building_codes,
             tabula_types,
             tabula_type_details,
-            areas,
             hisim_values,
             tabula_values,
             ratios_hisim_vs_tabula,
@@ -128,22 +126,13 @@ class TestBuildingHeatingDemandEvaluation:
 
         if evaluation == "Heat Demand":
             hisim_values = dataframe[
-                "Heating demand for heating from Dummy Heater [kWh/(a*m2)]"
+                "Energy need for heating from Electric Heater [kWh/(a*m2)]"
             ]
             tabula_values = dataframe[
-                "Heating demand for heating from TABULA [kWh/(a*m2)]"
+                "Energy need for heating from TABULA [kWh/(a*m2)]"
             ]
-            ratios_hisim_vs_tabula = dataframe["Ratio HiSim/TABULA heating demand"]
+            ratios_hisim_vs_tabula = dataframe["Ratio HP/TABULA"]
 
-        elif evaluation == "Internal Gains":
-            hisim_values = dataframe["Internal gains from Occupancy [kWh/(a*m2)]"]
-            tabula_values = dataframe["Internal gains from TABULA [kWh/(a*m2)]"]
-            ratios_hisim_vs_tabula = dataframe["Ratio HiSim/TABULA internal gains"]
-
-        elif evaluation == "Solar Gains":
-            hisim_values = dataframe["Solar gains from Windows [kWh/(a*m2)]"]
-            tabula_values = dataframe["Solar gains from TABULA [kWh/(a*m2)]"]
-            ratios_hisim_vs_tabula = dataframe["Ratio HiSim/TABULA solar gains"]
         else:
             raise KeyError("this evaluation key is not found.")
 
@@ -159,17 +148,16 @@ class TestBuildingHeatingDemandEvaluation:
 
             if list_to_be_checked[index] <= 0.80 or list_to_be_checked[index] >= 1.20:
                 dataframe_outliers.loc[len(dataframe_outliers)] = row
-        
+
         self.min_ratio = min(list_to_be_checked)
         self.max_ratio = max(list_to_be_checked)
         self.median = np.median(list_to_be_checked)
         self.mean = np.mean(list_to_be_checked)
         self.std = np.std(list_to_be_checked)
-        print(list_to_be_checked)
-        print(self.mean)
+        print("Mean ratio of all types in the list", self.mean)
+        # write outliers to excel sheet
         dataframe_outliers.to_excel(
-            self.directory_path
-            + f"\\Evaluation_{self.evaluation_of}\\buildings_with_ratio_outliers.xlsx"
+            os.path.join(self.evaluation_path, "buildings_with_ratio_outliers.xlsx")
         )
         return list(OrderedSet(dataframe_outliers))
 
@@ -180,7 +168,6 @@ class TestBuildingHeatingDemandEvaluation:
         values_hisim: list,
         values_tabula: list,
         types_details: list,
-        areas: list,
         evaluation: str,
     ):
 
@@ -247,10 +234,7 @@ class TestBuildingHeatingDemandEvaluation:
             )
             plt.ylabel(f"{evaluation} given by Tabula [kWh/a*m2]", fontsize=12)
             plt.xticks(fontsize=10)
-            plt.savefig(
-                self.directory_path
-                + f"\\Evaluation_{self.evaluation_of}\\{tabula_type}.png"
-            )
+            plt.savefig(os.path.join(self.evaluation_path, f"{tabula_type}.png"))
             plt.close()
 
             list_of_indices.append(list_of_indices_of_one_type)
@@ -283,26 +267,24 @@ class TestBuildingHeatingDemandEvaluation:
         return df
 
     def make_plot_for_all_tabula_types(self, dataframe: pd.DataFrame, evaluation: str):
+        log.information("Make boxplot for all types.")
 
         fig = plt.figure(figsize=(16, 10))
-        print(dataframe)
         seaborn.boxplot(data=dataframe)
-        seaborn.swarmplot(data=dataframe, color="grey", size=4)
+        seaborn.swarmplot(data=dataframe, color="grey", size=3)
         fig.autofmt_xdate(rotation=45)
-        plt.xticks(fontsize=9)
+        plt.xticks(fontsize=10)
         plt.axhline(y=1, color="red")
         plt.title(f"Validation of {evaluation} of German Houses", fontsize=14)
         plt.ylabel(f"Ratio of {evaluation} given by HiSim/Tabula", fontsize=12)
         plt.xlabel("Tabula Building Codes", fontsize=12)
         plt.tight_layout()
-        plt.savefig(
-            self.directory_path
-            + f"\\Evaluation_{self.evaluation_of}\\All_types_{evaluation}.png"
-        )
+        plt.savefig(os.path.join(self.evaluation_path, f"All_types_{evaluation}.png"))
         plt.close()
         return
 
     def make_swarm_boxplot(self, data: Any, evaluation: str):
+        log.information("Make swarmplot for all types.")
 
         fig = plt.figure(figsize=(8, 8))
         seaborn.boxplot(data=data)
@@ -316,8 +298,7 @@ class TestBuildingHeatingDemandEvaluation:
                 f"Max Ratio {np.round(self.max_ratio,2)}",
                 f"Mean Ratio {np.round(self.mean,2)}",
                 f"Median Ratio {np.round(self.median,2)}",
-                f"Std Ratio {np.round(self.std,2)}"
-
+                f"Std Ratio {np.round(self.std,2)}",
             )
         )
         plt.text(
@@ -327,14 +308,17 @@ class TestBuildingHeatingDemandEvaluation:
             bbox=dict(boxstyle="round", facecolor="white", alpha=0.5),
         )
         plt.savefig(
-            self.directory_path
-            + f"\\Evaluation_{self.evaluation_of}\\Swarmplot_Boxplot_all_types_on_{evaluation}.png"
+            os.path.join(
+                self.evaluation_path, f"Swarmplot_Boxplot_all_types_on_{evaluation}.png"
+            )
         )
+
         plt.close()
 
 
 def main():
-    a = TestBuildingHeatingDemandEvaluation(directory_path=directory, file_name=file)
+    file = "test_building_heating_demand_DE_energy_needs.csv"
+    TestBuildingHeatingDemandEvaluation(file_name=file)
 
 
 if __name__ == "__main__":
