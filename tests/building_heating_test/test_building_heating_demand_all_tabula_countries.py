@@ -57,17 +57,6 @@ def test_house_with_idealized_electric_heater_for_testing_heating_demand(
     year = 2021
     seconds_per_timestep = 60 * 60
 
-    # Set Occupancy
-    occupancy_profile = "CH01"
-
-    # Set Building
-    building_code = "DE.N.SFH.05.Gen.ReEx.001.002"
-    building_heat_capacity_class = "medium"
-    initial_temperature_in_celsius = 23
-    heating_reference_temperature_in_celsius = -14
-    absolute_conditioned_floor_area_in_m2 = 10000
-    total_base_area_in_m2 = None
-
     # Set Fake Heater
     set_heating_temperature_for_building_in_celsius = 19.5
     set_cooling_temperature_for_building_in_celsius = 20.5
@@ -102,6 +91,7 @@ def test_house_with_idealized_electric_heater_for_testing_heating_demand(
     with open(
         "test_building_heating_demand_energy_needs.csv",
         "w",
+        encoding="utf-8",
     ) as myfile:
         myfile.write(
             "Building Code"
@@ -321,6 +311,7 @@ def test_house_with_idealized_electric_heater_for_testing_heating_demand(
             with open(
                 "test_building_heating_demand_energy_needs.csv",
                 "a",
+                encoding="utf-8",
             ) as myfile:
                 myfile.write(
                     building_code

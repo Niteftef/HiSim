@@ -50,29 +50,18 @@ def test_house_with_idealized_electric_heater_for_testing_heating_demand(
         - Idealized Electric Heater
     """
 
-    # =========================================================================================================================================================
+    # =====================================================================================================
     # System Parameters
 
     # Set Simulation Parameters
     year = 2021
     seconds_per_timestep = 60 * 60
 
-    # Set Occupancy
-    occupancy_profile = "CH01"
-
-    # Set Building
-    building_code = "DE.N.SFH.05.Gen.ReEx.001.002"
-    building_heat_capacity_class = "medium"
-    initial_temperature_in_celsius = 23
-    heating_reference_temperature_in_celsius = -14
-    absolute_conditioned_floor_area_in_m2 = 10000
-    total_base_area_in_m2 = None
-
     # Set Fake Heater
     set_heating_temperature_for_building_in_celsius = 19.5
     set_cooling_temperature_for_building_in_celsius = 20.5
 
-    # =========================================================================================================================================================
+    # =====================================================================================================
     # Build Components
 
     # Build Simulation Parameters
@@ -94,6 +83,7 @@ def test_house_with_idealized_electric_heater_for_testing_heating_demand(
     with open(
         "test_building_heating_demand_DE_energy_needs.csv",
         "w",
+        encoding="utf-8"
     ) as myfile:
         myfile.write(
             "Building Code"
@@ -126,7 +116,7 @@ def test_house_with_idealized_electric_heater_for_testing_heating_demand(
                 log.information(str(country_abbreviation))
                 log.information(str(tabula_conditioned_floor_area))
                 weather_location_enum = weather.LocationEnum["Aachen"]
-                heating_reference_temperature_in_celsius = -14.0
+                heating_reference_temperature_in_celsius: float = -14.0
 
                 normalized_path = os.path.normpath(PATH)
                 path_in_list = normalized_path.split(os.sep)
@@ -200,7 +190,7 @@ def test_house_with_idealized_electric_heater_for_testing_heating_demand(
                         config=my_idealized_electric_heater_config,
                     )
                 )
-                # =========================================================================================================================================================
+                # =====================================================================================================
                 # Connect Components
 
                 # Building
@@ -258,7 +248,7 @@ def test_house_with_idealized_electric_heater_for_testing_heating_demand(
                     my_building.TheoreticalThermalBuildingDemand,
                 )
 
-                # =========================================================================================================================================================
+                # =====================================================================================================
                 # Add Components to Simulator and run all timesteps
 
                 my_sim.add_component(my_weather)
@@ -268,7 +258,7 @@ def test_house_with_idealized_electric_heater_for_testing_heating_demand(
 
                 my_sim.run_all_timesteps()
 
-                # =========================================================================================================================================================
+                # =====================================================================================================
                 # Calculate annual heat pump heating energy
 
                 results_heating = my_sim.results_data_frame[
@@ -284,7 +274,7 @@ def test_house_with_idealized_electric_heater_for_testing_heating_demand(
                     sum_heating_in_watt_timestep * timestep_factor
                 )
                 sum_heating_in_kilowatt_hour = sum_heating_in_watt_hour / 1000
-                # =========================================================================================================================================================
+                # =====================================================================================================
                 # Test annual floor related heating demand
 
                 energy_need_for_heating_given_by_tabula_in_kilowatt_hour_per_year_per_m2 = my_building.buildingdata[
@@ -310,6 +300,7 @@ def test_house_with_idealized_electric_heater_for_testing_heating_demand(
                 with open(
                     "test_building_heating_demand_DE_energy_needs.csv",
                     "a",
+                    encoding="utf-8"
                 ) as myfile:
                     myfile.write(
                         building_code

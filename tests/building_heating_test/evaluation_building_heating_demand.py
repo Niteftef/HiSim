@@ -1,15 +1,14 @@
 """Evaluation for test_building_heating_demand_dummy_heater."""
 
+import datetime
+import os
+from typing import Any
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn
-from hisim import log
 from ordered_set import OrderedSet
-from typing import Any
-import os
-import datetime
-
+from hisim import log
 
 class TestBuildingHeatingDemandEvaluation:
     """TestBuildingHeatingDemandEvalation."""
@@ -86,14 +85,14 @@ class TestBuildingHeatingDemandEvaluation:
             excel_file = rest_of_data_file + ".xlsx"
             read_file.to_excel(excel_file, header=True)
             return read_file
-        elif data_file_ending == "xlsx":
+        if data_file_ending == "xlsx":
             excel_file = self.data_file_path
             xl = pd.read_excel(excel_file)
             return xl
-        else:
-            raise TypeError("File format should be csv or xlsx.")
 
-    def get_data_from_dataframe(self, dataframe: pd.DataFrame) -> list:
+        raise TypeError("File format should be csv or xlsx.")
+
+    def get_data_from_dataframe(self, dataframe: pd.DataFrame) -> Any:
 
         building_codes = dataframe["Building Code"]
         tabula_types = []
@@ -122,7 +121,7 @@ class TestBuildingHeatingDemandEvaluation:
             ratios_hisim_vs_tabula,
         )
 
-    def decide_what_data_to_evaluate(self, evaluation: str, dataframe: pd.DataFrame):
+    def decide_what_data_to_evaluate(self, evaluation: str, dataframe: pd.DataFrame) -> Any:
 
         if evaluation == "Heat Demand":
             hisim_values = dataframe[
@@ -140,7 +139,7 @@ class TestBuildingHeatingDemandEvaluation:
 
     def get_outliers_and_min_and_max_from_list(
         self, dataframe: pd.DataFrame, list_to_be_checked: list
-    ):
+    ) -> Any:
 
         dataframe_outliers = pd.DataFrame(data=None, columns=dataframe.columns)
 
@@ -169,7 +168,7 @@ class TestBuildingHeatingDemandEvaluation:
         values_tabula: list,
         types_details: list,
         evaluation: str,
-    ):
+    ) -> Any:
 
         sorted_tabula_types = list(OrderedSet(tabula_types))
         list_of_indices = []
@@ -242,7 +241,7 @@ class TestBuildingHeatingDemandEvaluation:
 
         return list_of_indices, list_of_ratios, sorted_tabula_types
 
-    def give_lists_the_same_length_for_plotting(self, list_of_lists: list[list]):
+    def give_lists_the_same_length_for_plotting(self, list_of_lists: list[list]) -> Any:
 
         max_length_of_list_of_ratios = max(len(list) for list in list_of_lists)
 
@@ -258,7 +257,7 @@ class TestBuildingHeatingDemandEvaluation:
 
     def create_dictionary_and_dataframe(
         self, list_one: list, list_two: list, column_name: str
-    ):
+    ) -> Any:
 
         dictionary = dict(zip(list_one, list_two))
         df = pd.DataFrame(dictionary)
@@ -266,7 +265,7 @@ class TestBuildingHeatingDemandEvaluation:
         df.columns.name = column_name
         return df
 
-    def make_plot_for_all_tabula_types(self, dataframe: pd.DataFrame, evaluation: str):
+    def make_plot_for_all_tabula_types(self, dataframe: pd.DataFrame, evaluation: str) -> Any:
         log.information("Make boxplot for all types.")
 
         fig = plt.figure(figsize=(16, 10))
@@ -283,7 +282,7 @@ class TestBuildingHeatingDemandEvaluation:
         plt.close()
         return
 
-    def make_swarm_boxplot(self, data: Any, evaluation: str):
+    def make_swarm_boxplot(self, data: Any, evaluation: str) -> Any:
         log.information("Make swarmplot for all types.")
 
         fig = plt.figure(figsize=(8, 8))
