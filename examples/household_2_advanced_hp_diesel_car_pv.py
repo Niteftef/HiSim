@@ -82,14 +82,13 @@ class HouseholdAdvancedHPDieselCarPVConfig:
             key=SingletonDictKeyEnum.NUMBEROFAPARTMENTS, entry=number_of_apartments
         )
         # set_heating_threshold_temperature_in_celsius = 16.0 # used for hp and hds
-        surplus_control: bool = False
 
         household_config = HouseholdAdvancedHPDieselCarPVConfig(
             building_type="blub",
             number_of_apartments=number_of_apartments,
             # dhw_controlable=False,
             # heatpump_controlable=False,
-            surplus_control=surplus_control,
+            surplus_control=False,
             # simulation_parameters=SimulationParameters.one_day_only(2022),
             # total_base_area_in_m2=121.2,
             occupancy_config=loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig(
@@ -138,12 +137,6 @@ class HouseholdAdvancedHPDieselCarPVConfig:
         # Todo: check out heating treshold to avoid heating before cooling
         # household_config.hp_controller_config.set_heating_threshold_outside_temperature_in_celsius = set_heating_threshold_temperature_in_celsius
         # household_config.hdscontroller_config.set_heating_threshold_outside_temperature_in_celsius = set_heating_threshold_temperature_in_celsius
-
-        if not surplus_control:
-            household_config.electricity_controller_config.simple_hot_water_storage_temperature_offset_value = 0,
-            household_config.electricity_controller_config.storage_temperature_offset_value = 0,
-            household_config.electricity_controller_config.building_temperature_offset_value = 0
-
         return household_config
 
 

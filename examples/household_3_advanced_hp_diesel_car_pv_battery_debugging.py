@@ -83,14 +83,13 @@ class HouseholdAdvancedHPDieselCarPVBatteryConfig:
         SingletonSimRepository().set_entry(
             key=SingletonDictKeyEnum.NUMBEROFAPARTMENTS, entry=number_of_apartments
         )
-        surplus_control: bool = False
 
         household_config = HouseholdAdvancedHPDieselCarPVBatteryConfig(
             building_type="blub",
             number_of_apartments=number_of_apartments,
             # dhw_controlable=False,
             # heatpump_controlable=False,
-            surplus_control=surplus_control,
+            surplus_control=False,
             # simulation_parameters=SimulationParameters.one_day_only(2022),
             # total_base_area_in_m2=121.2,
             occupancy_config=loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig(
@@ -137,12 +136,6 @@ class HouseholdAdvancedHPDieselCarPVBatteryConfig:
         household_config.hp_controller_config.mode = (
             2  # use heating and cooling as default
         )
-
-        if not surplus_control:
-            household_config.electricity_controller_config.simple_hot_water_storage_temperature_offset_value = 0
-            household_config.electricity_controller_config.storage_temperature_offset_value = 0
-            household_config.electricity_controller_config.building_temperature_offset_value = 0
-
         return household_config
 
 
@@ -505,11 +498,6 @@ def household_3_debugging(
             source_unit=lt.Units.WATT,
             source_tags=[lt.InandOutputType.ELECTRICITY_CONSUMPTION_UNCONTROLLED],
             source_weight=999,
-        )
-        my_heat_pump_controller.connect_input(
-            my_heat_pump_controller.SimpleHotWaterStorageTemperatureModifier,
-            my_electricity_controller.component_name,
-            my_electricity_controller.SimpleHotWaterStorageTemperatureModifier,
         )
 
     # Todo: connect EMS BuildingTemperatureModifier with Building temperature with option to choose in config, similar to dhw and hp
