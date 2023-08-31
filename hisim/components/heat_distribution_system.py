@@ -91,6 +91,7 @@ class HeatDistributionControllerConfig(cp.ConfigBase):
     heating_reference_temperature_in_celsius: float
     set_heating_temperature_for_building_in_celsius: float
     set_cooling_temperature_for_building_in_celsius: float
+    set_cooling_threshold_outside_temperature_in_celsius: float
     set_cooling_threshold_water_temperature_in_celsius_for_dew_protection: float
 
     @classmethod
@@ -103,6 +104,7 @@ class HeatDistributionControllerConfig(cp.ConfigBase):
             heating_reference_temperature_in_celsius=-14.0,
             set_heating_temperature_for_building_in_celsius=18,
             set_cooling_temperature_for_building_in_celsius=25,
+            set_cooling_threshold_outside_temperature_in_celsius=20.0,
             set_cooling_threshold_water_temperature_in_celsius_for_dew_protection=17.0,
         )
 
@@ -378,7 +380,7 @@ class HeatDistribution(cp.Component):
             self.residence_temperature_input_channel
         )
 
-        if state_controller == 1:
+        if state_controller == 1 or state_controller == -1:
 
             (
                 self.water_temperature_output_in_celsius,
@@ -803,33 +805,77 @@ class HeatDistributionController(cp.Component):
                     set_heating_threshold_temperature_in_celsius=self.hsd_controller_config.set_heating_threshold_outside_temperature_in_celsius,
                 )  # Todo: Is maybe this the problem in case of cooling, that hds is turned off completely?
 
+            # no cooling threshold for the heat distribution system
+            if (
+                self.hsd_controller_config.set_cooling_threshold_outside_temperature_in_celsius
+                is None
+            ):
+                summer_cooling_mode = "on"
+
+            # enabling cooling in summer
+            else:
+                summer_cooling_mode = self.summer_cooling_condition(
+                    daily_average_outside_temperature_in_celsius=daily_avg_outside_temperature_in_celsius,
+                    set_cooling_threshold_temperature_in_celsius=self.hsd_controller_config.set_cooling_threshold_outside_temperature_in_celsius,
+                )
+
             dew_point_protection_mode = self.dew_point_protection_condition(
                 water_input_temperature_in_celsius=water_input_temperature_in_celsius,
                 set_cooling_threshold_water_temperature_in_celsius_for_dew_protection=self.set_cooling_threshold_water_temperature_in_celsius_for_dew_protection,
             )
 
-            if (
-                self.controller_heat_distribution_mode == "on"
-                and summer_heating_mode == "on"
-                and dew_point_protection_mode == "off"
-            ):
-                self.state_controller = 1
-            elif self.controller_heat_distribution_mode == "on" and (
-                summer_heating_mode == "off" or dew_point_protection_mode == "on"
-            ):
-                self.state_controller = 0
-            elif self.controller_heat_distribution_mode == "off":
-                self.state_controller = 0
-            else:
-
-                raise ValueError(
-                    "unknown hds controller mode or summer mode or dew point protection mode."
-                )
+            self.conditions_heating_cooling_off(
+                summer_heating_mode=summer_heating_mode,
+                summer_cooling_mode=summer_cooling_mode,
+                dew_point_protection_mode=dew_point_protection_mode,
+            )
 
             stsv.set_output_value(self.state_channel, self.state_controller)
             stsv.set_output_value(
                 self.heating_flow_temperature_channel,
                 list_of_heating_distribution_system_flow_and_return_temperatures[0],
+            )
+
+    def conditions_heating_cooling_off(
+        self,
+        summer_heating_mode: str,
+        summer_cooling_mode: str,
+        dew_point_protection_mode: str,
+    ) -> None:
+        """Set conditions for the heat distribution system controller."""
+
+        # heating
+        if (
+            self.controller_heat_distribution_mode == "on"
+            and summer_heating_mode == "on"
+            and dew_point_protection_mode == "off"
+        ):
+            self.state_controller = 1
+            return
+
+        # cooling
+        elif (
+            self.controller_heat_distribution_mode == "on"
+            and summer_cooling_mode == "on"
+            and dew_point_protection_mode =="off"
+        ):
+            self.state_controller = -1
+            return
+
+        # no cooling and no heating. Temperature should be within heating_threshold and cooling_threshold or No cooling due to dew_protection_mode
+        elif self.controller_heat_distribution_mode == "on" and (
+            summer_heating_mode == "off" or dew_point_protection_mode == "on"
+        ):
+            self.state_controller = 0
+            return
+
+        elif self.controller_heat_distribution_mode == "off":
+            self.state_controller = 0
+            return
+
+        else:
+            raise ValueError(
+                "unknown hds controller mode or summer heating mode or summer cooling mode or dew point protection mode."
             )
 
     def conditions_for_opening_or_shutting_heat_distribution(
@@ -857,7 +903,7 @@ class HeatDistributionController(cp.Component):
         daily_average_outside_temperature_in_celsius: float,
         set_heating_threshold_temperature_in_celsius: float,
     ) -> str:
-        """Set conditions for the valve in heat distribution."""
+        """Heat Distribution System is only active when temperature is below heating threshold or above cooling threshold."""
 
         if (
             daily_average_outside_temperature_in_celsius
@@ -878,6 +924,33 @@ class HeatDistributionController(cp.Component):
             )
 
         return heating_mode
+
+    def summer_cooling_condition(
+        self,
+        daily_average_outside_temperature_in_celsius: float,
+        set_cooling_threshold_temperature_in_celsius: float,
+    ) -> str:
+        """Heat Distribution System is only active when temperature is below heating threshold or above cooling threshold."""
+
+        if (
+            daily_average_outside_temperature_in_celsius
+            < set_cooling_threshold_temperature_in_celsius
+        ):
+            cooling_mode = "off"
+
+        elif (
+            daily_average_outside_temperature_in_celsius
+            > set_cooling_threshold_temperature_in_celsius
+        ):
+            cooling_mode = "on"
+
+        else:
+            raise ValueError(
+                f"daily average temperature {daily_average_outside_temperature_in_celsius}°C"
+                f"or cooling threshold temperature {set_cooling_threshold_temperature_in_celsius}°C is not acceptable."
+            )
+
+        return cooling_mode
 
     def dew_point_protection_condition(
         self,
