@@ -549,6 +549,7 @@ class HeatDistributionController(cp.Component):
     WaterTemperatureInputFromHeatWaterStorage = (
         "WaterTemperatureInputFromHeatWaterStorage"
     )
+    TemperatureIndoorAirFromBuilding = "TemperatureIndoorAirFromBuilding"
 
     # Outputs
     State = "State"
@@ -623,6 +624,13 @@ class HeatDistributionController(cp.Component):
             lt.Units.CELSIUS,
             True,
         )
+        self.temperature_indoor_air_channel: cp.ComponentInput = self.add_input(
+            self.component_name,
+            self.TemperatureIndoorAirFromBuilding,
+            lt.LoadTypes.TEMPERATURE,
+            lt.Units.CELSIUS,
+            True,
+        )
         # Outputs
         self.state_channel: cp.ComponentOutput = self.add_output(
             self.component_name,
@@ -676,6 +684,13 @@ class HeatDistributionController(cp.Component):
                 HeatDistributionController.TheoreticalThermalBuildingDemand,
                 building_classname,
                 Building.TheoreticalThermalBuildingDemand,
+            )
+        )
+        connections.append(
+            cp.ComponentConnection(
+                HeatDistributionController.TemperatureIndoorAirFromBuilding,
+                building_classname,
+                Building.TemperatureIndoorAir,
             )
         )
         return connections
@@ -761,9 +776,13 @@ class HeatDistributionController(cp.Component):
             water_input_temperature_in_celsius = stsv.get_input_value(
                 self.water_temperature_input_from_heat_water_storage_channel
             )
+            temperature_indoor_air = stsv.get_input_value(
+                self.temperature_indoor_air_channel
+            )
 
             list_of_heating_distribution_system_flow_and_return_temperatures = self.calc_heat_distribution_flow_and_return_temperatures(
-                daily_avg_outside_temperature_in_celsius=daily_avg_outside_temperature_in_celsius
+                daily_avg_outside_temperature_in_celsius=daily_avg_outside_temperature_in_celsius,
+                temperature_indoor_air=temperature_indoor_air,
             )
 
             self.conditions_for_opening_or_shutting_heat_distribution(
@@ -782,7 +801,7 @@ class HeatDistributionController(cp.Component):
                 summer_heating_mode = self.summer_heating_condition(
                     daily_average_outside_temperature_in_celsius=daily_avg_outside_temperature_in_celsius,
                     set_heating_threshold_temperature_in_celsius=self.hsd_controller_config.set_heating_threshold_outside_temperature_in_celsius,
-                )
+                )  # Todo: Is maybe this the problem in case of cooling, that hds is turned off completely?
 
             dew_point_protection_mode = self.dew_point_protection_condition(
                 water_input_temperature_in_celsius=water_input_temperature_in_celsius,
@@ -932,7 +951,7 @@ class HeatDistributionController(cp.Component):
         )
 
     def calc_heat_distribution_flow_and_return_temperatures(
-        self, daily_avg_outside_temperature_in_celsius: float
+        self, daily_avg_outside_temperature_in_celsius: float, temperature_indoor_air: float
     ) -> List[float]:
         """Calculate the heat distribution flow and return temperature as a function of the moving average daily mean outside temperature.
 
@@ -946,7 +965,8 @@ class HeatDistributionController(cp.Component):
         # cooling case, daily avg temperature is higher than set indoor temperature.
         # flow and return temperatures can not be lower than set indoor temperature (because number would be complex)
         if (
-            self.set_room_temperature_for_building_in_celsius
+            # self.set_room_temperature_for_building_in_celsius  # Todo: is this correct? set_room_temperature... is based on set_heating_temperature; here set_cooling_temperature should be used instead
+            self.hsd_controller_config.set_cooling_temperature_for_building_in_celsius # Todo: only works together with elif-statement below
             < daily_avg_outside_temperature_in_celsius
         ):
             # prevent that flow and return temperatures get colder than 19 °C because this could cause condensation of the indoor air on the heating system
@@ -957,7 +977,17 @@ class HeatDistributionController(cp.Component):
             )
             return_temperature_in_celsius = max(
                 self.min_return_temperature_in_celsius, 19.0
-            )
+            )  # Todo: Why is return temperature equal to flow_temperature, should be warmer in case of cooling
+
+        elif (
+            # temperature between heating and cooling set point
+            self.hsd_controller_config.set_cooling_temperature_for_building_in_celsius
+            > daily_avg_outside_temperature_in_celsius
+            and self.set_room_temperature_for_building_in_celsius
+            < daily_avg_outside_temperature_in_celsius
+        ):
+            flow_temperature_in_celsius = temperature_indoor_air
+            return_temperature_in_celsius = temperature_indoor_air
 
         else:
             # heating case, daily avg outside temperature is lower than indoor temperature

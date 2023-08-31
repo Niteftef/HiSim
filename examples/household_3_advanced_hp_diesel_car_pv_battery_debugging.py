@@ -1,4 +1,4 @@
-"""  Household example with advanced heat pump and diesel car and PV. """
+"""  Household example with advanced heat pump, diesel car, PV and Battery. """
 
 # clean
 
@@ -27,6 +27,7 @@ from hisim.components import controller_l1_heatpump
 from hisim.components import generic_hot_water_storage_modular
 from hisim.components import electricity_meter
 from hisim.components import generic_pv_system
+from hisim.components import advanced_battery_bslib
 from hisim.components import controller_l2_energy_management_system
 from hisim.components.configuration import HouseholdWarmWaterDemandConfig
 from hisim.sim_repository_singleton import SingletonSimRepository, SingletonDictKeyEnum
@@ -46,9 +47,9 @@ __status__ = "development"
 
 @dataclass_json
 @dataclass
-class HouseholdAdvancedHPDieselCarPVConfig:
+class HouseholdAdvancedHPDieselCarPVBatteryConfig:
 
-    """Configuration for with advanced heat pump and diesel car and PV."""
+    """Configuration for with advanced heat pump, diesel car, PV and Battery."""
 
     building_type: str
     number_of_apartments: int
@@ -70,21 +71,21 @@ class HouseholdAdvancedHPDieselCarPVConfig:
     dhw_storage_config: generic_hot_water_storage_modular.StorageConfig
     car_config: generic_car.CarConfig
     electricity_meter_config: electricity_meter.ElectricityMeterConfig
+    advanced_battery_config: advanced_battery_bslib.BatteryConfig
     electricity_controller_config: controller_l2_energy_management_system.EMSConfig
 
     @classmethod
     def get_default(cls):
-        """Get default HouseholdAdvancedHPDieselCarPVConfig."""
+        """Get default HouseholdAdvancedHPDieselCarPVBatteryConfig."""
 
         # set number of apartments (mandatory for dhw storage config)
         number_of_apartments = 1
         SingletonSimRepository().set_entry(
             key=SingletonDictKeyEnum.NUMBEROFAPARTMENTS, entry=number_of_apartments
         )
-        # set_heating_threshold_temperature_in_celsius = 16.0 # used for hp and hds
         surplus_control: bool = False
 
-        household_config = HouseholdAdvancedHPDieselCarPVConfig(
+        household_config = HouseholdAdvancedHPDieselCarPVBatteryConfig(
             building_type="blub",
             number_of_apartments=number_of_apartments,
             # dhw_controlable=False,
@@ -127,6 +128,7 @@ class HouseholdAdvancedHPDieselCarPVConfig:
             ),
             car_config=generic_car.CarConfig.get_default_diesel_config(),
             electricity_meter_config=electricity_meter.ElectricityMeterConfig.get_electricity_meter_default_config(),
+            advanced_battery_config=advanced_battery_bslib.BatteryConfig.get_default_config(),
             electricity_controller_config=(
                 controller_l2_energy_management_system.EMSConfig.get_default_config_ems()
             ),
@@ -135,19 +137,16 @@ class HouseholdAdvancedHPDieselCarPVConfig:
         household_config.hp_controller_config.mode = (
             2  # use heating and cooling as default
         )
-        # Todo: check out heating treshold to avoid heating before cooling
-        # household_config.hp_controller_config.set_heating_threshold_outside_temperature_in_celsius = set_heating_threshold_temperature_in_celsius
-        # household_config.hdscontroller_config.set_heating_threshold_outside_temperature_in_celsius = set_heating_threshold_temperature_in_celsius
 
         if not surplus_control:
-            household_config.electricity_controller_config.simple_hot_water_storage_temperature_offset_value = 0,
-            household_config.electricity_controller_config.storage_temperature_offset_value = 0,
+            household_config.electricity_controller_config.simple_hot_water_storage_temperature_offset_value = 0
+            household_config.electricity_controller_config.storage_temperature_offset_value = 0
             household_config.electricity_controller_config.building_temperature_offset_value = 0
 
         return household_config
 
 
-def household_2_advanced_hp_diesel_car_pv(
+def household_3_debugging(
     my_sim: Any, my_simulation_parameters: Optional[SimulationParameters] = None
 ) -> None:  # noqa: too-many-statements
     """Example with advanced hp and diesel car and PV.
@@ -170,7 +169,8 @@ def household_2_advanced_hp_diesel_car_pv(
 
         - DHW (Heatpump, Heatpumpcontroller, Storage; copied from modular_example)
         - Car (Diesel)
-        - EMS (for surplus control for HP and DHW
+        - Battery
+        - EMS (necessary for Battery)
     """
 
     # cleanup old lpg requests, mandatory to change number of cars
@@ -178,20 +178,20 @@ def household_2_advanced_hp_diesel_car_pv(
     if Path(utils.HISIMPATH["utsp_results"]).exists():
         cleanup_old_lpg_requests()
 
-    config_filename = "household_2_advanced_hp_diesel_car_pv_config.json"
+    config_filename = "household_3_advanced_hp_diesel_car_pv_battery_config_debugging.json"
 
-    my_config: HouseholdAdvancedHPDieselCarPVConfig
+    my_config: HouseholdAdvancedHPDieselCarPVBatteryConfig
     if Path(config_filename).is_file():
         with open(config_filename, encoding="utf8") as system_config_file:
-            my_config = HouseholdAdvancedHPDieselCarPVConfig.from_json(system_config_file.read())  # type: ignore
+            my_config = HouseholdAdvancedHPDieselCarPVBatteryConfig.from_json(system_config_file.read())  # type: ignore
         log.information(f"Read system config from {config_filename}")
     else:
-        my_config = HouseholdAdvancedHPDieselCarPVConfig.get_default()
+        my_config = HouseholdAdvancedHPDieselCarPVBatteryConfig.get_default()
 
         # Todo: save file leads to use of file in next run. File was just produced to check how it looks like
-        # my_config_json = my_config.to_json()
-        # with open(config_filename, "w", encoding="utf8") as system_config_file:
-        #     system_config_file.write(my_config_json)
+        my_config_json = my_config.to_json()
+        with open(config_filename, "w", encoding="utf8") as system_config_file:
+            system_config_file.write(my_config_json)
 
     # =================================================================================================================================
     # Set System Parameters
@@ -273,63 +273,63 @@ def household_2_advanced_hp_diesel_car_pv(
         my_simulation_parameters=my_simulation_parameters,
     )
 
-    # Build DHW
-    my_dhw_heatpump_config = my_config.dhw_heatpump_config
-    my_dhw_heatpump_config.power_th = (
-        my_occupancy.max_hot_water_demand
-        * (4180 / 3600)
-        * 0.5
-        * (3600 / my_simulation_parameters.seconds_per_timestep)
-        * (
-            HouseholdWarmWaterDemandConfig.ww_temperature_demand
-            - HouseholdWarmWaterDemandConfig.freshwater_temperature
-        )
-    )
+    # # Build DHW
+    # my_dhw_heatpump_config = my_config.dhw_heatpump_config
+    # my_dhw_heatpump_config.power_th = (
+    #     my_occupancy.max_hot_water_demand
+    #     * (4180 / 3600)
+    #     * 0.5
+    #     * (3600 / my_simulation_parameters.seconds_per_timestep)
+    #     * (
+    #         HouseholdWarmWaterDemandConfig.ww_temperature_demand
+    #         - HouseholdWarmWaterDemandConfig.freshwater_temperature
+    #     )
+    # )
+    #
+    # my_dhw_heatpump_controller_config = my_config.dhw_heatpump_controller_config
+    #
+    # my_dhw_storage_config = my_config.dhw_storage_config
+    # my_dhw_storage_config.name = "DHWStorage"
+    # my_dhw_storage_config.compute_default_cycle(
+    #     temperature_difference_in_kelvin=my_dhw_heatpump_controller_config.t_max_heating_in_celsius
+    #     - my_dhw_heatpump_controller_config.t_min_heating_in_celsius
+    # )
+    #
+    # my_domnestic_hot_water_storage = generic_hot_water_storage_modular.HotWaterStorage(
+    #     my_simulation_parameters=my_simulation_parameters, config=my_dhw_storage_config
+    # )
+    #
+    # my_domnestic_hot_water_heatpump_controller = (
+    #     controller_l1_heatpump.L1HeatPumpController(
+    #         my_simulation_parameters=my_simulation_parameters,
+    #         config=my_dhw_heatpump_controller_config,
+    #     )
+    # )
+    #
+    # my_domnestic_hot_water_heatpump = generic_heat_pump_modular.ModularHeatPump(
+    #     config=my_dhw_heatpump_config, my_simulation_parameters=my_simulation_parameters
+    # )
 
-    my_dhw_heatpump_controller_config = my_config.dhw_heatpump_controller_config
-
-    my_dhw_storage_config = my_config.dhw_storage_config
-    my_dhw_storage_config.name = "DHWStorage"
-    my_dhw_storage_config.compute_default_cycle(
-        temperature_difference_in_kelvin=my_dhw_heatpump_controller_config.t_max_heating_in_celsius
-        - my_dhw_heatpump_controller_config.t_min_heating_in_celsius
-    )
-
-    my_domnestic_hot_water_storage = generic_hot_water_storage_modular.HotWaterStorage(
-        my_simulation_parameters=my_simulation_parameters, config=my_dhw_storage_config
-    )
-
-    my_domnestic_hot_water_heatpump_controller = (
-        controller_l1_heatpump.L1HeatPumpController(
-            my_simulation_parameters=my_simulation_parameters,
-            config=my_dhw_heatpump_controller_config,
-        )
-    )
-
-    my_domnestic_hot_water_heatpump = generic_heat_pump_modular.ModularHeatPump(
-        config=my_dhw_heatpump_config, my_simulation_parameters=my_simulation_parameters
-    )
-
-    # Build Diesel-Car(s)
-    # get names of all available cars
-    filepaths = listdir(utils.HISIMPATH["utsp_results"])
-    filepaths_location = [elem for elem in filepaths if "CarLocation." in elem]
-    names = [elem.partition(",")[0].partition(".")[2] for elem in filepaths_location]
-
-    my_car_config = my_config.car_config
-    my_car_config.name = "DieselCar"
-
-    # create all cars
-    my_cars: List[generic_car.Car] = []
-    for car in names:
-        my_car_config.name = car
-        my_cars.append(
-            generic_car.Car(
-                my_simulation_parameters=my_simulation_parameters,
-                config=my_car_config,
-                occupancy_config=my_occupancy_config,
-            )
-        )
+    # # Build Diesel-Car(s)
+    # # get names of all available cars
+    # filepaths = listdir(utils.HISIMPATH["utsp_results"])
+    # filepaths_location = [elem for elem in filepaths if "CarLocation." in elem]
+    # names = [elem.partition(",")[0].partition(".")[2] for elem in filepaths_location]
+    #
+    # my_car_config = my_config.car_config
+    # my_car_config.name = "DieselCar"
+    #
+    # # create all cars
+    # my_cars: List[generic_car.Car] = []
+    # for car in names:
+    #     my_car_config.name = car
+    #     my_cars.append(
+    #         generic_car.Car(
+    #             my_simulation_parameters=my_simulation_parameters,
+    #             config=my_car_config,
+    #             occupancy_config=my_occupancy_config,
+    #         )
+    #     )
 
     # Build Electricity Meter
     my_electricity_meter = electricity_meter.ElectricityMeter(
@@ -344,6 +344,12 @@ def household_2_advanced_hp_diesel_car_pv(
             config=my_config.electricity_controller_config,
         )
     )
+
+    # # Build Battery
+    # my_advanced_battery = advanced_battery_bslib.Battery(
+    #     my_simulation_parameters=my_simulation_parameters,
+    #     config=my_config.advanced_battery_config,
+    # )
 
     # =================================================================================================================================
     # Connect Component Inputs with Outputs
@@ -391,18 +397,18 @@ def household_2_advanced_hp_diesel_car_pv(
         my_heat_pump.MassFlowOutput,
     )
 
-    # connect DHW
-    my_domnestic_hot_water_storage.connect_only_predefined_connections(
-        my_occupancy, my_domnestic_hot_water_heatpump
-    )
-
-    my_domnestic_hot_water_heatpump_controller.connect_only_predefined_connections(
-        my_domnestic_hot_water_storage
-    )
-
-    my_domnestic_hot_water_heatpump.connect_only_predefined_connections(
-        my_weather, my_domnestic_hot_water_heatpump_controller
-    )
+    # # connect DHW
+    # my_domnestic_hot_water_storage.connect_only_predefined_connections(
+    #     my_occupancy, my_domnestic_hot_water_heatpump
+    # )
+    #
+    # my_domnestic_hot_water_heatpump_controller.connect_only_predefined_connections(
+    #     my_domnestic_hot_water_storage
+    # )
+    #
+    # my_domnestic_hot_water_heatpump.connect_only_predefined_connections(
+    #     my_weather, my_domnestic_hot_water_heatpump_controller
+    # )
 
     # -----------------------------------------------------------------------------------------------------------------
     # connect EMS
@@ -416,48 +422,48 @@ def household_2_advanced_hp_diesel_car_pv(
         source_weight=999,
     )
 
-    # connect EMS with DHW
-    if clever:
-        my_domnestic_hot_water_heatpump_controller.connect_input(
-            my_domnestic_hot_water_heatpump_controller.StorageTemperatureModifier,
-            my_electricity_controller.component_name,
-            my_electricity_controller.StorageTemperatureModifier,
-        )
-        my_electricity_controller.add_component_input_and_connect(
-            source_component_class=my_domnestic_hot_water_heatpump,
-            source_component_output=my_domnestic_hot_water_heatpump.ElectricityOutput,
-            source_load_type=lt.LoadTypes.ELECTRICITY,
-            source_unit=lt.Units.WATT,
-            source_tags=[
-                lt.ComponentType.HEAT_PUMP_DHW,
-                lt.InandOutputType.ELECTRICITY_REAL,
-            ],
-            # source_weight=my_dhw_heatpump_config.source_weight,
-            source_weight=2,
-        )
-
-        my_electricity_controller.add_component_output(
-            source_output_name=lt.InandOutputType.ELECTRICITY_TARGET,
-            source_tags=[
-                lt.ComponentType.HEAT_PUMP_DHW,
-                lt.InandOutputType.ELECTRICITY_TARGET,
-            ],
-            # source_weight=my_domnestic_hot_water_heatpump.config.source_weight,
-            source_weight=2,
-            source_load_type=lt.LoadTypes.ELECTRICITY,
-            source_unit=lt.Units.WATT,
-            output_description="Target electricity for dhw heat pump.",
-        )
-
-    else:
-        my_electricity_controller.add_component_input_and_connect(
-            source_component_class=my_domnestic_hot_water_heatpump,
-            source_component_output=my_domnestic_hot_water_heatpump.ElectricityOutput,
-            source_load_type=lt.LoadTypes.ELECTRICITY,
-            source_unit=lt.Units.WATT,
-            source_tags=[lt.InandOutputType.ELECTRICITY_CONSUMPTION_UNCONTROLLED],
-            source_weight=999,
-        )
+    # # connect EMS with DHW
+    # if clever:
+    #     my_domnestic_hot_water_heatpump_controller.connect_input(
+    #         my_domnestic_hot_water_heatpump_controller.StorageTemperatureModifier,
+    #         my_electricity_controller.component_name,
+    #         my_electricity_controller.StorageTemperatureModifier,
+    #     )
+    #     my_electricity_controller.add_component_input_and_connect(
+    #         source_component_class=my_domnestic_hot_water_heatpump,
+    #         source_component_output=my_domnestic_hot_water_heatpump.ElectricityOutput,
+    #         source_load_type=lt.LoadTypes.ELECTRICITY,
+    #         source_unit=lt.Units.WATT,
+    #         source_tags=[
+    #             lt.ComponentType.HEAT_PUMP_DHW,
+    #             lt.InandOutputType.ELECTRICITY_REAL,
+    #         ],
+    #         # source_weight=my_dhw_heatpump_config.source_weight,
+    #         source_weight=2,
+    #     )
+    #
+    #     my_electricity_controller.add_component_output(
+    #         source_output_name=lt.InandOutputType.ELECTRICITY_TARGET,
+    #         source_tags=[
+    #             lt.ComponentType.HEAT_PUMP_DHW,
+    #             lt.InandOutputType.ELECTRICITY_TARGET,
+    #         ],
+    #         # source_weight=my_domnestic_hot_water_heatpump.config.source_weight,
+    #         source_weight=2,
+    #         source_load_type=lt.LoadTypes.ELECTRICITY,
+    #         source_unit=lt.Units.WATT,
+    #         output_description="Target electricity for dhw heat pump.",
+    #     )
+    #
+    # else:
+    #     my_electricity_controller.add_component_input_and_connect(
+    #         source_component_class=my_domnestic_hot_water_heatpump,
+    #         source_component_output=my_domnestic_hot_water_heatpump.ElectricityOutput,
+    #         source_load_type=lt.LoadTypes.ELECTRICITY,
+    #         source_unit=lt.Units.WATT,
+    #         source_tags=[lt.InandOutputType.ELECTRICITY_CONSUMPTION_UNCONTROLLED],
+    #         source_weight=999,
+    #     )
 
     # connect EMS with Heatpump
     if clever:
@@ -476,7 +482,7 @@ def household_2_advanced_hp_diesel_car_pv(
                 lt.ComponentType.HEAT_PUMP_BUILDING,
                 lt.InandOutputType.ELECTRICITY_REAL,
             ],
-            source_weight=3,
+            source_weight=2,
         )
 
         my_electricity_controller.add_component_output(
@@ -485,7 +491,7 @@ def household_2_advanced_hp_diesel_car_pv(
                 lt.ComponentType.HEAT_PUMP_BUILDING,
                 lt.InandOutputType.ELECTRICITY_TARGET,
             ],
-            source_weight=3,
+            source_weight=2,
             source_load_type=lt.LoadTypes.ELECTRICITY,
             source_unit=lt.Units.WATT,
             output_description="Target electricity for Heat Pump. ",
@@ -500,6 +506,11 @@ def household_2_advanced_hp_diesel_car_pv(
             source_tags=[lt.InandOutputType.ELECTRICITY_CONSUMPTION_UNCONTROLLED],
             source_weight=999,
         )
+        my_heat_pump_controller.connect_input(
+            my_heat_pump_controller.SimpleHotWaterStorageTemperatureModifier,
+            my_electricity_controller.component_name,
+            my_electricity_controller.SimpleHotWaterStorageTemperatureModifier,
+        )
 
     # Todo: connect EMS BuildingTemperatureModifier with Building temperature with option to choose in config, similar to dhw and hp
 
@@ -512,6 +523,37 @@ def household_2_advanced_hp_diesel_car_pv(
         source_tags=[lt.InandOutputType.ELECTRICITY_PRODUCTION],
         source_weight=999,
     )
+
+    # # connect EMS with Battery
+    # my_electricity_controller.add_component_input_and_connect(
+    #     source_component_class=my_advanced_battery,
+    #     source_component_output=my_advanced_battery.AcBatteryPower,
+    #     source_load_type=lt.LoadTypes.ELECTRICITY,
+    #     source_unit=lt.Units.WATT,
+    #     source_tags=[lt.ComponentType.BATTERY, lt.InandOutputType.ELECTRICITY_REAL],
+    #     source_weight=4,
+    # )
+    #
+    # electricity_to_or_from_battery_target = (
+    #     my_electricity_controller.add_component_output(
+    #         source_output_name=lt.InandOutputType.ELECTRICITY_TARGET,
+    #         source_tags=[
+    #             lt.ComponentType.BATTERY,
+    #             lt.InandOutputType.ELECTRICITY_TARGET,
+    #         ],
+    #         source_weight=4,
+    #         source_load_type=lt.LoadTypes.ELECTRICITY,
+    #         source_unit=lt.Units.WATT,
+    #         output_description="Target electricity for Battery Control. ",
+    #     )
+    # )
+
+    # -----------------------------------------------------------------------------------------------------------------
+    # # Connect Battery
+    # my_advanced_battery.connect_dynamic_input(
+    #     input_fieldname=advanced_battery_bslib.Battery.LoadingPowerInput,
+    #     src_object=electricity_to_or_from_battery_target,
+    # )
 
     # -----------------------------------------------------------------------------------------------------------------
     # connect Electricity Meter
@@ -535,10 +577,11 @@ def household_2_advanced_hp_diesel_car_pv(
     my_sim.add_component(my_heat_distribution)
     my_sim.add_component(my_heat_distribution_controller)
     my_sim.add_component(my_simple_hot_water_storage)
-    my_sim.add_component(my_domnestic_hot_water_storage)
-    my_sim.add_component(my_domnestic_hot_water_heatpump_controller)
-    my_sim.add_component(my_domnestic_hot_water_heatpump)
+    # my_sim.add_component(my_domnestic_hot_water_storage)
+    # my_sim.add_component(my_domnestic_hot_water_heatpump_controller)
+    # my_sim.add_component(my_domnestic_hot_water_heatpump)
     my_sim.add_component(my_electricity_meter)
+    # my_sim.add_component(my_advanced_battery)
     my_sim.add_component(my_electricity_controller)
-    for my_car in my_cars:
-        my_sim.add_component(my_car)
+    # for my_car in my_cars:
+    #     my_sim.add_component(my_car)
