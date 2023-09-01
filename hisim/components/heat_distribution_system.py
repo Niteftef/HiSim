@@ -91,7 +91,7 @@ class HeatDistributionControllerConfig(cp.ConfigBase):
     heating_reference_temperature_in_celsius: float
     set_heating_temperature_for_building_in_celsius: float
     set_cooling_temperature_for_building_in_celsius: float
-    set_cooling_threshold_outside_temperature_in_celsius: float
+    set_cooling_threshold_outside_temperature_in_celsius: Optional[float]
     set_cooling_threshold_water_temperature_in_celsius_for_dew_protection: float
 
     @classmethod
