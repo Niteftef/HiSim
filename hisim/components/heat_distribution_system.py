@@ -863,9 +863,8 @@ class HeatDistributionController(cp.Component):
 
         # no cooling and no heating. Temperature should be within heating_threshold and cooling_threshold or No cooling due to dew_protection_mode
         elif self.controller_heat_distribution_mode == "on" and (
-            summer_heating_mode == "off"
+            (summer_heating_mode == "off" and summer_cooling_mode == "off")
             or dew_point_protection_mode == "on"
-            or summer_cooling_mode == "off"
         ):
             self.state_controller = 0
             return
