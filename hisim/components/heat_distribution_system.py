@@ -381,7 +381,6 @@ class HeatDistribution(cp.Component):
         )
 
         if state_controller == 1 or state_controller == -1:
-
             (
                 self.water_temperature_output_in_celsius,
                 self.thermal_power_delivered_in_watt,
@@ -393,7 +392,6 @@ class HeatDistribution(cp.Component):
             )
 
         elif state_controller == 0:
-
             self.thermal_power_delivered_in_watt = 0.0
 
             self.water_temperature_output_in_celsius = (
@@ -551,7 +549,7 @@ class HeatDistributionController(cp.Component):
     WaterTemperatureInputFromHeatWaterStorage = (
         "WaterTemperatureInputFromHeatWaterStorage"
     )
-    TemperatureIndoorAirFromBuilding = "TemperatureIndoorAirFromBuilding"
+    # TemperatureIndoorAirFromBuilding = "TemperatureIndoorAirFromBuilding"
 
     # Outputs
     State = "State"
@@ -626,13 +624,13 @@ class HeatDistributionController(cp.Component):
             lt.Units.CELSIUS,
             True,
         )
-        self.temperature_indoor_air_channel: cp.ComponentInput = self.add_input(
-            self.component_name,
-            self.TemperatureIndoorAirFromBuilding,
-            lt.LoadTypes.TEMPERATURE,
-            lt.Units.CELSIUS,
-            True,
-        )
+        # self.temperature_indoor_air_channel: cp.ComponentInput = self.add_input(
+        #     self.component_name,
+        #     self.TemperatureIndoorAirFromBuilding,
+        #     lt.LoadTypes.TEMPERATURE,
+        #     lt.Units.CELSIUS,
+        #     True,
+        # )
         # Outputs
         self.state_channel: cp.ComponentOutput = self.add_output(
             self.component_name,
@@ -688,13 +686,13 @@ class HeatDistributionController(cp.Component):
                 Building.TheoreticalThermalBuildingDemand,
             )
         )
-        connections.append(
-            cp.ComponentConnection(
-                HeatDistributionController.TemperatureIndoorAirFromBuilding,
-                building_classname,
-                Building.TemperatureIndoorAir,
-            )
-        )
+        # connections.append(
+        #     cp.ComponentConnection(
+        #         HeatDistributionController.TemperatureIndoorAirFromBuilding,
+        #         building_classname,
+        #         Building.TemperatureIndoorAir,
+        #     )
+        # )
         return connections
 
     def get_default_connections_from_simple_hot_water_storage(
@@ -778,13 +776,14 @@ class HeatDistributionController(cp.Component):
             water_input_temperature_in_celsius = stsv.get_input_value(
                 self.water_temperature_input_from_heat_water_storage_channel
             )
-            temperature_indoor_air = stsv.get_input_value(
-                self.temperature_indoor_air_channel
-            )
+            # temperature_indoor_air = stsv.get_input_value(
+            #     self.temperature_indoor_air_channel
+            # )
 
             list_of_heating_distribution_system_flow_and_return_temperatures = self.calc_heat_distribution_flow_and_return_temperatures(
                 daily_avg_outside_temperature_in_celsius=daily_avg_outside_temperature_in_celsius,
-                temperature_indoor_air=temperature_indoor_air,
+                # temperature_indoor_air=temperature_indoor_air,
+                water_input_temperature_in_celsius=water_input_temperature_in_celsius,
             )
 
             self.conditions_for_opening_or_shutting_heat_distribution(
@@ -857,14 +856,16 @@ class HeatDistributionController(cp.Component):
         elif (
             self.controller_heat_distribution_mode == "on"
             and summer_cooling_mode == "on"
-            and dew_point_protection_mode =="off"
+            and dew_point_protection_mode == "off"
         ):
             self.state_controller = -1
             return
 
         # no cooling and no heating. Temperature should be within heating_threshold and cooling_threshold or No cooling due to dew_protection_mode
         elif self.controller_heat_distribution_mode == "on" and (
-            summer_heating_mode == "off" or dew_point_protection_mode == "on"
+            summer_heating_mode == "off"
+            or dew_point_protection_mode == "on"
+            or summer_cooling_mode == "off"
         ):
             self.state_controller = 0
             return
@@ -1024,7 +1025,10 @@ class HeatDistributionController(cp.Component):
         )
 
     def calc_heat_distribution_flow_and_return_temperatures(
-        self, daily_avg_outside_temperature_in_celsius: float, temperature_indoor_air: float
+        self,
+        daily_avg_outside_temperature_in_celsius: float,
+        # temperature_indoor_air: float,
+        water_input_temperature_in_celsius: float,
     ) -> List[float]:
         """Calculate the heat distribution flow and return temperature as a function of the moving average daily mean outside temperature.
 
@@ -1039,7 +1043,7 @@ class HeatDistributionController(cp.Component):
         # flow and return temperatures can not be lower than set indoor temperature (because number would be complex)
         if (
             # self.set_room_temperature_for_building_in_celsius  # Todo: is this correct? set_room_temperature... is based on set_heating_temperature; here set_cooling_temperature should be used instead
-            self.hsd_controller_config.set_cooling_temperature_for_building_in_celsius # Todo: only works together with elif-statement below
+            self.hsd_controller_config.set_cooling_temperature_for_building_in_celsius  # Todo: only works together with elif-statement below
             < daily_avg_outside_temperature_in_celsius
         ):
             # prevent that flow and return temperatures get colder than 19 °C because this could cause condensation of the indoor air on the heating system
@@ -1059,8 +1063,8 @@ class HeatDistributionController(cp.Component):
             and self.set_room_temperature_for_building_in_celsius
             < daily_avg_outside_temperature_in_celsius
         ):
-            flow_temperature_in_celsius = temperature_indoor_air
-            return_temperature_in_celsius = temperature_indoor_air
+            flow_temperature_in_celsius = water_input_temperature_in_celsius
+            return_temperature_in_celsius = water_input_temperature_in_celsius
 
         else:
             # heating case, daily avg outside temperature is lower than indoor temperature
