@@ -1041,8 +1041,8 @@ class HeatDistributionController(cp.Component):
         # cooling case, daily avg temperature is higher than set indoor temperature.
         # flow and return temperatures can not be lower than set indoor temperature (because number would be complex)
         if (
-            # self.set_room_temperature_for_building_in_celsius  # Todo: is this correct? set_room_temperature... is based on set_heating_temperature; here set_cooling_temperature should be used instead
-            self.hsd_controller_config.set_cooling_temperature_for_building_in_celsius  # Todo: only works together with elif-statement below
+            self.set_room_temperature_for_building_in_celsius  # Todo: is this correct? set_room_temperature... is based on set_heating_temperature; here set_cooling_temperature should be used instead
+            # self.hsd_controller_config.set_cooling_temperature_for_building_in_celsius  # Todo: only works together with elif-statement below
             < daily_avg_outside_temperature_in_celsius
         ):
             # prevent that flow and return temperatures get colder than 19 °C because this could cause condensation of the indoor air on the heating system
@@ -1055,15 +1055,15 @@ class HeatDistributionController(cp.Component):
                 self.min_return_temperature_in_celsius, 19.0
             )  # Todo: Why is return temperature equal to flow_temperature, should be warmer in case of cooling
 
-        elif (
-            # temperature between heating and cooling set point
-            self.hsd_controller_config.set_cooling_temperature_for_building_in_celsius
-            > daily_avg_outside_temperature_in_celsius
-            and self.set_room_temperature_for_building_in_celsius
-            < daily_avg_outside_temperature_in_celsius
-        ):
-            flow_temperature_in_celsius = water_input_temperature_in_celsius
-            return_temperature_in_celsius = water_input_temperature_in_celsius
+        # elif (
+        #     # temperature between heating and cooling set point
+        #     self.hsd_controller_config.set_cooling_temperature_for_building_in_celsius
+        #     > daily_avg_outside_temperature_in_celsius
+        #     and self.set_room_temperature_for_building_in_celsius
+        #     < daily_avg_outside_temperature_in_celsius
+        # ):
+        #     flow_temperature_in_celsius = water_input_temperature_in_celsius
+        #     return_temperature_in_celsius = water_input_temperature_in_celsius
 
         else:
             # heating case, daily avg outside temperature is lower than indoor temperature
