@@ -390,7 +390,7 @@ class PVSystem(cp.Component):
             name="PVSystem",
             time=2019,
             location="Aachen",
-            module_name="Hanwha_HSL60P6_PA_4_250T__2013_",
+            module_name= "Advance Power API-M370", # "Hanwha_HSL60P6_PA_4_250T__2013_",
             integrate_inverter=True,
             inverter_name="ABB__MICRO_0_25_I_OUTD_US_208_208V__CEC_2014_",
             power=power,
@@ -698,7 +698,8 @@ class PVSystem(cp.Component):
         # load the sandia data
         if self.pvconfig.load_module_data:
             # load module data online
-            modules = pvlib.pvsystem.retrieve_sam(name="SandiaMod")
+            # modules = pvlib.pvsystem.retrieve_sam(name="SandiaMod")
+            modules = pvlib.pvsystem.retrieve_sam(name="CECMod")
             self.module = modules[self.pvconfig.module_name]
             # get inverter data
             inverters = pvlib.pvsystem.retrieve_sam("cecinverter")
