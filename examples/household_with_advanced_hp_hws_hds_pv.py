@@ -13,7 +13,8 @@ from hisim.components import electricity_meter
 from hisim.components import simple_hot_water_storage
 from hisim.components import heat_distribution_system
 from hisim import loadtypes
-
+from hisim.result_path_provider import ResultPathProviderSingleton, SortingOptionEnum
+from hisim.sim_repository_singleton import SingletonSimRepository, SingletonDictKeyEnum
 
 __authors__ = "Katharina Rieck"
 __copyright__ = "Copyright 2022, FZJ-IEK-3"
@@ -88,7 +89,7 @@ def household_with_hds_and_advanced_hp(
 
     # Build Simulation Parameters
     if my_simulation_parameters is None:
-        my_simulation_parameters = SimulationParameters.full_year_with_only_plots(
+        my_simulation_parameters = SimulationParameters.full_year_all_options(
             year=year, seconds_per_timestep=seconds_per_timestep
         )
 
@@ -294,3 +295,12 @@ def household_with_hds_and_advanced_hp(
     my_sim.add_component(my_simple_hot_water_storage)
     my_sim.add_component(my_heat_pump_controller)
     my_sim.add_component(my_heat_pump)
+    
+    
+    ResultPathProviderSingleton().set_important_result_path_information(
+        module_directory=my_sim.module_directory,
+        model_name=my_sim.setup_function,
+        variant_name=f"test_new_pv_modul_{my_photovoltaic_system_config.module_name}",
+        hash_number=None,
+        sorting_option=SortingOptionEnum.MASS_SIMULATION_WITH_INDEX_ENUMERATION,
+    )

@@ -228,7 +228,7 @@ class PVSystemConfig(ConfigBase):
             time=2019,
             power=power,
             load_module_data=False,
-            module_name="Hanwha_HSL60P6_PA_4_250T__2013_",
+            module_name= "Hanwha_HSL60P6_PA_4_250T__2013_", # TODO: more work needed to use cecmodules like "Advance Power API-P235"
             integrate_inverter=True,
             inverter_name="ABB__MICRO_0_25_I_OUTD_US_208_208V__CEC_2014_",
             name="PVSystem",
@@ -687,6 +687,10 @@ class PVSystem(cp.Component):
             os.path.join(utils.HISIMPATH["photovoltaic"]["modules"]), index_col=0,
         )
 
+        self.cecmodules = pd.read_csv(
+            os.path.join(utils.HISIMPATH["photovoltaic"]["cecmodules"]), index_col=0,
+        )
+
         self.inverters = pd.read_csv(
             os.path.join(utils.HISIMPATH["photovoltaic"]["inverters"]), index_col=0,
         )
@@ -696,10 +700,11 @@ class PVSystem(cp.Component):
         ]
 
         # load the sandia data
+        # TODO: in order to import cec modules, need to transform csv data first like sandia data
         if self.pvconfig.load_module_data:
             # load module data online
-            # modules = pvlib.pvsystem.retrieve_sam(name="SandiaMod")
-            modules = pvlib.pvsystem.retrieve_sam(name="CECMod")
+            modules = pvlib.pvsystem.retrieve_sam(name="SandiaMod")
+            # modules = pvlib.pvsystem.retrieve_sam(name="cecmod")
             self.module = modules[self.pvconfig.module_name]
             # get inverter data
             inverters = pvlib.pvsystem.retrieve_sam("cecinverter")
@@ -708,6 +713,8 @@ class PVSystem(cp.Component):
             # load module and inverter data from csv
             module = self.modules[self.pvconfig.module_name]
             self.module = pd.to_numeric(module, errors="coerce")
+            # module = self.cecmodules[self.pvconfig.module_name]
+            # self.module = pd.to_numeric(module, errors="coerce")
 
             inverter = self.inverters[self.pvconfig.inverter_name]
             self.inverter = pd.to_numeric(inverter, errors="coerce")

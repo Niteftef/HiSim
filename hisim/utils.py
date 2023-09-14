@@ -153,6 +153,9 @@ HISIMPATH: Dict[str, Any] = {
         "modules": os.path.join(
             hisim_inputs, "photovoltaic", "data_processed", "sandia_modules.csv"
         ),
+        "cecmodules": os.path.join(
+            hisim_inputs, "photovoltaic", "data_raw", "cec_modules.csv"
+        ),
         "inverters": os.path.join(
             hisim_inputs, "photovoltaic", "data_processed", "sandia_inverters.csv"
         ),
