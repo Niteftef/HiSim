@@ -528,6 +528,7 @@ class HeatPumpHplibControllerL1Config(ConfigBase):
     mode: int
     set_heating_threshold_outside_temperature_in_celsius: Optional[float]
     set_cooling_threshold_outside_temperature_in_celsius: Optional[float]
+    offset_conditions_heating_cooling_off: float
 
     @classmethod
     def get_default_generic_heat_pump_controller_config(cls):
@@ -537,6 +538,7 @@ class HeatPumpHplibControllerL1Config(ConfigBase):
             mode=1,
             set_heating_threshold_outside_temperature_in_celsius=None,
             set_cooling_threshold_outside_temperature_in_celsius=20.0,
+            offset_conditions_heating_cooling_off=1.0
         )
 
 
@@ -599,7 +601,7 @@ class HeatPumpHplibController(Component):
                 + "This might be because the heat distribution system  was not initialized before the advanced hplib controller."
                 + "Please check the order of the initialization of the components in your example."
             )
-        self.build(mode=self.heatpump_controller_config.mode,)
+        self.build(mode=self.heatpump_controller_config.mode,offset_conditions_heating_cooling_off=self.heatpump_controller_config.offset_conditions_heating_cooling_off)
 
         self.water_temperature_input_channel: ComponentInput = self.add_input(
             self.component_name,
@@ -689,7 +691,7 @@ class HeatPumpHplibController(Component):
         )
         return connections
 
-    def build(self, mode: float,) -> None:
+    def build(self, mode: float, offset_conditions_heating_cooling_off: float) -> None:
         """Build function.
 
         The function sets important constants and parameters for the calculations.
@@ -700,6 +702,7 @@ class HeatPumpHplibController(Component):
 
         # Configuration
         self.mode = mode
+        self.offset_conditions_heating_cooling_off = offset_conditions_heating_cooling_off
 
     def i_prepare_simulation(self) -> None:
         """Prepare the simulation."""
@@ -771,6 +774,7 @@ class HeatPumpHplibController(Component):
                     set_heating_flow_temperature_in_celsius=heating_flow_temperature_from_heat_distribution_system,
                     summer_heating_mode=summer_heating_mode,
                     summer_cooling_mode=summer_cooling_mode,
+                    offset_conditions_heating_cooling_off=self.offset_conditions_heating_cooling_off,
                 )
 
             else:
@@ -828,6 +832,7 @@ class HeatPumpHplibController(Component):
         set_heating_flow_temperature_in_celsius: float,
         summer_heating_mode: str,
         summer_cooling_mode: str,
+        offset_conditions_heating_cooling_off: float
     ) -> None:
         """Set conditions for the heat pump controller mode according to the flow temperature."""
 
@@ -854,7 +859,7 @@ class HeatPumpHplibController(Component):
             # heat pump is only turned on if the water temperature is below the flow temperature
             # and if the avg daily outside temperature is cold enough (summer heating mode on)
             if (
-                water_temperature_input_in_celsius < (heating_set_temperature - 1.0)
+                water_temperature_input_in_celsius < (heating_set_temperature - offset_conditions_heating_cooling_off)
                 and summer_heating_mode == "on"
             ):
                 self.controller_heatpumpmode = "heating"
@@ -863,7 +868,7 @@ class HeatPumpHplibController(Component):
             # heat pump is only turned on for cooling if the water temperature is above a certain flow temperature
             # and if the avg daily outside temperature is warm enough (summer cooling mode on)
             if (
-                water_temperature_input_in_celsius > (cooling_set_temperature + 1.0)
+                water_temperature_input_in_celsius > (cooling_set_temperature + offset_conditions_heating_cooling_off)
                 and summer_cooling_mode == "on"
             ):
                 self.controller_heatpumpmode = "cooling"
