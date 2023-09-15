@@ -123,6 +123,7 @@ class HeatPumpHplib(Component):
     TimeOn = "TimeOn"  # s
     TimeOff = "TimeOff"  # s
 
+
     def __init__(
         self,
         my_simulation_parameters: SimulationParameters,
@@ -362,7 +363,7 @@ class HeatPumpHplib(Component):
         t_in_primary = stsv.get_input_value(self.t_in_primary)
         t_in_secondary = stsv.get_input_value(self.t_in_secondary)
         t_amb = stsv.get_input_value(self.t_amb)
-        time_on = self.state.time_on
+        time_on_heating = self.state.time_on
         time_on_cooling = self.state.time_on_cooling
         time_off = self.state.time_off
 
@@ -380,7 +381,7 @@ class HeatPumpHplib(Component):
                 )
 
             # Overwrite on_off to realize minimum time of or time off
-            if on_off_previous == 1 and time_on < time_on_min:
+            if on_off_previous == 1 and time_on_heating < time_on_min:
                 on_off = 1
             elif on_off_previous == -1 and time_on_cooling < time_on_min:
                 on_off = -1
@@ -405,7 +406,7 @@ class HeatPumpHplib(Component):
             eer = results["EER"].values[0]
             t_out = results["T_out"].values[0]
             m_dot = results["m_dot"].values[0]
-            time_on = time_on + self.my_simulation_parameters.seconds_per_timestep
+            time_on_heating = time_on_heating + self.my_simulation_parameters.seconds_per_timestep
             time_on_cooling = 0
             time_off = 0
 
@@ -423,7 +424,7 @@ class HeatPumpHplib(Component):
             time_on_cooling = (
                 time_on_cooling + self.my_simulation_parameters.seconds_per_timestep
             )
-            time_on = 0
+            time_on_heating = 0
             time_off = 0
         elif on_off == 0:
             # Calulate outputs for off mode
@@ -437,12 +438,14 @@ class HeatPumpHplib(Component):
             t_out = t_in_secondary
             m_dot = 0
             time_off = time_off + self.my_simulation_parameters.seconds_per_timestep
-            time_on = 0
+            time_on_heating = 0
             time_on_cooling = 0
 
         else:
             raise ValueError("Unknown mode for Advanced HPLib On_Off.")
 
+            
+        
         # write values for output time series
         stsv.set_output_value(self.p_th, p_th)
         stsv.set_output_value(self.p_el, p_el)
@@ -450,11 +453,12 @@ class HeatPumpHplib(Component):
         stsv.set_output_value(self.eer, eer)
         stsv.set_output_value(self.t_out, t_out)
         stsv.set_output_value(self.m_dot, m_dot)
-        stsv.set_output_value(self.time_on, time_on)
+        stsv.set_output_value(self.time_on, time_on_heating)
         stsv.set_output_value(self.time_off, time_off)
 
+
         # write values to state
-        self.state.time_on = time_on
+        self.state.time_on = time_on_heating
         self.state.time_on_cooling = time_on_cooling
         self.state.time_off = time_off
         self.state.on_off_previous = on_off

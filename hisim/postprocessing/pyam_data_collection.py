@@ -81,6 +81,18 @@ class PyamDataCollector:
             == PyamDataProcessingModeEnum.PROCESS_FOR_DIFFERENT_PV_TILT_ANGLES
         ):
             parameter_key = "pv_tilt"
+            
+        elif (
+            data_processing_mode
+            == PyamDataProcessingModeEnum.PROCESS_FOR_DIFFERENT_DELTA_T_IN_HP_CONTROLLER
+        ):
+            parameter_key = "delta_T"
+            
+        elif (
+            data_processing_mode
+            == PyamDataProcessingModeEnum.PROCESS_FOR_DIFFERENT_HOT_WATER_STORAGE_SIZES
+        ):
+            parameter_key = "hot_water_storage_size_in_liter"
 
         else:
             raise ValueError(
@@ -128,7 +140,7 @@ class PyamDataCollector:
             paths_to_check=path_to_check,
             analyze_yearly_or_hourly_data=time_resolution_of_data_set,
         )
-        print(all_csv_files)
+
         dict_of_csv_data = self.make_dictionaries_with_simulation_duration_keys(
             simulation_duration_to_check=simulation_duration_to_check,
             all_csv_files=all_csv_files,
@@ -141,7 +153,7 @@ class PyamDataCollector:
             parameter_key=parameter_key,
             list_with_parameter_key_values=list_with_parameter_key_values,
         )
-        print(dict_of_csv_data)
+
         print("\n")
 
     def clean_result_directory_from_unfinished_results(
@@ -539,3 +551,5 @@ class PyamDataProcessingModeEnum(enum.Enum):
     PROCESS_FOR_DIFFERENT_PV_SIZES = 5
     PROCESS_FOR_DIFFERENT_PV_AZIMUTH_ANGLES = 6
     PROCESS_FOR_DIFFERENT_PV_TILT_ANGLES = 7
+    PROCESS_FOR_DIFFERENT_DELTA_T_IN_HP_CONTROLLER = 8
+    PROCESS_FOR_DIFFERENT_HOT_WATER_STORAGE_SIZES = 9

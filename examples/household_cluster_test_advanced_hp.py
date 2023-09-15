@@ -70,7 +70,7 @@ class BuildingPVWeatherConfig(ConfigBase):
             total_base_area_in_m2=121.2,
             hp_idle_time=600,
             delta_T=1.0,
-            cycling_mode=1
+            cycling_mode=1,
             hot_water_storage_size_in_liter=500.0,
             # location=weather.LocationEnum.Aachen,
         )
@@ -104,28 +104,29 @@ def household_cluster_test_advanced_hp(
     config_filename = my_sim.my_module_config_path
 
     my_config: BuildingPVWeatherConfig
-    # if isinstance(config_filename, str) and os.path.exists(config_filename.rstrip("\r")):
-    with open(
-        config_filename.rstrip("\r"), encoding="unicode_escape"
-    ) as system_config_file:
-        my_config = BuildingPVWeatherConfig.from_json(system_config_file.read())  # type: ignore
+    if isinstance(config_filename, str) and os.path.exists(config_filename.rstrip("\r")):
+        with open(
+            config_filename.rstrip("\r"), encoding="unicode_escape"
+        ) as system_config_file:
+            my_config = BuildingPVWeatherConfig.from_json(system_config_file.read())  # type: ignore
 
-    log.information(f"Read system config from {config_filename}")
-    log.information("Config values: " + f"{my_config.to_dict}" + "\n")
-    # else:
-    #     my_config = BuildingPVWeatherConfig.get_default()
-    #     log.information(
-    #         "No module config path from the simulator was given. Use default config."
-    #     )
+        log.information(f"Read system config from {config_filename}")
+        log.information("Config values: " + f"{my_config.to_dict}" + "\n")
+    else:
+        my_config = BuildingPVWeatherConfig.get_default()
+        log.information(
+            "No module config path from the simulator was given. Use default config."
+        )
 
     # Set Simulation Parameters
     year = 2021
     seconds_per_timestep = 60
 
     if my_simulation_parameters is None:
-        my_simulation_parameters = SimulationParameters.full_year_all_options(
+        my_simulation_parameters = SimulationParameters.full_year(
             year=year, seconds_per_timestep=seconds_per_timestep
         )
+        
         my_simulation_parameters.post_processing_options.append(
             PostProcessingOptions.PREPARE_OUTPUTS_FOR_SCENARIO_EVALUATION_WITH_PYAM
         )
@@ -141,6 +142,7 @@ def household_cluster_test_advanced_hp(
         my_simulation_parameters.post_processing_options.append(
             PostProcessingOptions.OPEN_DIRECTORY_IN_EXPLORER
         )
+
     my_sim.set_simulation_parameters(my_simulation_parameters)
 
     # Set Building (scale building according to total base area and not absolute floor area)
@@ -438,22 +440,35 @@ def household_cluster_test_advanced_hp(
     my_sim.add_component(my_electricity_meter)
 
 
-    config_filename_splitted = config_filename.split("/")
-    hash_number = re.findall(r"\-?\d+", config_filename_splitted[-1])[0]
-    SingletonSimRepository().set_entry(
+    # Set Results Path
+    # if config_filename is given, get hash number and sampling mode for result path
+    if config_filename is not None:
+        config_filename_splitted = config_filename.split("/")
+        hash_number = re.findall(r"\-?\d+", config_filename_splitted[-1])[0]
+        sampling_mode = config_filename_splitted[-2]
+
+        sorting_option = SortingOptionEnum.MASS_SIMULATION_WITH_HASH_ENUMERATION
+
+        SingletonSimRepository().set_entry(
             key=SingletonDictKeyEnum.RESULT_SCENARIO_NAME,
-            entry=f"{hash_number}",
+            entry=f"{my_simulation_parameters.duration.days}d_{my_simulation_parameters.seconds_per_timestep}s_{hash_number}",
         )
-    log.information(
-        "Singleton Scenario is set "
-        + f"{hash_number}"
-    )
+        log.information(
+            "Singleton Scenario is set "
+            + f"{my_simulation_parameters.duration.days}d_{my_simulation_parameters.seconds_per_timestep}s_{hash_number}"
+        )
+    # if config_filename is not given, make result path with index enumeration
+    else:
+        hash_number = None
+        sorting_option = SortingOptionEnum.MASS_SIMULATION_WITH_INDEX_ENUMERATION
+        sampling_mode = None
 
     ResultPathProviderSingleton().set_important_result_path_information(
         module_directory=my_sim.module_directory,
         model_name=my_sim.setup_function,
-        variant_name=f"hplib_test",
-        hash_number=None,
-        sorting_option=SortingOptionEnum.MASS_SIMULATION_WITH_INDEX_ENUMERATION,
-        sampling_mode=None,
+        variant_name=f"{my_simulation_parameters.duration.days}d_{my_simulation_parameters.seconds_per_timestep}s",
+        hash_number=hash_number,
+        sorting_option=sorting_option,
+        sampling_mode=sampling_mode,
     )
+

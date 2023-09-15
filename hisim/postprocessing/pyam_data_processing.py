@@ -83,6 +83,20 @@ class PyAmChartGenerator:
         ):
             data_path_strip = "data_with_different_pv_tilts"
             result_path_strip = "results_different_pv_tilts"
+            
+        elif (
+            data_processing_mode
+            == PyamDataProcessingModeEnum.PROCESS_FOR_DIFFERENT_DELTA_T_IN_HP_CONTROLLER
+        ):
+            data_path_strip = "data_with_different_delta_T"
+            result_path_strip = "results_different_delta_T"
+            
+        elif (
+            data_processing_mode
+            == PyamDataProcessingModeEnum.PROCESS_FOR_DIFFERENT_HOT_WATER_STORAGE_SIZES
+        ):
+            data_path_strip = "data_with_different_hot_water_storage_size_in_liters"
+            result_path_strip = "results_different_hot_water_storage_size_in_liters"
 
         else:
             raise ValueError("PyamDataProcessingMode not known.")
@@ -113,6 +127,7 @@ class PyAmChartGenerator:
             time_resolution_of_data_set=time_resolution_of_data_set,
             list_of_scenarios_to_check=list_of_scenarios_to_check,
         )
+
 
         if variables_to_check != [] and variables_to_check is not None:
             self.make_plots_with_specific_kind_of_data(
@@ -250,11 +265,11 @@ class PyAmChartGenerator:
                     title=self.path_addition,
                 )
 
-                # self.make_bar_plot_for_pyam_dataframe(
-                #     filtered_data=filtered_data,
-                #     comparison_mode=comparion_mode,
-                #     title=self.path_addition,
-                # )
+                self.make_bar_plot_for_pyam_dataframe(
+                    filtered_data=filtered_data,
+                    comparison_mode=comparion_mode,
+                    title=self.path_addition,
+                )
 
                 # self.make_scatter_plot_for_pyam_dataframe(
                 #     pyam_dataframe=pyam_dataframe,
@@ -416,7 +431,26 @@ class PyAmChartGenerator:
         fig, a_x = plt.subplots(
             figsize=self.hisim_chartbase.figsize, dpi=self.hisim_chartbase.dpi
         )
-        filtered_data.plot.bar(ax=a_x, stacked=True, bars=comparison_mode)
+        # filtered_data.plot.bar(ax=a_x, stacked=False, bars=comparison_mode)
+        y_data = []
+        bar_labels = []
+        # alternative manual way to make bar plots
+        for scenario in filtered_data.scenario:
+            filtered_data_per_scenario = filtered_data.data.loc[
+                filtered_data.data["scenario"] == scenario
+            ]
+            value = float(filtered_data_per_scenario["value"])
+            
+
+            y_data.append(value)
+            bar_labels.append(scenario)
+
+        x_data = np.arange(0, len(y_data)*2, step=2)
+        cmap = plt.get_cmap('viridis')
+        colors = [cmap(i) for i in np.linspace(0, 1, len(x_data))]
+        a_x.bar(
+            x_data, y_data, label=bar_labels, color=colors
+        )
 
         y_tick_labels, unit, y_tick_locations = self.set_axis_scale(
             a_x, x_or_y="y", unit=filtered_data.unit[0]
@@ -436,7 +470,7 @@ class PyAmChartGenerator:
         plt.title(label=title, fontsize=self.hisim_chartbase.fontsize_title)
         plt.tick_params(labelsize=self.hisim_chartbase.fontsize_ticks)
 
-        plt.legend(loc=1)
+        plt.legend(bbox_to_anchor=(1,1), loc="upper left")
         plt.tight_layout()
         a_x.tick_params(axis="x", rotation=45)
         fig.savefig(os.path.join(self.plot_path_complete, "bar_plot.png"))
@@ -861,8 +895,6 @@ electricity_data = [
     "ElectricityMeter|Electricity|ElectricityToOrFromGrid",
     "ElectricityMeter|Electricity|ElectricityConsumption",
     "ElectricityMeter|Electricity|ElectricityProduction"
-    "ElectricityMeter|Electricity|CumulativeConsumption",
-    "ElectricityMeter|Electricity|CumulativeProduction",
 ]
 
 occuancy_consumption = [
