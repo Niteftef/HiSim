@@ -39,7 +39,8 @@ class PyamDataCollector:
 
         log.information(f"Checking results from folder: {result_folder}")
 
-        self.clean_result_directory_from_unfinished_results(result_path=result_folder)
+        # self.clean_result_directory_from_unfinished_results(result_path=result_folder)
+
 
         list_with_pyam_data_folders = self.get_list_of_all_relevant_pyam_data_folders(
             result_path=result_folder
@@ -94,6 +95,7 @@ class PyamDataCollector:
             list_with_parameter_key_values = None
             path_to_check = list_with_pyam_data_folders
 
+
         elif parameter_key is not None and path_to_default_config is not None:
 
             default_config_dict = self.get_default_config(
@@ -126,7 +128,7 @@ class PyamDataCollector:
             paths_to_check=path_to_check,
             analyze_yearly_or_hourly_data=time_resolution_of_data_set,
         )
-
+        print(all_csv_files)
         dict_of_csv_data = self.make_dictionaries_with_simulation_duration_keys(
             simulation_duration_to_check=simulation_duration_to_check,
             all_csv_files=all_csv_files,
@@ -139,7 +141,7 @@ class PyamDataCollector:
             parameter_key=parameter_key,
             list_with_parameter_key_values=list_with_parameter_key_values,
         )
-
+        print(dict_of_csv_data)
         print("\n")
 
     def clean_result_directory_from_unfinished_results(
@@ -153,7 +155,9 @@ class PyamDataCollector:
 
         # choose which path to check
         path_to_check = os.path.join(result_path, "**", "pyam_data")
+
         list_of_paths = list(glob.glob(path_to_check))
+
         # if in these paths no pyam data folder can be found check in subfolders for it
         if len(list_of_paths) == 0:
             path_to_check = os.path.join(result_path, "**", "**", "pyam_data")  # type: ignore
@@ -185,6 +189,7 @@ class PyamDataCollector:
             raise ValueError(
                 "analyze_yearly_or_hourly_data was not found in the pyamdatacollectorenum class."
             )
+
 
         for folder in paths_to_check:  # type: ignore
 

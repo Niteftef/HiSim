@@ -50,6 +50,10 @@ class BuildingPVWeatherConfig(ConfigBase):
     pv_power: float
     building_code: str
     total_base_area_in_m2: float
+    hp_idle_time: float
+    delta_T: float
+    cycling_mode: int
+    hot_water_storage_size_in_liter: float
     # location: Any
 
     @classmethod
@@ -64,6 +68,10 @@ class BuildingPVWeatherConfig(ConfigBase):
             pv_power=10000,
             building_code="DE.N.SFH.05.Gen.ReEx.001.002",
             total_base_area_in_m2=121.2,
+            hp_idle_time=600,
+            delta_T=1.0,
+            cycling_mode=1
+            hot_water_storage_size_in_liter=500.0,
             # location=weather.LocationEnum.Aachen,
         )
 
@@ -115,7 +123,7 @@ def household_cluster_test_advanced_hp(
     seconds_per_timestep = 60
 
     if my_simulation_parameters is None:
-        my_simulation_parameters = SimulationParameters.full_year(
+        my_simulation_parameters = SimulationParameters.full_year_all_options(
             year=year, seconds_per_timestep=seconds_per_timestep
         )
         my_simulation_parameters.post_processing_options.append(
@@ -162,7 +170,10 @@ def household_cluster_test_advanced_hp(
     )  # t_in #TODO: get real heating ref temps according to location
     set_thermal_output_power_in_watt: float = 8000
     flow_temperature_in_celsius = 21  # t_out_val
-    cycling_mode = my_config.cycling_mode
+    if my_config.cycling_mode == 0:
+        cycling_mode = False
+    elif my_config.cycling_mode == 1:
+        cycling_mode = True
     minimum_running_time_in_seconds = my_config.hp_idle_time
     minimum_idle_time_in_seconds = my_config.hp_idle_time
     hp_co2_footprint = set_thermal_output_power_in_watt * 1e-3 * 165.84
@@ -170,6 +181,9 @@ def household_cluster_test_advanced_hp(
     hp_lifetime = 10
     hp_maintenance_cost_as_percentage_of_investment = 0.025
     hp_consumption = 0
+    
+    # Set hot water storage
+    storage_size_in_liter = my_config.hot_water_storage_size_in_liter
 
     # =================================================================================================================================
     # Build Components
@@ -224,6 +238,7 @@ def household_cluster_test_advanced_hp(
             mode=hp_controller_mode,
             set_heating_threshold_outside_temperature_in_celsius=set_heating_threshold_outside_temperature_for_heat_pump_in_celsius,
             set_cooling_threshold_outside_temperature_in_celsius=set_cooling_threshold_outside_temperature_for_heat_pump_in_celsius,
+            offset_conditions_heating_cooling_off=offset_conditions_heating_cooling_off,
         ),
         my_simulation_parameters=my_simulation_parameters,
     )
@@ -262,6 +277,7 @@ def household_cluster_test_advanced_hp(
     my_simple_heat_water_storage_config = (
         simple_hot_water_storage.SimpleHotWaterStorageConfig.get_default_simplehotwaterstorage_config()
     )
+    my_simple_heat_water_storage_config.volume_heating_water_storage_in_liter = storage_size_in_liter
     my_simple_hot_water_storage = simple_hot_water_storage.SimpleHotWaterStorage(
         config=my_simple_heat_water_storage_config,
         my_simulation_parameters=my_simulation_parameters,
@@ -421,34 +437,23 @@ def household_cluster_test_advanced_hp(
     my_sim.add_component(my_domnestic_hot_water_heatpump)
     my_sim.add_component(my_electricity_meter)
 
-    # Set Results Path
-    # if config_filename is given, get hash number and sampling mode for result path
-    if config_filename is not None:
-        config_filename_splitted = config_filename.split("/")
-        hash_number = re.findall(r"\-?\d+", config_filename_splitted[-1])[0]
-        sampling_mode = config_filename_splitted[-2]
 
-        sorting_option = SortingOptionEnum.MASS_SIMULATION_WITH_HASH_ENUMERATION
-
-        SingletonSimRepository().set_entry(
+    config_filename_splitted = config_filename.split("/")
+    hash_number = re.findall(r"\-?\d+", config_filename_splitted[-1])[0]
+    SingletonSimRepository().set_entry(
             key=SingletonDictKeyEnum.RESULT_SCENARIO_NAME,
-            entry=f"{my_simulation_parameters.duration.days}d_{my_simulation_parameters.seconds_per_timestep}s_{hash_number}",
+            entry=f"{hash_number}",
         )
-        log.information(
-            "Singleton Scenario is set "
-            + f"{my_simulation_parameters.duration.days}d_{my_simulation_parameters.seconds_per_timestep}s_{hash_number}"
-        )
-    # if config_filename is not given, make result path with index enumeration
-    else:
-        hash_number = None
-        sorting_option = SortingOptionEnum.MASS_SIMULATION_WITH_INDEX_ENUMERATION
-        sampling_mode = None
+    log.information(
+        "Singleton Scenario is set "
+        + f"{hash_number}"
+    )
 
     ResultPathProviderSingleton().set_important_result_path_information(
         module_directory=my_sim.module_directory,
         model_name=my_sim.setup_function,
-        variant_name=f"{my_simulation_parameters.duration.days}d_{my_simulation_parameters.seconds_per_timestep}s",
-        hash_number=hash_number,
-        sorting_option=sorting_option,
-        sampling_mode=sampling_mode,
+        variant_name=f"hplib_test",
+        hash_number=None,
+        sorting_option=SortingOptionEnum.MASS_SIMULATION_WITH_INDEX_ENUMERATION,
+        sampling_mode=None,
     )
