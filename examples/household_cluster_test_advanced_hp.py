@@ -120,10 +120,10 @@ def household_cluster_test_advanced_hp(
 
     # Set Simulation Parameters
     year = 2021
-    seconds_per_timestep = 60 * 60
+    seconds_per_timestep = 60
 
     if my_simulation_parameters is None:
-        my_simulation_parameters = SimulationParameters.one_week_only(
+        my_simulation_parameters = SimulationParameters.full_year_with_only_plots(
             year=year, seconds_per_timestep=seconds_per_timestep
         )
         
@@ -451,11 +451,11 @@ def household_cluster_test_advanced_hp(
 
         SingletonSimRepository().set_entry(
             key=SingletonDictKeyEnum.RESULT_SCENARIO_NAME,
-            entry=f"{my_simulation_parameters.duration.days}d_{my_simulation_parameters.seconds_per_timestep}s_{hash_number}_hp_power_4300",
+            entry=f"{my_simulation_parameters.duration.days}d_{my_simulation_parameters.seconds_per_timestep}s_{hash_number}",
         )
         log.information(
             "Singleton Scenario is set "
-            + f"{my_simulation_parameters.duration.days}d_{my_simulation_parameters.seconds_per_timestep}s_{hash_number}_hp_power_4300"
+            + f"{my_simulation_parameters.duration.days}d_{my_simulation_parameters.seconds_per_timestep}s_{hash_number}"
         )
     # if config_filename is not given, make result path with index enumeration
     else:
@@ -466,7 +466,7 @@ def household_cluster_test_advanced_hp(
     ResultPathProviderSingleton().set_important_result_path_information(
         module_directory=my_sim.module_directory,
         model_name=my_sim.setup_function,
-        variant_name=f"{my_simulation_parameters.duration.days}d_{my_simulation_parameters.seconds_per_timestep}s_hp_power_4300",
+        variant_name=f"{my_simulation_parameters.duration.days}d_{my_simulation_parameters.seconds_per_timestep}s",
         hash_number=hash_number,
         sorting_option=sorting_option,
         sampling_mode=sampling_mode,

@@ -30,8 +30,8 @@ def building_temperature_control(
     in order to verify if energy system provides enough heating and cooling.
     """
 
-    time_indices_of_building_being_below_heating_set_temperature = []
-    time_indices_of_building_being_above_cooling_set_temperature = []
+    temperature_difference_of_building_being_below_heating_set_temperature = 0
+    temperature_difference_of_building_being_below_cooling_set_temperature = 0
     for column in results.columns:
 
         if "TemperatureIndoorAir" in column.split(sep=" "):
@@ -56,28 +56,34 @@ def building_temperature_control(
             for temperature in results[column].values:
 
                 if temperature < set_heating_temperature_in_celsius:
-                    time_indices_of_building_being_below_heating_set_temperature.append(
-                        results[column].index
+
+                    temperature_difference_heating = (
+                        set_heating_temperature_in_celsius - temperature
+                    )
+
+                    temperature_difference_of_building_being_below_heating_set_temperature = (
+                        temperature_difference_of_building_being_below_heating_set_temperature
+                        + temperature_difference_heating
                     )
 
                 elif temperature > set_cooling_temperature_in_celsius:
-                    time_indices_of_building_being_above_cooling_set_temperature.append(
-                        results[column].index
+
+                    temperature_difference_cooling = (
+                        temperature - set_cooling_temperature_in_celsius
+                    )
+                    temperature_difference_of_building_being_below_cooling_set_temperature = (
+                        temperature_difference_of_building_being_below_cooling_set_temperature
+                        + temperature_difference_cooling
                     )
 
-            length_time_list_below_heating_set_temperature = len(
-                time_indices_of_building_being_below_heating_set_temperature
-            )
-            length_time_list_above_cooling_set_temperature = len(
-                time_indices_of_building_being_above_cooling_set_temperature
-            )
-            time_in_hours_of_building_being_below_heating_set_temperature = (
-                length_time_list_below_heating_set_temperature
+            temperature_hours_of_building_being_below_heating_set_temperature = (
+                temperature_difference_of_building_being_below_heating_set_temperature
                 * seconds_per_timestep
                 / 3600
             )
-            time_in_hours_of_building_being_above_cooling_set_temperature = (
-                length_time_list_above_cooling_set_temperature
+
+            temperature_hours_of_building_being_above_cooling_set_temperature = (
+                temperature_difference_of_building_being_below_cooling_set_temperature
                 * seconds_per_timestep
                 / 3600
             )
@@ -89,8 +95,8 @@ def building_temperature_control(
     return (
         set_heating_temperature_in_celsius,
         set_cooling_temperature_in_celsius,
-        time_in_hours_of_building_being_below_heating_set_temperature,
-        time_in_hours_of_building_being_above_cooling_set_temperature,
+        temperature_hours_of_building_being_below_heating_set_temperature,
+        temperature_hours_of_building_being_above_cooling_set_temperature,
         min_temperature_reached_in_celsius,
         max_temperature_reached_in_celsius,
     )
@@ -102,7 +108,6 @@ def get_heatpump_cycles(results: pd.DataFrame,) -> float:
     for column in results.columns:
 
         if "TimeOff" in column.split(sep=" "):
-            print(results[column].values)
 
             for index, off_time in enumerate(results[column].values):
 
@@ -581,8 +586,8 @@ def compute_kpis(
     (
         set_heating_temperature_in_celsius,
         set_cooling_temperature_in_celsius,
-        time_in_hours_of_building_being_below_heating_set_temperature,
-        time_in_hours_of_building_being_above_cooling_set_temperature,
+        temperature_hours_of_building_being_below_heating_set_temperature,
+        temperature_in_hours_of_building_being_above_cooling_set_temperature,
         min_temperature_reached_in_celsius,
         max_temperature_reached_in_celsius,
     ) = building_temperature_control(
@@ -672,9 +677,9 @@ def compute_kpis(
     )
     table.append(
         [
-            f"Time of building indoor air temperature being below set temperature {set_heating_temperature_in_celsius} °C:",
-            f"{(time_in_hours_of_building_being_below_heating_set_temperature):3.0f}",
-            "h",
+            f"Temperature deviation of building indoor air temperature being below set temperature {set_heating_temperature_in_celsius} °C:",
+            f"{(temperature_hours_of_building_being_below_heating_set_temperature):3.0f}",
+            "°C*h",
         ]
     )
     table.append(
@@ -686,9 +691,9 @@ def compute_kpis(
     )
     table.append(
         [
-            f"Time of building indoor air temperature being above set temperature {set_cooling_temperature_in_celsius} °C:",
-            f"{(time_in_hours_of_building_being_above_cooling_set_temperature):3.0f}",
-            "h",
+            f"Temperature deviation of building indoor air temperature being above set temperature {set_cooling_temperature_in_celsius} °C:",
+            f"{(temperature_in_hours_of_building_being_above_cooling_set_temperature):3.0f}",
+            "°C*h",
         ]
     )
     table.append(
@@ -699,9 +704,7 @@ def compute_kpis(
         ]
     )
 
-    table.append(
-        ["Number of heat pump cycles:", f"{number_of_cycles:3.0f}", "-"]
-    )
+    table.append(["Number of heat pump cycles:", f"{number_of_cycles:3.0f}", "-"])
 
     # initialize json interface to pass kpi's to building_sizer
     kpi_config = KPIConfig(
