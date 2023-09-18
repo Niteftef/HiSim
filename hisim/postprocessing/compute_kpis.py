@@ -94,24 +94,26 @@ def building_temperature_control(
         min_temperature_reached_in_celsius,
         max_temperature_reached_in_celsius,
     )
-    
+
+
 def get_heatpump_cycles(results: pd.DataFrame,) -> float:
     """Get the number of cycles of the heat pump for the simulated period."""
     number_of_cycles = 0
     for column in results.columns:
 
-        if "TimeOff_HeatPump" in column.split(sep=" "):
+        if "TimeOff" in column.split(sep=" "):
+            print(results[column].values)
 
             for index, off_time in enumerate(results[column].values):
-                
-                if off_time != 0 and results[column].values[index +1] == 0:
-                    
-                    number_of_cycles =+ 1
-                    
-    
-                    log.information("off_time curent, off_time next and cycle number" + str(off_time) + str(results[column].values[index +1]) + str(number_of_cycles))
 
-    
+                try:
+                    if off_time != 0 and results[column].values[index + 1] == 0:
+
+                        number_of_cycles = number_of_cycles + 1
+
+                except Exception:
+                    pass
+
     return number_of_cycles
 
 
@@ -584,10 +586,11 @@ def compute_kpis(
         min_temperature_reached_in_celsius,
         max_temperature_reached_in_celsius,
     ) = building_temperature_control(
-        results=results, seconds_per_timestep=simulation_parameters.seconds_per_timestep)
-        
+        results=results, seconds_per_timestep=simulation_parameters.seconds_per_timestep
+    )
+
     # get cycle numbers of heatpump
-    
+
     number_of_cycles = get_heatpump_cycles(results=results)
 
     # initialize table for report
@@ -695,10 +698,10 @@ def compute_kpis(
             "°C",
         ]
     )
-    
-    table.append(["Number of heat pump cycles:",
-            f"{number_of_cycles:3.0f}",
-            "-",])
+
+    table.append(
+        ["Number of heat pump cycles:", f"{number_of_cycles:3.0f}", "-"]
+    )
 
     # initialize json interface to pass kpi's to building_sizer
     kpi_config = KPIConfig(

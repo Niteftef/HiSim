@@ -88,8 +88,8 @@ class PyAmChartGenerator:
             data_processing_mode
             == PyamDataProcessingModeEnum.PROCESS_FOR_DIFFERENT_DELTA_T_IN_HP_CONTROLLER
         ):
-            data_path_strip = "data_with_different_delta_T"
-            result_path_strip = "results_different_delta_T"
+            data_path_strip = "data_with_different_delta_Ts"
+            result_path_strip = "results_different_delta_Ts"
             
         elif (
             data_processing_mode
@@ -887,6 +887,7 @@ kpi_data = [
     "Minimum building indoor air temperature reached",
     "Time of building indoor air temperature being above set temperature 24 °C",
     "Maximum building indoor air temperature reached",
+    "Number of heat pump cycles"
 ]
 
 electricity_data = [
