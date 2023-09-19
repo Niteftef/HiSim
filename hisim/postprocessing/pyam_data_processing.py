@@ -122,8 +122,8 @@ class PyAmChartGenerator:
         self.hisim_chartbase = ChartFontsAndSize()
         self.hisim_chartbase.figsize = (10, 8)
 
-        # read data, sort data according to scenarios if wanted, and create pyam dataframe
-        pyam_dataframe = self.get_dataframe_and_create_pyam_dataframe_for_all_data(
+        # read data, sort data according to scenarios if wanted, and create pandas dataframe
+        pandas_dataframe = self.get_dataframe_and_create_pandas_dataframe_for_all_data(
             folder_path=self.folder_path,
             time_resolution_of_data_set=time_resolution_of_data_set,
             list_of_scenarios_to_check=list_of_scenarios_to_check,
@@ -132,7 +132,7 @@ class PyAmChartGenerator:
         if variables_to_check != [] and variables_to_check is not None:
             self.make_plots_with_specific_kind_of_data(
                 time_resolution_of_data_set=time_resolution_of_data_set,
-                pyam_dataframe=pyam_dataframe,
+                pyam_dataframe=pandas_dataframe,
                 simulation_duration_key=simulation_duration_to_check,
                 variables_to_check=variables_to_check,
             )
@@ -141,12 +141,12 @@ class PyAmChartGenerator:
                 "Variable list for data is not given and will not be plotted or anaylzed."
             )
 
-    def get_dataframe_and_create_pyam_dataframe_for_all_data(
+    def get_dataframe_and_create_pandas_dataframe_for_all_data(
         self,
         folder_path: str,
         time_resolution_of_data_set: Any,
         list_of_scenarios_to_check: Optional[List[str]],
-    ) -> pyam.IamDataFrame:
+    ) -> pd.DataFrame:
         """Get csv data and create pyam dataframes."""
 
         if time_resolution_of_data_set == PyamDataTypeEnum.HOURLY:
@@ -184,16 +184,12 @@ class PyAmChartGenerator:
                     list_of_scenarios_to_check=list_of_scenarios_to_check,
                 )
 
-            # # create pyam dataframe
-            # pyam_dataframe = pyam.IamDataFrame(file_df)
-            # print(pyam_dataframe.data)
-
-            return file_df  # pyam_dataframe
+            return file_df
 
     def make_plots_with_specific_kind_of_data(
         self,
         time_resolution_of_data_set: Any,
-        pyam_dataframe: pd.DataFrame,  # pyam.IamDataFrame,
+        pyam_dataframe: pd.DataFrame,
         simulation_duration_key: str,
         variables_to_check: List[str],
     ) -> None:
@@ -205,7 +201,8 @@ class PyAmChartGenerator:
             raise ValueError("Pyam dataframe is empty.")
 
         sub_results_folder = f"simulation_duration_of_{simulation_duration_key}_days"
-        sub_sub_results_folder = f"pyam_results_{self.datetime_string}"
+        sub_sub_results_folder = f"pyam_results_{time_resolution_of_data_set.value}_{self.datetime_string}"
+
 
         self.path_for_plots = os.path.join(
             self.result_folder, sub_results_folder, sub_sub_results_folder

@@ -68,8 +68,7 @@ def main():
     )
 
     list_with_variables_to_check = (
-        pyam_data_processing.heating_demand + pyam_data_processing.electricity_data
-    )  # + pyam_data_processing.kpi_data) # + pyam_data_processing.kpi_data)
+        pyam_data_processing.heating_demand + pyam_data_processing.electricity_data + pyam_data_processing.kpi_data) # + pyam_data_processing.kpi_data)
     # + pyam_data_processing.heating_demand
     # + pyam_data_processing.electricity_data
     # + pyam_data_processing.occuancy_consumption
