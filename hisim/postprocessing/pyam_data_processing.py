@@ -129,6 +129,7 @@ class PyAmChartGenerator:
             list_of_scenarios_to_check=list_of_scenarios_to_check,
         )
 
+
         if variables_to_check != [] and variables_to_check is not None:
             self.make_plots_with_specific_kind_of_data(
                 time_resolution_of_data_set=time_resolution_of_data_set,
@@ -395,9 +396,9 @@ class PyAmChartGenerator:
         plt.title(label=title, fontsize=self.hisim_chartbase.fontsize_title)
         plt.tick_params(labelsize=self.hisim_chartbase.fontsize_ticks)
         a_x.tick_params(axis="x", labelrotation=45)
-        plt.legend(fontsize=ChartFontsAndSize.fontsize_legend)
+        plt.legend(bbox_to_anchor=(1, 1), loc="upper left")
 
-        fig.savefig(os.path.join(self.plot_path_complete, "line_plot.png"))
+        fig.savefig(os.path.join(self.plot_path_complete, "line_plot.png"), bbox_inches="tight")
         plt.close()
 
     def make_line_plot_with_filling_for_pyam_dataframe(

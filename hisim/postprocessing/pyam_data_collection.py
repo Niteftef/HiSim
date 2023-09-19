@@ -275,8 +275,8 @@ class PyamDataCollector:
         values = []
         for scenario in dataframe["scenario"]:
             scenario_name_splitted = scenario.split("_")
-            number = scenario_name_splitted[-1]
-            values.append(float(number))
+            number = float(scenario_name_splitted[-1])
+            values.append(number)
 
         # order the values
         ordered_values = list(ordered_set.OrderedSet(sorted(values)))
@@ -286,8 +286,10 @@ class PyamDataCollector:
         for sorted_value in ordered_values:
 
             for scenario in list(set(dataframe["scenario"])):
+                scenario_name_splitted = scenario.split("_")
+                number = float(scenario_name_splitted[-1])
 
-                if str(sorted_value) in scenario or str(int(sorted_value)) in scenario:
+                if sorted_value == number:
                     df_1 = dataframe.loc[dataframe["scenario"] == scenario]
                     new_df = pd.concat([new_df, df_1])
 
