@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import plotly
 from html2image import Html2Image
 from ordered_set import OrderedSet
+import seaborn as sns
 from hisim.postprocessing.pyam_data_collection import (
     PyamDataTypeEnum,
     PyamDataProcessingModeEnum,
@@ -83,14 +84,14 @@ class PyAmChartGenerator:
         ):
             data_path_strip = "data_with_different_pv_tilts"
             result_path_strip = "results_different_pv_tilts"
-            
+
         elif (
             data_processing_mode
             == PyamDataProcessingModeEnum.PROCESS_FOR_DIFFERENT_DELTA_T_IN_HP_CONTROLLER
         ):
             data_path_strip = "data_with_different_delta_Ts"
             result_path_strip = "results_different_delta_Ts"
-            
+
         elif (
             data_processing_mode
             == PyamDataProcessingModeEnum.PROCESS_FOR_DIFFERENT_HOT_WATER_STORAGE_SIZES
@@ -127,7 +128,6 @@ class PyAmChartGenerator:
             time_resolution_of_data_set=time_resolution_of_data_set,
             list_of_scenarios_to_check=list_of_scenarios_to_check,
         )
-
 
         if variables_to_check != [] and variables_to_check is not None:
             self.make_plots_with_specific_kind_of_data(
@@ -184,15 +184,16 @@ class PyAmChartGenerator:
                     list_of_scenarios_to_check=list_of_scenarios_to_check,
                 )
 
-            # create pyam dataframe
-            pyam_dataframe = pyam.IamDataFrame(file_df)
+            # # create pyam dataframe
+            # pyam_dataframe = pyam.IamDataFrame(file_df)
+            # print(pyam_dataframe.data)
 
-            return pyam_dataframe
+            return file_df  # pyam_dataframe
 
     def make_plots_with_specific_kind_of_data(
         self,
         time_resolution_of_data_set: Any,
-        pyam_dataframe: pyam.IamDataFrame,
+        pyam_dataframe: pd.DataFrame,  # pyam.IamDataFrame,
         simulation_duration_key: str,
         variables_to_check: List[str],
     ) -> None:
@@ -228,21 +229,24 @@ class PyAmChartGenerator:
             if os.path.exists(self.plot_path_complete) is False:
                 os.makedirs(self.plot_path_complete)
 
-            # filter data according to variable
-            filtered_data = self.filter_pyam_dataframe(
-                pyam_dataframe=pyam_dataframe,
-                filter_model=None,
-                filter_scenario=None,
-                filter_region=None,
-                filter_variables=variable_to_check,
-                filter_unit=None,
-                filter_year=None,
+            # # filter data according to variable
+            # filtered_data = self.filter_pyam_dataframe(
+            #     pyam_dataframe=pyam_dataframe,
+            #     filter_model=None,
+            #     filter_scenario=None,
+            #     filter_region=None,
+            #     filter_variables=variable_to_check,
+            #     filter_unit=None,
+            #     filter_year=None,
+            # )
+            filtered_data = self.filter_pandas_dataframe(
+                dataframe=pyam_dataframe, variable_to_check=variable_to_check
             )
 
             # determine whether you want to compare one variable for different scenarios or different variables for one scenario
-            comparion_mode = self.decide_for_scenario_or_variable_comparison(
-                filtered_data=filtered_data
-            )
+            # comparion_mode = self.decide_for_scenario_or_variable_comparison(
+            #     filtered_data=filtered_data
+            # )
 
             if time_resolution_of_data_set == PyamDataTypeEnum.YEARLY:
                 kind_of_data_set = "yearly"
@@ -256,20 +260,22 @@ class PyAmChartGenerator:
                     kind_of_data_set=kind_of_data_set,
                 )
 
-                self.make_box_plot_for_pyam_dataframe(
+                # try:
+                self.make_box_plot_for_pandas_dataframe(
                     filtered_data=filtered_data, title=self.path_addition,
                 )
-                self.make_pie_plot_for_pyam_dataframe(
-                    filtered_data=filtered_data,
-                    comparison_mode=comparion_mode,
-                    title=self.path_addition,
+                # self.make_pie_plot_for_pyam_dataframe(
+                #     filtered_data=filtered_data,
+                #     comparison_mode=comparion_mode,
+                #     title=self.path_addition,
+                # )
+
+                self.make_bar_plot_for_pandas_dataframe(
+                    filtered_data=filtered_data, title=self.path_addition,
                 )
 
-                self.make_bar_plot_for_pyam_dataframe(
-                    filtered_data=filtered_data,
-                    comparison_mode=comparion_mode,
-                    title=self.path_addition,
-                )
+                # except Exception:
+                #     log.information(f"{variable_to_check} could not be plotted.")
 
                 # self.make_scatter_plot_for_pyam_dataframe(
                 #     pyam_dataframe=pyam_dataframe,
@@ -310,11 +316,12 @@ class PyAmChartGenerator:
                     kind_of_data_set=kind_of_data_set,
                 )
 
-                self.make_line_plot_for_pyam_dataframe(
-                    filtered_data=filtered_data,
-                    title=self.path_addition,
-                    line_plot_marker_size=line_plot_marker_size,
-                )
+                try:
+                    self.make_line_plot_for_pandas_dataframe(
+                        filtered_data=filtered_data,
+                        title=self.path_addition,
+                        line_plot_marker_size=line_plot_marker_size,
+                    )
 
                 # so far only working when scenarios_to_check are set
                 # self.make_line_plot_with_filling_for_pyam_dataframe(
@@ -323,13 +330,16 @@ class PyAmChartGenerator:
                 #     title=self.path_addition,
                 # )
 
+                except Exception:
+                    log.information(f"{variable_to_check} could not be plotted.")
+
             else:
                 raise ValueError(
                     "This kind of data was not found in the pyamdatacollectorenum class."
                 )
 
-    def make_line_plot_for_pyam_dataframe(
-        self, filtered_data: pyam.IamDataFrame, title: str, line_plot_marker_size: int
+    def make_line_plot_for_pandas_dataframe(
+        self, filtered_data: pd.DataFrame, title: str, line_plot_marker_size: int
     ) -> None:
         """Make line plot."""
         log.information("Make line plot with data.")
@@ -337,16 +347,15 @@ class PyAmChartGenerator:
         fig, a_x = plt.subplots(
             figsize=self.hisim_chartbase.figsize, dpi=self.hisim_chartbase.dpi
         )
-        x_data = list(OrderedSet(list(filtered_data.data["time"])))
+        x_data = list(OrderedSet(list(filtered_data.time)))
 
-        # filtered_data.plot.line(
-        #     ax=a_x, color=comparison_mode, title=title,
-        # )
+        year = filtered_data.time.values[0].split("-")[0]
 
-        # alternative manual way to make line plots
-        for scenario in filtered_data.scenario:
-            filtered_data_per_scenario = filtered_data.data.loc[
-                filtered_data.data["scenario"] == scenario
+        x_data_transformed = np.asarray(x_data, dtype="datetime64[D]")
+
+        for scenario in list(OrderedSet(list(filtered_data.scenario))):
+            filtered_data_per_scenario = filtered_data.loc[
+                filtered_data["scenario"] == scenario
             ]
             mean_values_aggregated_according_to_scenarios = []
             for time_value in x_data:
@@ -364,25 +373,31 @@ class PyAmChartGenerator:
             y_data = mean_values_aggregated_according_to_scenarios
 
             plt.plot(
-                x_data, y_data, "-o", markersize=line_plot_marker_size, label=scenario
+                x_data_transformed,
+                y_data,
+                "-o",
+                markersize=line_plot_marker_size,
+                label=scenario,
             )
 
         y_tick_labels, unit, y_tick_locations = self.set_axis_scale(
-            a_x, x_or_y="y", unit=filtered_data.unit[0]
+            a_x, x_or_y="y", unit=filtered_data.unit.values[0]
         )
         plt.yticks(
             ticks=y_tick_locations,
             labels=y_tick_labels,
             fontsize=self.hisim_chartbase.fontsize_ticks,
         )
+
         plt.ylabel(
             ylabel=f"{unit}", fontsize=self.hisim_chartbase.fontsize_label,
         )
         plt.xlabel(
-            xlabel="Time", fontsize=self.hisim_chartbase.fontsize_label,
+            xlabel=year, fontsize=self.hisim_chartbase.fontsize_label,
         )
         plt.title(label=title, fontsize=self.hisim_chartbase.fontsize_title)
         plt.tick_params(labelsize=self.hisim_chartbase.fontsize_ticks)
+        a_x.tick_params(axis="x", labelrotation=45)
         plt.legend(fontsize=ChartFontsAndSize.fontsize_legend)
 
         fig.savefig(os.path.join(self.plot_path_complete, "line_plot.png"))
@@ -422,8 +437,8 @@ class PyAmChartGenerator:
         fig.savefig(os.path.join(self.plot_path_complete, "line_plot_with_filling.png"))
         plt.close()
 
-    def make_bar_plot_for_pyam_dataframe(
-        self, filtered_data: pyam.IamDataFrame, comparison_mode: str, title: str,
+    def make_bar_plot_for_pandas_dataframe(
+        self, filtered_data: pd.DataFrame, title: str,
     ) -> None:
         """Make bar plot."""
         log.information("Make bar plot.")
@@ -431,29 +446,28 @@ class PyAmChartGenerator:
         fig, a_x = plt.subplots(
             figsize=self.hisim_chartbase.figsize, dpi=self.hisim_chartbase.dpi
         )
-        # filtered_data.plot.bar(ax=a_x, stacked=False, bars=comparison_mode)
+
         y_data = []
         bar_labels = []
-        # alternative manual way to make bar plots
+
         for scenario in filtered_data.scenario:
-            filtered_data_per_scenario = filtered_data.data.loc[
-                filtered_data.data["scenario"] == scenario
+
+            filtered_data_per_scenario = filtered_data.loc[
+                filtered_data["scenario"] == scenario
             ]
             value = float(filtered_data_per_scenario["value"])
-            
 
             y_data.append(value)
             bar_labels.append(scenario)
 
-        x_data = np.arange(0, len(y_data)*2, step=2)
-        cmap = plt.get_cmap('viridis')
+        x_data = np.arange(0, len(y_data) * 2, step=2)
+
+        cmap = plt.get_cmap("viridis")
         colors = [cmap(i) for i in np.linspace(0, 1, len(x_data))]
-        a_x.bar(
-            x_data, y_data, label=bar_labels, color=colors
-        )
+        a_x.bar(x_data, y_data, label=bar_labels, color=colors)
 
         y_tick_labels, unit, y_tick_locations = self.set_axis_scale(
-            a_x, x_or_y="y", unit=filtered_data.unit[0]
+            a_x, x_or_y="y", unit=filtered_data.unit.values[0],
         )
         plt.yticks(
             ticks=y_tick_locations,
@@ -464,20 +478,22 @@ class PyAmChartGenerator:
             ylabel=f"{unit}", fontsize=self.hisim_chartbase.fontsize_label,
         )
         plt.xlabel(
-            xlabel=filtered_data.time_col.capitalize(),
+            xlabel=filtered_data.year.values[0],
             fontsize=self.hisim_chartbase.fontsize_label,
         )
         plt.title(label=title, fontsize=self.hisim_chartbase.fontsize_title)
         plt.tick_params(labelsize=self.hisim_chartbase.fontsize_ticks)
 
-        plt.legend(bbox_to_anchor=(1,1), loc="upper left")
+        plt.legend(bbox_to_anchor=(1, 1), loc="upper left")
+
+        a_x.xaxis.set_tick_params(labelbottom=False)
+        a_x.set_xticks([])
         plt.tight_layout()
-        a_x.tick_params(axis="x", rotation=45)
         fig.savefig(os.path.join(self.plot_path_complete, "bar_plot.png"))
         plt.close()
 
-    def make_box_plot_for_pyam_dataframe(
-        self, filtered_data: pyam.IamDataFrame, title: str,
+    def make_box_plot_for_pandas_dataframe(
+        self, filtered_data: pd.DataFrame, title: str,
     ) -> None:
         """Make box plot."""
         log.information("Make box plot.")
@@ -486,12 +502,9 @@ class PyAmChartGenerator:
             figsize=self.hisim_chartbase.figsize, dpi=self.hisim_chartbase.dpi
         )
 
-        filtered_data.plot.box(
-            ax=a_x, by="scenario", x="year", title=title, legend=True,
-        )
-
+        sns.boxplot(data=filtered_data, x="scenario", y="value")
         y_tick_labels, unit, y_tick_locations = self.set_axis_scale(
-            a_x, x_or_y="y", unit=filtered_data.unit[0]
+            a_x, x_or_y="y", unit=filtered_data.unit.values[0]
         )
         plt.yticks(
             ticks=y_tick_locations,
@@ -502,14 +515,17 @@ class PyAmChartGenerator:
             ylabel=f"{unit}", fontsize=self.hisim_chartbase.fontsize_label,
         )
         plt.xlabel(
-            xlabel=filtered_data.time_col.capitalize(),
+            xlabel=filtered_data.year.values[0],
             fontsize=self.hisim_chartbase.fontsize_label,
         )
         plt.title(label=title, fontsize=self.hisim_chartbase.fontsize_title)
         plt.tick_params(labelsize=self.hisim_chartbase.fontsize_ticks)
-        plt.tight_layout()
-        plt.legend(loc=1)
-        fig.savefig(os.path.join(self.plot_path_complete, "box_plot.png"))
+        a_x.xaxis.set_tick_params(labelbottom=False)
+        a_x.set_xticks([])
+        plt.legend(filtered_data.scenario, bbox_to_anchor=(1, 1), loc="upper left")
+        fig.savefig(
+            os.path.join(self.plot_path_complete, "box_plot.png"), bbox_inches="tight"
+        )
         plt.close()
 
     def make_pie_plot_for_pyam_dataframe(
@@ -794,6 +810,13 @@ class PyAmChartGenerator:
 
         return filtered_data
 
+    def filter_pandas_dataframe(
+        self, dataframe: pd.DataFrame, variable_to_check: str
+    ) -> pd.DataFrame:
+        """Filter pandas dataframe according to variable."""
+
+        return dataframe.loc[dataframe["variable"] == variable_to_check]
+
     def decide_for_scenario_or_variable_comparison(
         self, filtered_data: pyam.IamDataFrame
     ) -> str:
@@ -811,7 +834,7 @@ class PyAmChartGenerator:
         return comparison_mode
 
     def get_statistics_of_data_and_write_to_excel(
-        self, filtered_data: pyam.IamDataFrame, path_to_save: str, kind_of_data_set: str
+        self, filtered_data: pd.DataFrame, path_to_save: str, kind_of_data_set: str,
     ) -> None:
         """Use pandas describe method to get statistical values of certain data."""
         # create a excel writer object
@@ -819,8 +842,9 @@ class PyAmChartGenerator:
             path=os.path.join(path_to_save, f"{kind_of_data_set}_statistics.xlsx"),
             mode="w",
         ) as writer:
-            filtered_data.data.to_excel(excel_writer=writer, sheet_name="filtered data")
-            statistical_data = filtered_data.data.describe()
+
+            filtered_data.to_excel(excel_writer=writer, sheet_name="filtered data")
+            statistical_data = filtered_data.describe()
 
             statistical_data.to_excel(excel_writer=writer, sheet_name="statistics")
 
@@ -867,14 +891,14 @@ class PyAmChartGenerator:
 # kpi data has no time series, so only choose when you analyze yearly data
 kpi_data = [
     "Consumption",
-    "Production",
-    "Self-consumption",
+    # "Production",
+    # "Self-consumption",
     # "Injection",
-    "Self-consumption rate",
+    # "Self-consumption rate",
     # "Cost for energy use",
     # "CO2 emitted due energy use",
     # "Battery losses",
-    "Autarky rate",
+    # "Autarky rate",
     # "Annual investment cost for equipment (old version)",
     # "Annual CO2 Footprint for equipment (old version)",
     # "Investment cost for equipment per simulated period",
@@ -883,11 +907,11 @@ kpi_data = [
     # "System operational Emissions for simulated period",
     "Total costs for simulated period",
     "Total emissions for simulated period",
-    "Time of building indoor air temperature being below set temperature 19 °C",
+    "Temperature deviation of building indoor air temperature being below set temperature 19 °C",
     "Minimum building indoor air temperature reached",
-    "Time of building indoor air temperature being above set temperature 24 °C",
+    "Temperature deviation of building indoor air temperature being above set temperature 24 °C",
     "Maximum building indoor air temperature reached",
-    "Number of heat pump cycles"
+    "Number of heat pump cycles",
 ]
 
 electricity_data = [
@@ -895,7 +919,7 @@ electricity_data = [
     # "PVSystem_w0|Electricity|ElectricityOutput", # check if pv was used or not
     "ElectricityMeter|Electricity|ElectricityToOrFromGrid",
     "ElectricityMeter|Electricity|ElectricityConsumption",
-    "ElectricityMeter|Electricity|ElectricityProduction"
+    # "ElectricityMeter|Electricity|ElectricityProduction"
 ]
 
 occuancy_consumption = [

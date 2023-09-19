@@ -50,8 +50,7 @@ def main():
     folder_from_which_data_will_be_collected = os.path.join(
         cluster_storage_path,
         # "repositories/HiSim/examples/results/household_cluster_reference_advanced_hp/german_tabula_buildings_20230908_1231/",
-        "repositories/HiSim/examples/results/household_cluster_test_advanced_hp/hplib_configs_20230915_1122_different_delta_t",
-
+        "repositories/HiSim/examples/results/household_cluster_test_advanced_hp/hplib_configs_20230915_1133",
     )
     # folder_from_which_data_will_be_collected = (
     #     r"C:\Users\k.rieck\Cluster_stuff_copied\examples_results"
@@ -65,10 +64,12 @@ def main():
     simulation_duration_to_check = str(365)
 
     data_processing_mode = (
-        pyam_data_collection.PyamDataProcessingModeEnum.PROCESS_FOR_DIFFERENT_DELTA_T_IN_HP_CONTROLLER
+        pyam_data_collection.PyamDataProcessingModeEnum.PROCESS_FOR_DIFFERENT_HOT_WATER_STORAGE_SIZES
     )
 
-    list_with_variables_to_check = (pyam_data_processing.heating_demand + pyam_data_processing.electricity_data + pyam_data_processing.kpi_data) # + pyam_data_processing.kpi_data)
+    list_with_variables_to_check = (
+        pyam_data_processing.heating_demand + pyam_data_processing.electricity_data
+    )  # + pyam_data_processing.kpi_data) # + pyam_data_processing.kpi_data)
     # + pyam_data_processing.heating_demand
     # + pyam_data_processing.electricity_data
     # + pyam_data_processing.occuancy_consumption
