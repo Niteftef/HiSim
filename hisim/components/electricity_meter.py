@@ -63,8 +63,8 @@ class ElectricityMeter(DynamicComponent):
         config: ElectricityMeterConfig,
     ):
         """Initialize the component."""
-        self.grid_energy_balancer_config = config
-        self.name = self.grid_energy_balancer_config.name
+        self.electricity_meter_config = config
+        self.name = self.electricity_meter_config.name
         self.my_component_inputs: List[DynamicConnectionInput] = []
         self.my_component_outputs: List[DynamicConnectionOutput] = []
         super().__init__(
@@ -90,7 +90,7 @@ class ElectricityMeter(DynamicComponent):
             object_name=self.component_name,
             field_name=self.ElectricityToOrFromGrid,
             load_type=lt.LoadTypes.ELECTRICITY,
-            unit=lt.Units.WATT,
+            unit=lt.Units.WATT_HOUR,
             sankey_flow_direction=False,
             output_description=f"here a description for {self.ElectricityToOrFromGrid} will follow.",
         )
@@ -99,7 +99,7 @@ class ElectricityMeter(DynamicComponent):
             object_name=self.component_name,
             field_name=self.ElectricityConsumption,
             load_type=lt.LoadTypes.ELECTRICITY,
-            unit=lt.Units.WATT,
+            unit=lt.Units.WATT_HOUR,
             sankey_flow_direction=False,
             output_description=f"here a description for {self.ElectricityConsumption} will follow.",
         )
@@ -108,7 +108,7 @@ class ElectricityMeter(DynamicComponent):
             object_name=self.component_name,
             field_name=self.ElectricityProduction,
             load_type=lt.LoadTypes.ELECTRICITY,
-            unit=lt.Units.WATT,
+            unit=lt.Units.WATT_HOUR,
             sankey_flow_direction=False,
             output_description=f"here a description for {self.ElectricityProduction} will follow.",
         )
@@ -133,7 +133,7 @@ class ElectricityMeter(DynamicComponent):
 
     def write_to_report(self):
         """Writes relevant information to report."""
-        return self.grid_energy_balancer_config.get_string_dict()
+        return self.electricity_meter_config.get_string_dict()
 
     def i_save_state(self) -> None:
         """Saves the state."""
@@ -197,19 +197,19 @@ class ElectricityMeter(DynamicComponent):
 
         # Production of Electricity positve sign
         # Consumption of Electricity negative sign
-        electricity_to_or_from_grid = (
-            production_in_watt - consumption_uncontrolled_in_watt
+        electricity_to_or_from_grid_in_watt_hour = (
+            production_in_watt_hour - consumption_uncontrolled_in_watt_hour
         )
 
         stsv.set_output_value(
-            self.electricity_to_or_from_grid, electricity_to_or_from_grid
+            self.electricity_to_or_from_grid, electricity_to_or_from_grid_in_watt_hour
         )
         stsv.set_output_value(
-            self.electricity_consumption_channel, consumption_uncontrolled_in_watt,
+            self.electricity_consumption_channel, consumption_uncontrolled_in_watt_hour,
         )
 
         stsv.set_output_value(
-            self.electricity_production_channel, production_in_watt,
+            self.electricity_production_channel, production_in_watt_hour,
         )
 
         stsv.set_output_value(
@@ -242,14 +242,12 @@ class ElectricityMeter(DynamicComponent):
             ):  # Todo: check component name from examples: find another way of using the correct outputs
                 self.config.total_energy_to_grid_in_kwh = round(
                     postprocessing_results.iloc[:, index].clip(lower=0).sum()
-                    * self.my_simulation_parameters.seconds_per_timestep
-                    / 3.6e6,
+                    * 1e-3,
                     1,
                 )
                 self.config.total_energy_from_grid_in_kwh = -round(
                     postprocessing_results.iloc[:, index].clip(upper=0).sum()
-                    * self.my_simulation_parameters.seconds_per_timestep
-                    / 3.6e6,
+                    * 1e-3,
                     1,
                 )
         emissions_and_cost_factors = EmissionFactorsAndCostsForFuelsConfig.get_values_for_year(self.my_simulation_parameters.year)
