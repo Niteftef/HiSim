@@ -204,6 +204,7 @@ class PVSystemConfig(ConfigBase):
     time: int
     location: str
     module_name: str
+    module_lib: str #choose a library from which modules are available (cec or sandia)
     integrate_inverter: bool
     inverter_name: str
     power: float
@@ -228,7 +229,8 @@ class PVSystemConfig(ConfigBase):
             time=2019,
             power=power,
             load_module_data=False,
-            module_name="Hanwha_HSL60P6_PA_4_250T__2013_",
+            module_name="Trina Solar TSM-410DE09",
+            module_lib="cec",
             integrate_inverter=True,
             inverter_name="ABB__MICRO_0_25_I_OUTD_US_208_208V__CEC_2014_",
             name="PVSystem",
@@ -390,7 +392,8 @@ class PVSystem(cp.Component):
             name="PVSystem",
             time=2019,
             location="Aachen",
-            module_name="Hanwha_HSL60P6_PA_4_250T__2013_",
+            module_name="Trina Solar TSM-410DE09",
+            module_lib= "cec",
             integrate_inverter=True,
             inverter_name="ABB__MICRO_0_25_I_OUTD_US_208_208V__CEC_2014_",
             power=power,
@@ -683,9 +686,14 @@ class PVSystem(cp.Component):
                 self.data = [0] * self.my_simulation_parameters.timesteps
                 self.data_length = self.my_simulation_parameters.timesteps
 
-        self.modules = pd.read_csv(
-            os.path.join(utils.HISIMPATH["photovoltaic"]["modules"]), index_col=0,
-        )
+        if self.pvconfig.module_lib == "sandia":
+            self.modules = pd.read_csv(
+                os.path.join(utils.HISIMPATH["photovoltaic"]["modules"]["sandia"]), index_col=0,
+            )
+        elif self.pvconfig.module_lib == "cec":
+            self.modules = pd.read_csv(
+                os.path.join(utils.HISIMPATH["photovoltaic"]["modules"]["cec"]), index_col=0,
+            )
 
         self.inverters = pd.read_csv(
             os.path.join(utils.HISIMPATH["photovoltaic"]["inverters"]), index_col=0,
@@ -698,6 +706,7 @@ class PVSystem(cp.Component):
         # load the sandia data
         if self.pvconfig.load_module_data:
             # load module data online
+            #if self.pvconfig.module_lib:
             modules = pvlib.pvsystem.retrieve_sam(name="SandiaMod")
             self.module = modules[self.pvconfig.module_name]
             # get inverter data
