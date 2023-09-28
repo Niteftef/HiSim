@@ -692,7 +692,7 @@ class PVSystem(cp.Component):
             )
         elif self.pvconfig.module_lib == "cec":
             self.modules = pd.read_csv(
-                os.path.join(utils.HISIMPATH["photovoltaic"]["modules"]["cec"]), index_col=0,
+                os.path.join(utils.HISIMPATH["photovoltaic"]["modules"]["cec"]), index_col= 0
             )
 
         self.inverters = pd.read_csv(
