@@ -2,16 +2,15 @@
 
 # clean
 
-from typing import Optional, Any
+from typing import Optional, Any, Union, List
 import re
 import os
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
-
+from utspclient.helpers.lpgpythonbindings import JsonReference
+from utspclient.helpers.lpgdata import Households
 from hisim.simulator import SimulationParameters
-from hisim.components import loadprofilegenerator_connector
-from hisim.components import weather
-from hisim.components import building
+
 from hisim.components import (
     advanced_heat_pump_hplib,
     simple_hot_water_storage,
@@ -20,6 +19,9 @@ from hisim.components import (
     generic_hot_water_storage_modular,
     controller_l1_heatpump,
     electricity_meter,
+    weather,
+    building,
+    loadprofilegenerator_utsp_connector
 )
 from hisim.component import ConfigBase
 from hisim.result_path_provider import ResultPathProviderSingleton, SortingOptionEnum
@@ -49,8 +51,9 @@ class BuildingPVWeatherConfig(ConfigBase):
     pv_tilt: float
     share_of_maximum_pv_power: float
     building_code: str
-    total_base_area_in_m2: float
-    # location: Any
+    conditioned_floor_area_in_m2: float
+    number_of_dwellings_per_building: int
+    lpg_households: Union[JsonReference, List[JsonReference]]
 
     @classmethod
     def get_default(cls):
@@ -63,8 +66,9 @@ class BuildingPVWeatherConfig(ConfigBase):
             pv_tilt=30,
             share_of_maximum_pv_power=1,
             building_code="DE.N.SFH.05.Gen.ReEx.001.002",
-            total_base_area_in_m2=121.2,
-            # location=weather.LocationEnum.Aachen,
+            conditioned_floor_area_in_m2=121.2,
+            number_of_dwellings_per_building=1,
+            lpg_households=Households.CHR01_Couple_both_at_Work,  
         )
 
 
@@ -139,11 +143,11 @@ def household_cluster_reference_advanced_hp(
 
     # Set Building (scale building according to total base area and not absolute floor area)
     building_code = my_config.building_code
-    total_base_area_in_m2 = my_config.total_base_area_in_m2
-    absolute_conditioned_floor_area_in_m2 = None
+    absolute_conditioned_floor_area_in_m2 = my_config.conditioned_floor_area_in_m2
+    total_base_area_in_m2 = None
 
-    # # Set Weather
-    # location_entry = my_config.location
+    # Set Occupancy
+    household = my_config.lpg_households
 
     # =================================================================================================================================
     # Set Fix System Parameters
@@ -193,10 +197,10 @@ def household_cluster_reference_advanced_hp(
     )
 
     # Build Occupancy
-    my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig.get_scaled_chr01_according_to_number_of_apartments(
-        number_of_apartments=my_building_information.number_of_apartments
-    )
-    my_occupancy = loadprofilegenerator_connector.Occupancy(
+    my_occupancy_config = loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig.get_default_utsp_connector_config()
+    my_occupancy_config.household = household
+
+    my_occupancy = loadprofilegenerator_utsp_connector.UtspLpgConnector(
         config=my_occupancy_config, my_simulation_parameters=my_simulation_parameters
     )
 

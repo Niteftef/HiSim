@@ -1,17 +1,11 @@
 """  Basic household new example. """
 
 # clean
-
-from typing import Optional, Any
+from typing import Optional, Any, Union, List
 import re
 import os
-from dataclasses import dataclass
-from dataclasses_json import dataclass_json
+
 from hisim.simulator import SimulationParameters
-from hisim.components import loadprofilegenerator_connector
-from hisim.components import weather
-from hisim.components import generic_pv_system
-from hisim.components import building
 from hisim.components import (
     advanced_heat_pump_hplib,
     advanced_battery_bslib,
@@ -22,14 +16,19 @@ from hisim.components import (
     generic_hot_water_storage_modular,
     controller_l1_heatpump,
     electricity_meter,
+    weather,
+    building,
+    generic_pv_system,
+    loadprofilegenerator_utsp_connector
 )
-from hisim.component import ConfigBase
+from examples.household_cluster_reference_advanced_hp import BuildingPVWeatherConfig
 from hisim.result_path_provider import ResultPathProviderSingleton, SortingOptionEnum
 from hisim.sim_repository_singleton import SingletonSimRepository, SingletonDictKeyEnum
 from hisim.postprocessingoptions import PostProcessingOptions
 from hisim import loadtypes as lt
 from hisim import log
-
+from utspclient.helpers.lpgpythonbindings import JsonReference
+from utspclient.helpers.lpgdata import Households
 __authors__ = "Katharina Rieck"
 __copyright__ = "Copyright 2022, FZJ-IEK-3"
 __credits__ = ["Noah Pflugradt"]
@@ -37,37 +36,6 @@ __license__ = "MIT"
 __version__ = "1.0"
 __maintainer__ = "Noah Pflugradt"
 __status__ = "development"
-
-
-@dataclass_json
-@dataclass
-class BuildingPVWeatherConfig(ConfigBase):
-
-    """Configuration for BuildingPv."""
-
-    name: str
-    pv_size: float
-    pv_azimuth: float
-    pv_tilt: float
-    share_of_maximum_pv_power: float
-    building_code: str
-    total_base_area_in_m2: float
-    # location: Any
-
-    @classmethod
-    def get_default(cls):
-        """Get default BuildingPVConfig."""
-
-        return BuildingPVWeatherConfig(
-            name="BuildingPVWeatherConfig",
-            pv_size=5,
-            pv_azimuth=180,
-            pv_tilt=30,
-            share_of_maximum_pv_power=1,
-            building_code="DE.N.SFH.05.Gen.ReEx.001.002",
-            total_base_area_in_m2=121.2,
-            # location=weather.LocationEnum.Aachen,
-        )
 
 
 def household_cluster_advanced_hp_pv_battery_ems(
@@ -146,13 +114,33 @@ def household_cluster_advanced_hp_pv_battery_ems(
     azimuth = my_config.pv_azimuth
     tilt = my_config.pv_tilt
 
-    # Set Building (scale building according to total base area and not absolute floor area)
+    # Set Building (scale building according to absolute floor area)
     building_code = my_config.building_code
-    total_base_area_in_m2 = my_config.total_base_area_in_m2
-    absolute_conditioned_floor_area_in_m2 = None
+    absolute_conditioned_floor_area_in_m2 = my_config.conditioned_floor_area_in_m2
+    total_base_area_in_m2 = None
 
-    # # Set Weather
-    # location_entry = my_config.location
+    # Set Occupancy
+    household_list: Union[JsonReference, List[JsonReference]]
+    if isinstance(my_config.lpg_households, List):
+        print("household is list")
+        household_list = []
+        for household in my_config.lpg_households:
+            if hasattr(Households,household):
+                print(f"Household class has attribute {household}")
+                
+                json_household = getattr(Households, household)
+                household_list.append(json_household)
+    elif isinstance(my_config.lpg_households, str):
+        print("household is string")
+        if hasattr(Households, my_config.lpg_households):
+                print(f"Household class has attribute {my_config.lpg_households}")
+                
+                json_household = getattr(Households, my_config.lpg_households)
+                household_list = json_household
+        
+    
+    household = household_list
+    api_key = "OrjpZY93BcNWw8lKaMp0BEchbCc"
 
     # =================================================================================================================================
     # Set Fix System Parameters
@@ -204,12 +192,13 @@ def household_cluster_advanced_hp_pv_battery_ems(
         config=my_building_config, my_simulation_parameters=my_simulation_parameters
     )
 
-    # Build Occupancy
-    my_occupancy_config = loadprofilegenerator_connector.OccupancyConfig.get_scaled_chr01_according_to_number_of_apartments(
-        number_of_apartments=my_building_information.number_of_apartments
-    )
 
-    my_occupancy = loadprofilegenerator_connector.Occupancy(
+    # Build Occupancy
+    my_occupancy_config = loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig.get_default_utsp_connector_config()
+    my_occupancy_config.household = household
+    my_occupancy_config.api_key = api_key
+
+    my_occupancy = loadprofilegenerator_utsp_connector.UtspLpgConnector(
         config=my_occupancy_config, my_simulation_parameters=my_simulation_parameters
     )
 

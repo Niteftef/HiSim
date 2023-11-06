@@ -69,10 +69,10 @@ class UtspLpgConnectorConfig(cp.ConfigBase):
 
         config = UtspLpgConnectorConfig(
             name="UTSPConnector",
-            url="http://localhost:443/api/v1/profilerequest",
+            url="http://134.94.131.167:443/api/v1/profilerequest", # "http://localhost:443/api/v1/profilerequest",
             api_key="",
             household=Households.CHR01_Couple_both_at_Work,
-            result_path=os.path.join(utils.get_input_directory(), "lpg_profiles"),
+            result_path=utils.HISIMPATH["utsp_results"],
             energy_intensity=EnergyIntensityType.EnergySaving,
             travel_route_set=TravelRouteSets.Travel_Route_Set_for_10km_Commuting_Distance,
             transportation_device_set=TransportationDeviceSets.Bus_and_one_30_km_h_Car,
