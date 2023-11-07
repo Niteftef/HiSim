@@ -69,14 +69,14 @@ class UtspLpgConnectorConfig(cp.ConfigBase):
 
         config = UtspLpgConnectorConfig(
             name="UTSPConnector",
-            url="http://134.94.131.167:443/api/v1/profilerequest", # "http://localhost:443/api/v1/profilerequest",
-            api_key="",
+            url="http://134.94.131.167:443/api/v1/profilerequest",
+            api_key="OrjpZY93BcNWw8lKaMp0BEchbCc",
             household=Households.CHR01_Couple_both_at_Work,
             result_path=utils.HISIMPATH["utsp_results"],
             energy_intensity=EnergyIntensityType.EnergySaving,
             travel_route_set=TravelRouteSets.Travel_Route_Set_for_10km_Commuting_Distance,
             transportation_device_set=TransportationDeviceSets.Bus_and_one_30_km_h_Car,
-            charging_station_set=ChargingStationSets.Charging_At_Home_with_03_7_kW,
+            charging_station_set=ChargingStationSets.Charging_At_Home_with_11_kW,
             consumption=0,
             profile_with_washing_machine_and_dishwasher=True,
             predictive_control=False,

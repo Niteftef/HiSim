@@ -2190,7 +2190,7 @@ class BuildingInformation:
         """
 
         if self.buildingconfig.number_of_apartments is not None:
-            print("number of apart not none")
+            log.information(f"Number of apartments {self.buildingconfig.number_of_apartments} was given by config.")
             number_of_apartments_origin = self.buildingconfig.number_of_apartments
 
             if number_of_apartments_origin == 0:

@@ -7,8 +7,8 @@ import re
 import os
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
-# from utspclient.helpers.lpgpythonbindings import JsonReference
-# from utspclient.helpers.lpgdata import Households
+from utspclient.helpers.lpgpythonbindings import JsonReference
+from utspclient.helpers.lpgdata import Households
 from hisim.simulator import SimulationParameters
 
 from hisim.components import (
@@ -66,8 +66,8 @@ class BuildingPVWeatherConfig(ConfigBase):
             pv_tilt=30,
             share_of_maximum_pv_power=1,
             building_code="DE.N.SFH.05.Gen.ReEx.001.002",
-            conditioned_floor_area_in_m2=121.2,
-            number_of_dwellings_per_building=1,
+            conditioned_floor_area_in_m2=600,
+            number_of_dwellings_per_building=3,
             lpg_households="CHR01_Couple_both_at_Work",
         )
 
@@ -141,13 +141,39 @@ def household_cluster_reference_advanced_hp(
         )
     my_sim.set_simulation_parameters(my_simulation_parameters)
 
-    # Set Building (scale building according to total base area and not absolute floor area)
+    # Set Building (scale building according to absolute floor area)
     building_code = my_config.building_code
+    number_of_apartments = my_config.number_of_dwellings_per_building
     absolute_conditioned_floor_area_in_m2 = my_config.conditioned_floor_area_in_m2
     total_base_area_in_m2 = None
 
     # Set Occupancy
-    household = my_config.lpg_households
+    household_list: Union[JsonReference, List[JsonReference]]
+    if isinstance(my_config.lpg_households, List):
+        log.information("Household is list")
+        household_list = []
+        for household in my_config.lpg_households:
+            if hasattr(Households, household):
+                log.information(f"Household class has attribute {household}")
+
+                json_household = getattr(Households, household)
+                household_list.append(json_household)
+    elif isinstance(my_config.lpg_households, str):
+        log.information("Household is str")
+        if hasattr(Households, my_config.lpg_households):
+            log.information(f"Household class has attribute {my_config.lpg_households}")
+
+            json_household = getattr(Households, my_config.lpg_households)
+            household_list = json_household
+
+    else:
+        raise TypeError(
+            f"The lpg households in the config have invalid type {type(my_config.lpg_households)}. It should be a str or a list of str."
+        )
+
+    households = household_list
+
+    log.information("Household type " + str(type(households)))
 
     # =================================================================================================================================
     # Set Fix System Parameters
@@ -193,7 +219,12 @@ def household_cluster_reference_advanced_hp(
     my_building_config.absolute_conditioned_floor_area_in_m2 = (
         absolute_conditioned_floor_area_in_m2
     )
+    my_building_config.number_of_apartments = number_of_apartments
     my_building_information = building.BuildingInformation(config=my_building_config)
+    log.information(
+        "building number of apartments"
+        + str(my_building_information.number_of_apartments)
+    )
     my_building = building.Building(
         config=my_building_config, my_simulation_parameters=my_simulation_parameters
     )
@@ -202,7 +233,7 @@ def household_cluster_reference_advanced_hp(
     my_occupancy_config = (
         loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig.get_default_utsp_connector_config()
     )
-    my_occupancy_config.household = household
+    my_occupancy_config.household = households
 
     my_occupancy = loadprofilegenerator_utsp_connector.UtspLpgConnector(
         config=my_occupancy_config, my_simulation_parameters=my_simulation_parameters

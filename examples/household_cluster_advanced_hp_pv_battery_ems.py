@@ -6,6 +6,7 @@ import re
 import os
 from utspclient.helpers.lpgpythonbindings import JsonReference
 from utspclient.helpers.lpgdata import Households
+
 from household_cluster_reference_advanced_hp import BuildingPVWeatherConfig
 from hisim.simulator import SimulationParameters
 from hisim.components import (
@@ -116,24 +117,25 @@ def household_cluster_advanced_hp_pv_battery_ems(
 
     # Set Building (scale building according to absolute floor area)
     building_code = my_config.building_code
+    number_of_apartments = my_config.number_of_dwellings_per_building
     absolute_conditioned_floor_area_in_m2 = my_config.conditioned_floor_area_in_m2
     total_base_area_in_m2 = None
 
     # Set Occupancy
     household_list: Union[JsonReference, List[JsonReference]]
     if isinstance(my_config.lpg_households, List):
-        print("household is list")
+        log.information("Household is list")
         household_list = []
         for household in my_config.lpg_households:
             if hasattr(Households, household):
-                print(f"Household class has attribute {household}")
+                log.information(f"Household class has attribute {household}")
 
                 json_household = getattr(Households, household)
                 household_list.append(json_household)
     elif isinstance(my_config.lpg_households, str):
-        print("household is str")
+        log.information("Household is str")
         if hasattr(Households, my_config.lpg_households):
-            print(f"Household class has attribute {my_config.lpg_households}")
+            log.information(f"Household class has attribute {my_config.lpg_households}")
 
             json_household = getattr(Households, my_config.lpg_households)
             household_list = json_household
@@ -143,8 +145,9 @@ def household_cluster_advanced_hp_pv_battery_ems(
             f"The lpg households in the config have invalid type {type(my_config.lpg_households)}. It should be a str or a list of str."
         )
 
-    household = household_list
-    api_key = "OrjpZY93BcNWw8lKaMp0BEchbCc"
+    households = household_list
+
+    log.information("Household type " + str(type(households)))
 
     # =================================================================================================================================
     # Set Fix System Parameters
@@ -191,9 +194,13 @@ def household_cluster_advanced_hp_pv_battery_ems(
     my_building_config.absolute_conditioned_floor_area_in_m2 = (
         absolute_conditioned_floor_area_in_m2
     )
+    my_building_config.number_of_apartments = number_of_apartments
 
     my_building_information = building.BuildingInformation(config=my_building_config)
-
+    log.information(
+        "building number of apartments"
+        + str(my_building_information.number_of_apartments)
+    )
     my_building = building.Building(
         config=my_building_config, my_simulation_parameters=my_simulation_parameters
     )
@@ -202,8 +209,7 @@ def household_cluster_advanced_hp_pv_battery_ems(
     my_occupancy_config = (
         loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig.get_default_utsp_connector_config()
     )
-    my_occupancy_config.household = household
-    my_occupancy_config.api_key = api_key
+    my_occupancy_config.household = households
 
     my_occupancy = loadprofilegenerator_utsp_connector.UtspLpgConnector(
         config=my_occupancy_config, my_simulation_parameters=my_simulation_parameters
