@@ -4,7 +4,9 @@
 from typing import Optional, Any, Union, List
 import re
 import os
-
+from utspclient.helpers.lpgpythonbindings import JsonReference
+from utspclient.helpers.lpgdata import Households
+from household_cluster_reference_advanced_hp import BuildingPVWeatherConfig
 from hisim.simulator import SimulationParameters
 from hisim.components import (
     advanced_heat_pump_hplib,
@@ -19,16 +21,14 @@ from hisim.components import (
     weather,
     building,
     generic_pv_system,
-    loadprofilegenerator_utsp_connector
+    loadprofilegenerator_utsp_connector,
 )
-from examples.household_cluster_reference_advanced_hp import BuildingPVWeatherConfig
 from hisim.result_path_provider import ResultPathProviderSingleton, SortingOptionEnum
 from hisim.sim_repository_singleton import SingletonSimRepository, SingletonDictKeyEnum
 from hisim.postprocessingoptions import PostProcessingOptions
 from hisim import loadtypes as lt
 from hisim import log
-from utspclient.helpers.lpgpythonbindings import JsonReference
-from utspclient.helpers.lpgdata import Households
+
 __authors__ = "Katharina Rieck"
 __copyright__ = "Copyright 2022, FZJ-IEK-3"
 __credits__ = ["Noah Pflugradt"]
@@ -125,20 +125,24 @@ def household_cluster_advanced_hp_pv_battery_ems(
         print("household is list")
         household_list = []
         for household in my_config.lpg_households:
-            if hasattr(Households,household):
+            if hasattr(Households, household):
                 print(f"Household class has attribute {household}")
-                
+
                 json_household = getattr(Households, household)
                 household_list.append(json_household)
     elif isinstance(my_config.lpg_households, str):
-        print("household is string")
+        print("household is str")
         if hasattr(Households, my_config.lpg_households):
-                print(f"Household class has attribute {my_config.lpg_households}")
-                
-                json_household = getattr(Households, my_config.lpg_households)
-                household_list = json_household
-        
-    
+            print(f"Household class has attribute {my_config.lpg_households}")
+
+            json_household = getattr(Households, my_config.lpg_households)
+            household_list = json_household
+
+    else:
+        raise TypeError(
+            f"The lpg households in the config have invalid type {type(my_config.lpg_households)}. It should be a str or a list of str."
+        )
+
     household = household_list
     api_key = "OrjpZY93BcNWw8lKaMp0BEchbCc"
 
@@ -170,9 +174,11 @@ def household_cluster_advanced_hp_pv_battery_ems(
     my_heat_distribution_controller_config.heating_reference_temperature_in_celsius = (
         heating_reference_temperature_in_celsius
     )
-    my_heat_distribution_controller = heat_distribution_system.HeatDistributionController(
-        my_simulation_parameters=my_simulation_parameters,
-        config=my_heat_distribution_controller_config,
+    my_heat_distribution_controller = (
+        heat_distribution_system.HeatDistributionController(
+            my_simulation_parameters=my_simulation_parameters,
+            config=my_heat_distribution_controller_config,
+        )
     )
 
     # Build Building
@@ -192,9 +198,10 @@ def household_cluster_advanced_hp_pv_battery_ems(
         config=my_building_config, my_simulation_parameters=my_simulation_parameters
     )
 
-
     # Build Occupancy
-    my_occupancy_config = loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig.get_default_utsp_connector_config()
+    my_occupancy_config = (
+        loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig.get_default_utsp_connector_config()
+    )
     my_occupancy_config.household = household
     my_occupancy_config.api_key = api_key
 
@@ -212,8 +219,10 @@ def household_cluster_advanced_hp_pv_battery_ems(
     )
 
     # Build PV
-    my_photovoltaic_system_config = generic_pv_system.PVSystemConfig.get_scaled_pv_system(
-        rooftop_area_in_m2=my_building_information.scaled_rooftop_area_in_m2
+    my_photovoltaic_system_config = (
+        generic_pv_system.PVSystemConfig.get_scaled_pv_system(
+            rooftop_area_in_m2=my_building_information.scaled_rooftop_area_in_m2
+        )
     )
     my_photovoltaic_system_config.azimuth = azimuth
     my_photovoltaic_system_config.tilt = tilt
@@ -246,7 +255,8 @@ def household_cluster_advanced_hp_pv_battery_ems(
     )
 
     my_heat_pump = advanced_heat_pump_hplib.HeatPumpHplib(
-        config=my_heat_pump_config, my_simulation_parameters=my_simulation_parameters,
+        config=my_heat_pump_config,
+        my_simulation_parameters=my_simulation_parameters,
     )
 
     # Build Heat Distribution System
@@ -271,14 +281,18 @@ def household_cluster_advanced_hp_pv_battery_ems(
     my_electricity_controller_config = (
         controller_l2_energy_management_system.EMSConfig.get_default_config_ems()
     )
-    my_electricity_controller = controller_l2_energy_management_system.L2GenericEnergyManagementSystem(
-        my_simulation_parameters=my_simulation_parameters,
-        config=my_electricity_controller_config,
+    my_electricity_controller = (
+        controller_l2_energy_management_system.L2GenericEnergyManagementSystem(
+            my_simulation_parameters=my_simulation_parameters,
+            config=my_electricity_controller_config,
+        )
     )
 
     # Build Battery
-    my_advanced_battery_config = advanced_battery_bslib.BatteryConfig.get_scaled_battery(
-        total_pv_power_in_watt_peak=my_photovoltaic_system_config.power
+    my_advanced_battery_config = (
+        advanced_battery_bslib.BatteryConfig.get_scaled_battery(
+            total_pv_power_in_watt_peak=my_photovoltaic_system_config.power
+        )
     )
     my_advanced_battery = advanced_battery_bslib.Battery(
         my_simulation_parameters=my_simulation_parameters,
@@ -306,9 +320,11 @@ def household_cluster_advanced_hp_pv_battery_ems(
         my_simulation_parameters=my_simulation_parameters, config=my_dhw_storage_config
     )
 
-    my_domnestic_hot_water_heatpump_controller = controller_l1_heatpump.L1HeatPumpController(
-        my_simulation_parameters=my_simulation_parameters,
-        config=my_dhw_heatpump_controller_config,
+    my_domnestic_hot_water_heatpump_controller = (
+        controller_l1_heatpump.L1HeatPumpController(
+            my_simulation_parameters=my_simulation_parameters,
+            config=my_dhw_heatpump_controller_config,
+        )
     )
 
     my_domnestic_hot_water_heatpump = generic_heat_pump_modular.ModularHeatPump(
@@ -441,13 +457,18 @@ def household_cluster_advanced_hp_pv_battery_ems(
         source_weight=2,
     )
 
-    electricity_to_or_from_battery_target = my_electricity_controller.add_component_output(
-        source_output_name=lt.InandOutputType.ELECTRICITY_TARGET,
-        source_tags=[lt.ComponentType.BATTERY, lt.InandOutputType.ELECTRICITY_TARGET],
-        source_weight=2,
-        source_load_type=lt.LoadTypes.ELECTRICITY,
-        source_unit=lt.Units.WATT,
-        output_description="Target electricity for Battery Control. ",
+    electricity_to_or_from_battery_target = (
+        my_electricity_controller.add_component_output(
+            source_output_name=lt.InandOutputType.ELECTRICITY_TARGET,
+            source_tags=[
+                lt.ComponentType.BATTERY,
+                lt.InandOutputType.ELECTRICITY_TARGET,
+            ],
+            source_weight=2,
+            source_load_type=lt.LoadTypes.ELECTRICITY,
+            source_unit=lt.Units.WATT,
+            output_description="Target electricity for Battery Control. ",
+        )
     )
 
     # -----------------------------------------------------------------------------------------------------------------

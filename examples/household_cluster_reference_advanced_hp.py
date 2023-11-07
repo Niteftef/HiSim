@@ -7,8 +7,8 @@ import re
 import os
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
-from utspclient.helpers.lpgpythonbindings import JsonReference
-from utspclient.helpers.lpgdata import Households
+# from utspclient.helpers.lpgpythonbindings import JsonReference
+# from utspclient.helpers.lpgdata import Households
 from hisim.simulator import SimulationParameters
 
 from hisim.components import (
@@ -21,7 +21,7 @@ from hisim.components import (
     electricity_meter,
     weather,
     building,
-    loadprofilegenerator_utsp_connector
+    loadprofilegenerator_utsp_connector,
 )
 from hisim.component import ConfigBase
 from hisim.result_path_provider import ResultPathProviderSingleton, SortingOptionEnum
@@ -53,7 +53,7 @@ class BuildingPVWeatherConfig(ConfigBase):
     building_code: str
     conditioned_floor_area_in_m2: float
     number_of_dwellings_per_building: int
-    lpg_households: Union[JsonReference, List[JsonReference]]
+    lpg_households: Union[str, List[str]]
 
     @classmethod
     def get_default(cls):
@@ -68,7 +68,7 @@ class BuildingPVWeatherConfig(ConfigBase):
             building_code="DE.N.SFH.05.Gen.ReEx.001.002",
             conditioned_floor_area_in_m2=121.2,
             number_of_dwellings_per_building=1,
-            lpg_households=Households.CHR01_Couple_both_at_Work,  
+            lpg_households="CHR01_Couple_both_at_Work",
         )
 
 
@@ -177,9 +177,11 @@ def household_cluster_reference_advanced_hp(
     my_heat_distribution_controller_config.heating_reference_temperature_in_celsius = (
         heating_reference_temperature_in_celsius
     )
-    my_heat_distribution_controller = heat_distribution_system.HeatDistributionController(
-        my_simulation_parameters=my_simulation_parameters,
-        config=my_heat_distribution_controller_config,
+    my_heat_distribution_controller = (
+        heat_distribution_system.HeatDistributionController(
+            my_simulation_parameters=my_simulation_parameters,
+            config=my_heat_distribution_controller_config,
+        )
     )
     # Build Building
     my_building_config = building.BuildingConfig.get_default_german_single_family_home()
@@ -197,7 +199,9 @@ def household_cluster_reference_advanced_hp(
     )
 
     # Build Occupancy
-    my_occupancy_config = loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig.get_default_utsp_connector_config()
+    my_occupancy_config = (
+        loadprofilegenerator_utsp_connector.UtspLpgConnectorConfig.get_default_utsp_connector_config()
+    )
     my_occupancy_config.household = household
 
     my_occupancy = loadprofilegenerator_utsp_connector.UtspLpgConnector(
@@ -239,7 +243,8 @@ def household_cluster_reference_advanced_hp(
     )
 
     my_heat_pump = advanced_heat_pump_hplib.HeatPumpHplib(
-        config=my_heat_pump_config, my_simulation_parameters=my_simulation_parameters,
+        config=my_heat_pump_config,
+        my_simulation_parameters=my_simulation_parameters,
     )
 
     # Build Heat Distribution System
@@ -281,9 +286,11 @@ def household_cluster_reference_advanced_hp(
         my_simulation_parameters=my_simulation_parameters, config=my_dhw_storage_config
     )
 
-    my_domnestic_hot_water_heatpump_controller = controller_l1_heatpump.L1HeatPumpController(
-        my_simulation_parameters=my_simulation_parameters,
-        config=my_dhw_heatpump_controller_config,
+    my_domnestic_hot_water_heatpump_controller = (
+        controller_l1_heatpump.L1HeatPumpController(
+            my_simulation_parameters=my_simulation_parameters,
+            config=my_dhw_heatpump_controller_config,
+        )
     )
 
     my_domnestic_hot_water_heatpump = generic_heat_pump_modular.ModularHeatPump(

@@ -26,7 +26,9 @@ from hisim.components import controller_l2_energy_management_system
 from hisim import utils
 from hisim import loadtypes as lt
 from examples.modular_example import cleanup_old_lpg_requests
-from examples.household_5_advanced_hp_ev_pv_battery import HouseholdAdvancedHpEvPvBatteryConfig
+from examples.household_5_advanced_hp_ev_pv_battery import (
+    HouseholdAdvancedHpEvPvBatteryConfig,
+)
 
 __authors__ = "Markus Blasberg"
 __copyright__ = "Copyright 2023, FZJ-IEK-3"
