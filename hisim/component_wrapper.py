@@ -33,15 +33,19 @@ class ComponentWrapper:
         """Registers component outputs in the global list of components."""
         log.information("Registering component outputs on " + self.my_component.component_name)
         # register the output column
-        output_columns = self.my_component.get_outputs()
-        for col in output_columns:
-            col.global_index = len(all_outputs)  # noqa
+        component_outputs = self.my_component.get_outputs()
+        for component_output in component_outputs:
+            append_output_to_all_outputs_list: bool = True
+            component_output.global_index = len(all_outputs)  # noqa
+            # check if the component output exists already in all_outputs list
             for output in all_outputs:
-                if output.full_name == col.full_name:
-                    raise ValueError("trying to register the same key twice: " + col.full_name)
-            all_outputs.append(col)
-            log.debug("Registered output " + col.full_name)
-            self.component_outputs.append(col)
+                if output.full_name == component_output.full_name:
+                    append_output_to_all_outputs_list = False
+                    # raise ValueError("trying to register the same key twice: " + component_output.full_name)
+            if append_output_to_all_outputs_list:
+                all_outputs.append(component_output)
+                log.debug("Registered output " + component_output.full_name)
+                self.component_outputs.append(component_output)
 
     def register_component_inputs(self, global_column_dict: Dict[str, Any]) -> None:
         """Gets the inputs for the current component from the global column dict and puts them into component_inputs."""
@@ -118,7 +122,9 @@ class ComponentWrapper:
                             )  #
                             # Connect, i.e, save ComponentOutput in ComponentInput
                             cinput.source_output = global_output
-                            log.debug("Connected input '" + cinput.fullname + "' to '" + global_output.full_name + "'")
+                            log.information(
+                                "Connected input '" + cinput.fullname + "' to ------ '" + global_output.full_name + "'"
+                            )
                         else:
                             raise SystemError(
                                 f"The input {cinput.field_name} (cp: {cinput.component_name}, unit: {cinput.unit}) and "
@@ -128,7 +134,7 @@ class ComponentWrapper:
                     else:
                         # Connect, i.e, save ComponentOutput in ComponentInput
                         cinput.source_output = global_output
-                        log.debug(f"connected input {cinput.fullname} to {global_output.full_name}")
+                        log.information(f"connected input {cinput.fullname} to ----- {global_output.full_name}")
 
             # Check if there are inputs that have been not connected
             if cinput.is_mandatory and cinput.source_output is None:

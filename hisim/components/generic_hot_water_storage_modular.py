@@ -204,13 +204,20 @@ class StorageState:
         """Converts energy contained in storage (kJ) into temperature (K)."""
         # 0.977 is the density of water in kg/l
         # 4.182 is the specific heat of water in kJ / (K * kg)
-        self.temperature_in_kelvin = energy_in_kilo_joule / (self.volume_in_l * 0.977 * 4.182)  # temperature given in K
+        water_density_in_kg_per_liter = 0.977
+        specific_heat_of_water_in_kilojoule_per_kelvin_per_kg = 4.182
+        self.temperature_in_kelvin = energy_in_kilo_joule / (
+            self.volume_in_l * water_density_in_kg_per_liter * specific_heat_of_water_in_kilojoule_per_kelvin_per_kg
+        )  # temperature given in K
         # filter for boiling water
         # no filtering -> this hides major problems - Noah
         if self.temperature_in_kelvin > 95 + 273.15:
             raise ValueError(
-                "Water was boiling. This points towards a major problem in your model. Increasing the storage volume may solve the issue"
+                "Water was boiling. This points towards a major problem in your model. "
+                f"The temperature is {self.temperature_in_kelvin -273.15} °C, the energy given is {energy_in_kilo_joule} kJ. "
+                "Increasing the storage volume may solve the issue"
             )
+
         # filter for freezing water
         if self.temperature_in_kelvin < 2 + 273.15:
             raise ValueError(
@@ -476,6 +483,7 @@ class HotWaterStorage(cp.Component):
 
         # constant heat loss of heat storage with the assumption that environment has 20°C = 293 K -> based on energy balance in kJ
         # heat gain due to heating of storage -> based on energy balance in kJ
+
         energy = self.state.energy_from_temperature()
         new_energy = (
             energy

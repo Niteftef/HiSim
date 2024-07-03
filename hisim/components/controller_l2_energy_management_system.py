@@ -267,11 +267,25 @@ class L2GenericEnergyManagementSystem(dynamic_component.DynamicComponent):
             output_description=f"here a description for {self.ElectricityToBuildingFromDistrictEMSOutput} will follow.",
         )
 
-        self.add_dynamic_default_connections(self.get_default_connections_from_utsp_occupancy())
-        self.add_dynamic_default_connections(self.get_default_connections_from_pv_system())
-        self.add_dynamic_default_connections(self.get_default_connections_from_dhw_heat_pump())
-        self.add_dynamic_default_connections(self.get_default_connections_from_advanced_heat_pump())
-        self.add_dynamic_default_connections(self.get_default_connections_from_advanced_battery())
+        self.add_dynamic_default_connections_and_corresponding_outputs(
+            default_connections=self.get_default_connections_from_utsp_occupancy()[0],
+            default_outputs=self.get_default_connections_from_utsp_occupancy()[1],
+            dynamic_default_outputs=self.get_default_connections_from_utsp_occupancy()[2],
+        )
+        self.add_dynamic_default_connections_and_corresponding_outputs(self.get_default_connections_from_pv_system())
+        self.add_dynamic_default_connections_and_corresponding_outputs(
+            default_connections=self.get_default_connections_from_dhw_heat_pump()[0],
+            default_outputs=self.get_default_connections_from_dhw_heat_pump()[1],
+            dynamic_default_outputs=self.get_default_connections_from_dhw_heat_pump()[2],
+        )
+        self.add_dynamic_default_connections_and_corresponding_outputs(
+            default_connections=self.get_default_connections_from_advanced_heat_pump()[0],
+            default_outputs=self.get_default_connections_from_advanced_heat_pump()[1],
+            dynamic_default_outputs=self.get_default_connections_from_advanced_heat_pump()[2],
+        )
+        self.add_dynamic_default_connections_and_corresponding_outputs(
+            self.get_default_connections_from_advanced_battery()
+        )
 
     def get_default_connections_from_pv_system(
         self,
@@ -321,7 +335,9 @@ class L2GenericEnergyManagementSystem(dynamic_component.DynamicComponent):
                 source_weight=1,
             )
         )
-        self.add_component_output(
+        myoutputs = []
+        mydynamicoutputs = []
+        myoutput, mydynamicoutput = self.prepare_default_output_and_dynamic_output(
             source_output_name=f"ElectricityToOrFromGridOf{occupancy_class_name}_",
             source_tags=[
                 lt.ComponentType.RESIDENTS,
@@ -332,7 +348,9 @@ class L2GenericEnergyManagementSystem(dynamic_component.DynamicComponent):
             source_unit=lt.Units.WATT,
             output_description="Target electricity for Occupancy. ",
         )
-        return dynamic_connections
+        myoutputs.append(myoutput)
+        mydynamicoutputs.append(mydynamicoutput)
+        return dynamic_connections, myoutputs, mydynamicoutputs
 
     def get_default_connections_from_advanced_heat_pump(
         self,
@@ -357,7 +375,9 @@ class L2GenericEnergyManagementSystem(dynamic_component.DynamicComponent):
                 source_weight=2,
             )
         )
-        self.add_component_output(
+        myoutputs = []
+        mydynamicoutputs = []
+        myoutput, mydynamicoutput = self.prepare_default_output_and_dynamic_output(
             source_output_name=f"ElectricityToOrFromGridOf{advanced_heat_pump_class_name}_",
             source_tags=[
                 lt.ComponentType.HEAT_PUMP_BUILDING,
@@ -368,7 +388,9 @@ class L2GenericEnergyManagementSystem(dynamic_component.DynamicComponent):
             source_unit=lt.Units.WATT,
             output_description="Target electricity for Heating Heat Pump. ",
         )
-        return dynamic_connections
+        myoutputs.append(myoutput)
+        mydynamicoutputs.append(mydynamicoutput)
+        return dynamic_connections, myoutputs, mydynamicoutputs
 
     def get_default_connections_from_dhw_heat_pump(
         self,
@@ -392,8 +414,9 @@ class L2GenericEnergyManagementSystem(dynamic_component.DynamicComponent):
                 source_weight=3,
             )
         )
-
-        self.add_component_output(
+        myoutputs = []
+        mydynamicoutputs = []
+        myoutput, mydynamicoutput = self.prepare_default_output_and_dynamic_output(
             source_output_name=f"ElectricityToOrFromGridOf{dhw_heat_pump_class_name}_",
             source_tags=[
                 lt.ComponentType.HEAT_PUMP_DHW,
@@ -404,7 +427,9 @@ class L2GenericEnergyManagementSystem(dynamic_component.DynamicComponent):
             source_unit=lt.Units.WATT,
             output_description="Target electricity for dhw heat pump.",
         )
-        return dynamic_connections
+        myoutputs.append(myoutput)
+        mydynamicoutputs.append(mydynamicoutput)
+        return dynamic_connections, myoutputs, mydynamicoutputs
 
     def get_default_connections_from_advanced_battery(
         self,

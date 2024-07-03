@@ -2,7 +2,7 @@
 # clean
 
 from dataclasses import dataclass
-from typing import Any, List, Union, Dict, cast, Optional
+from typing import Any, List, Union, Dict, cast, Optional, Tuple
 import dataclasses as dc
 import hisim.loadtypes as lt
 from hisim import log
@@ -103,7 +103,11 @@ class DynamicComponent(Component):
 
         self.my_component_inputs = my_component_inputs
         self.my_component_outputs = my_component_outputs
-        self.dynamic_default_connections: Dict[str, List[DynamicComponentConnection]] = {}
+        self.dynamic_default_connections: Dict[str, Dict[Any, Any]] = {
+            "default_connections": {},
+            "default_outputs": {},
+            "dynamic_default_outputs": {},
+        }
 
     def add_component_output(
         self,
@@ -116,9 +120,73 @@ class DynamicComponent(Component):
     ) -> ComponentOutput:
         """Adds an output channel to a component."""
         # Label Output and generate variable
-        num_inputs = len(self.outputs)
+        # num_inputs = len(self.outputs)
         # label = f"{source_weight}"
-        label = f"Output{num_inputs + 1}"
+        # # label = f"Output{num_inputs + 1}"
+        # vars(self)[label] = label
+
+        # # Define Output as Component Input and add it to inputs
+        # myoutput = ComponentOutput(
+        #     object_name=self.component_name,
+        #     field_name=source_output_name + label,
+        #     load_type=source_load_type,
+        #     unit=source_unit,
+        #     sankey_flow_direction=True,
+        #     output_description=output_description,
+        # )
+        # self.outputs.append(myoutput)
+        # setattr(self, label, myoutput)
+
+        # # Define Output as DynamicConnectionOutput
+        # self.my_component_outputs.append(
+        #     DynamicConnectionOutput(
+        #         source_component_class=label,
+        #         source_output_field_name=source_output_name + label,
+        #         source_tags=source_tags,
+        #         source_load_type=source_load_type,
+        #         source_unit=source_unit,
+        #         source_weight=source_weight,
+        #     )
+        # )
+        myoutput, mydynamicoutput = self.prepare_default_output_and_dynamic_output(
+            source_output_name=source_output_name,
+            source_tags=source_tags,
+            source_load_type=source_load_type,
+            source_unit=source_unit,
+            source_weight=source_weight,
+            output_description=output_description,
+        )
+        self.append_output_and_dynamic_output_to_lists(myoutputs=[myoutput], mydynamicoutputs=[mydynamicoutput])
+        return myoutput
+
+    def append_output_and_dynamic_output_to_lists(
+        self, myoutputs: List[ComponentOutput], mydynamicoutputs: List[DynamicConnectionOutput]
+    ) -> None:
+        """Adds an output and a dynamic output to list of the dynamic component."""
+        for index, myoutput in enumerate(myoutputs):
+            mydynamicoutput = mydynamicoutputs[index]
+            label = str(mydynamicoutput.source_weight)
+            # append output to list and set attribute
+            self.outputs.append(myoutput)
+            setattr(self, label, myoutput)
+
+            # append dynamic output to list
+            self.my_component_outputs.append(mydynamicoutput)
+
+    def prepare_default_output_and_dynamic_output(
+        self,
+        source_output_name: str,
+        source_tags: list,
+        source_load_type: lt.LoadTypes,
+        source_unit: lt.Units,
+        source_weight: int,
+        output_description: str,
+    ) -> Tuple[ComponentOutput, DynamicConnectionOutput]:
+        """Adds an output channel to a component."""
+        # # Label Output and generate variable
+        # num_inputs = len(self.outputs)
+        label = f"{source_weight}"
+        # label = f"Output{num_inputs + 1}"
         vars(self)[label] = label
 
         # Define Output as Component Input and add it to inputs
@@ -130,21 +198,19 @@ class DynamicComponent(Component):
             sankey_flow_direction=True,
             output_description=output_description,
         )
-        self.outputs.append(myoutput)
-        setattr(self, label, myoutput)
+        # self.outputs.append(myoutput)
+        # setattr(self, label, myoutput)
 
         # Define Output as DynamicConnectionOutput
-        self.my_component_outputs.append(
-            DynamicConnectionOutput(
-                source_component_class=label,
-                source_output_field_name=source_output_name + label,
-                source_tags=source_tags,
-                source_load_type=source_load_type,
-                source_unit=source_unit,
-                source_weight=source_weight,
-            )
+        mydynamicoutput = DynamicConnectionOutput(
+            source_component_class=label,
+            source_output_field_name=source_output_name + label,
+            source_tags=source_tags,
+            source_load_type=source_load_type,
+            source_unit=source_unit,
+            source_weight=source_weight,
         )
-        return myoutput
+        return myoutput, mydynamicoutput
 
     def add_component_input_and_connect(
         self,
@@ -250,14 +316,23 @@ class DynamicComponent(Component):
                 source_object_name=src_name,
             )
 
-    def add_dynamic_default_connections(self, connections: List[DynamicComponentConnection]) -> None:
+    def add_dynamic_default_connections_and_corresponding_outputs(
+        self,
+        default_connections: List[DynamicComponentConnection],
+        default_outputs: Optional[List[ComponentOutput]] = None,
+        dynamic_default_outputs: Optional[List[DynamicConnectionOutput]] = None,
+    ) -> None:
         """Adds a dynamic default connection list definition."""
 
-        component_name = connections[0].source_class_name
-        for connection in connections:
+        component_name = default_connections[0].source_class_name
+        for connection in default_connections:
             if connection.source_class_name != component_name:
                 raise ValueError("Trying to add dynamic connections to different components in one go.")
-        self.dynamic_default_connections[component_name] = connections
+        self.dynamic_default_connections["default_connections"][component_name] = default_connections
+
+        self.dynamic_default_connections["default_outputs"][component_name] = default_outputs
+        self.dynamic_default_connections["dynamic_default_outputs"][component_name] = dynamic_default_outputs
+
         log.trace(
             "added dynamic default connections for connections from : "
             + component_name
@@ -265,28 +340,34 @@ class DynamicComponent(Component):
             + str(self.dynamic_default_connections)
         )
 
-    def get_dynamic_default_connections(self, source_component: Component) -> List[DynamicComponentConnection]:
+    def get_dynamic_default_connections_outputs_and_dynamic_outputs(
+        self, source_component: Component
+    ) -> Tuple[List[DynamicComponentConnection], List, List]:
         """Gets the dynamic default connections for this component."""
         source_classname: str = source_component.get_classname()
 
         target_classname: str = self.get_classname()
 
-        if source_classname not in self.dynamic_default_connections:
+        if source_classname not in self.dynamic_default_connections["default_connections"]:
             raise ValueError(
                 "No dynamic default connections for "
                 + source_classname
                 + " in the connections for "
                 + target_classname
                 + ". content:\n"
-                + str(self.dynamic_default_connections)
+                + str(self.dynamic_default_connections["default_connections"])
             )
-        connections = self.dynamic_default_connections[source_classname]
+        connections = self.dynamic_default_connections["default_connections"][source_classname]
+
+        default_outputs = self.dynamic_default_connections["default_outputs"][source_classname]
+        dynamic_default_outputs = self.dynamic_default_connections["dynamic_default_outputs"][source_classname]
+
         new_connections: List[DynamicComponentConnection] = []
         for connection in connections:
             connection_copy = dc.replace(connection)
             connection_copy.source_instance_name = source_component.component_name
             new_connections.append(connection_copy)
-        return new_connections
+        return new_connections, default_outputs, dynamic_default_outputs
 
     def get_dynamic_inputs(self, tags: List[Union[lt.ComponentType, lt.InandOutputType]]) -> List[ComponentInput]:
         """Returns inputs from all dynamic inputs with component type and weight."""

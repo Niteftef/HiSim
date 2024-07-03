@@ -100,10 +100,11 @@ class Simulator:
         for wrapped_component in self.wrapped_components:
             # check if component should be connected to default connections automatically
             if wrapped_component.connect_automatically is True:
-                self.connect_everything_automatically(
+                self.connect_everything_automatically_and_default_outputs(
                     source_component_list=[wp.my_component for wp in self.wrapped_components],
-                    target_component=wrapped_component.my_component,
+                    wrapped_target_component=wrapped_component,
                 )
+                # print("all outputs", [output.full_name for output in self.all_outputs], "\n")
             wrapped_component.prepare_calculation()
 
     def process_one_timestep(
@@ -256,6 +257,7 @@ class Simulator:
         for step in range(self._simulation_parameters.timesteps):
             if self._simulation_parameters.timesteps % 500 == 0:
                 log.information("Starting step " + str(step))
+                print("timestep", step)
 
             (
                 resulting_stsv,
@@ -462,10 +464,10 @@ class Simulator:
             results_merged_hourly,
         )
 
-    def connect_everything_automatically(
+    def connect_everything_automatically_and_default_outputs(
         self,
         source_component_list: Union[List[cp.Component], List[dcp.DynamicComponent]],
-        target_component: Union[cp.Component, dcp.DynamicComponent],
+        wrapped_target_component: ComponentWrapper,
     ) -> None:
         """Connect chosen target component in the sytem setups automatically based on its default connections."""
 
@@ -474,10 +476,12 @@ class Simulator:
             Dict[str, List[cp.ComponentConnection]],
             Dict[str, List[dcp.DynamicComponentConnection]],
         ]
+        # unwrap target component
+        target_component: Union[cp.Component, dcp.DynamicComponent] = wrapped_target_component.my_component
 
         # check if target component is a normal or a dynamic component and get all default connections
         if isinstance(target_component, dcp.DynamicComponent):
-            target_default_connection_dict = target_component.dynamic_default_connections
+            target_default_connection_dict = target_component.dynamic_default_connections["default_connections"]
 
         elif isinstance(target_component, cp.Component) and not isinstance(target_component, dcp.DynamicComponent):
             target_default_connection_dict = target_component.default_connections
@@ -508,19 +512,32 @@ class Simulator:
                 # if the source components' classname is found in the target components' default connection dict, a connection is made
                 if source_component_classname in target_default_connection_dict.keys():
                     if isinstance(target_component, dcp.DynamicComponent):
-                        dynamic_connections = target_component.get_dynamic_default_connections(
+                        # print("target compoennt", target_component.component_name)
+                        # print("target compoennt defaul dict", target_default_connection_dict)
+                        (
+                            dynamic_connections,
+                            default_outputs,
+                            dynamic_default_outputs,
+                        ) = target_component.get_dynamic_default_connections_outputs_and_dynamic_outputs(
                             source_component=source_component
                         )
 
                         target_component.connect_with_dynamic_connections_list(
                             dynamic_component_connections=dynamic_connections
                         )
+                        # add outputs to output lists if they exist
+                        if default_outputs is not None and dynamic_default_outputs is not None:
+                            target_component.append_output_and_dynamic_output_to_lists(
+                                myoutputs=default_outputs, mydynamicoutputs=dynamic_default_outputs
+                            )
+                            wrapped_target_component.register_component_outputs(self.all_outputs)
 
                     if isinstance(target_component, cp.Component) and not isinstance(
                         target_component, dcp.DynamicComponent
                     ):
                         connections = target_component.get_default_connections(source_component=source_component)
                         target_component.connect_with_connections_list(connections=connections)
+
         else:
             raise KeyError(
                 f"Automatic connection does not work for {target_component.component_name} because no default connections were found. "
