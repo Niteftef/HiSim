@@ -160,10 +160,10 @@ class ElectricityMeter(DynamicComponent):
             sankey_flow_direction=False,
             output_description=f"here a description for {self.CumulativeProduction} will follow.",
         )
-        self.add_dynamic_default_connections_and_corresponding_outputs(self.get_default_connections_from_utsp_occupancy())
-        self.add_dynamic_default_connections_and_corresponding_outputs(self.get_default_connections_from_pv_system())
-        self.add_dynamic_default_connections_and_corresponding_outputs(self.get_default_connections_from_dhw_heat_pump())
-        self.add_dynamic_default_connections_and_corresponding_outputs(self.get_default_connections_from_advanced_heat_pump())
+        self.add_dynamic_default_connections_and_corresponding_outputs(default_connections=self.get_default_connections_from_utsp_occupancy())
+        self.add_dynamic_default_connections_and_corresponding_outputs(default_connections=self.get_default_connections_from_pv_system())
+        self.add_dynamic_default_connections_and_corresponding_outputs(default_connections=self.get_default_connections_from_dhw_heat_pump())
+        self.add_dynamic_default_connections_and_corresponding_outputs(default_connections=self.get_default_connections_from_advanced_heat_pump())
 
     def get_default_connections_from_utsp_occupancy(
         self,

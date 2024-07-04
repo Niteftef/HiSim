@@ -122,7 +122,7 @@ class ComponentWrapper:
                             )  #
                             # Connect, i.e, save ComponentOutput in ComponentInput
                             cinput.source_output = global_output
-                            log.information(
+                            log.debug(
                                 "Connected input '" + cinput.fullname + "' to ------ '" + global_output.full_name + "'"
                             )
                         else:
@@ -134,7 +134,7 @@ class ComponentWrapper:
                     else:
                         # Connect, i.e, save ComponentOutput in ComponentInput
                         cinput.source_output = global_output
-                        log.information(f"connected input {cinput.fullname} to ----- {global_output.full_name}")
+                        log.debug(f"connected input {cinput.fullname} to ----- {global_output.full_name}")
 
             # Check if there are inputs that have been not connected
             if cinput.is_mandatory and cinput.source_output is None:
