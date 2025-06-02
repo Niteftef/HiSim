@@ -4,9 +4,19 @@ from enum import IntEnum
 
 
 class PostProcessingOptions(IntEnum):
+    """Enum class for enabling / disabling parts of the post processing.
+    Options can be enabled by adding them to the post_processing_options list in SimulationParameters.
+    The options are used to control the post processing steps that are executed after the simulation.
+    
+    Options include:
+    - SKIP_POST_CONT_EXPORT (0): Skips all post processing. Doesn't even call the post processing module.
+        Instead, the simulation results are continuously written to the result directory.
+        Useful for simulations with huge amounts of data which would take a long time to process all at once.
+    - EXPORT_TO_CSV (7): Exports the simulation results to CSV files.
+    - EXPORT_TO_PKL (27): Exports the simulation results to pickle files.
+    - more explanations will follow in the future."""
 
-    """Enum class for enabling / disabling parts of the post processing."""
-
+    SKIP_POST_CONTINUOUS_EXPORT = 0 
     PLOT_LINE = 1
     PLOT_CARPET = 2
     PLOT_SANKEY = 3

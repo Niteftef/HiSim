@@ -18,7 +18,7 @@ import hisim.dynamic_component as dcp
 from hisim import log
 from hisim.simulationparameters import SimulationParameters
 from hisim import utils
-from hisim import postprocessingoptions
+from hisim.postprocessingoptions import PostProcessingOptions as PPO
 from hisim.loadtypes import Units
 from hisim.result_path_provider import ResultPathProviderSingleton, SortingOptionEnum
 
@@ -154,7 +154,7 @@ class Simulator:
                 continue_calculation = False
             if (
                 iterative_tries > 2
-                and postprocessingoptions.PostProcessingOptions.PROVIDE_DETAILED_ITERATION_LOGGING
+                and PPO.PROVIDE_DETAILED_ITERATION_LOGGING
                 in self._simulation_parameters.post_processing_options
             ):
                 myerr = stsv.get_differences_for_error_msg(previous_values, self.all_outputs)
@@ -256,9 +256,43 @@ class Simulator:
         number_of_outputs = len(self.all_outputs)
         stsv = cp.SingleTimeStepValues(number_of_outputs)
 
+        # prepare csv exports if post processing is skipped
+        if PPO.SKIP_POST_CONTINUOUS_EXPORT in self._simulation_parameters.post_processing_options:
+            # create a list of filenames, it will be in order of the outputs, just like the all_outputs list
+            export_filenames = []
+            for entry in self.all_outputs:
+                output_name = entry.get_pretty_name()
+                filename = os.path.join(
+                    self._simulation_parameters.result_directory,
+                    f"{output_name.split(' ', 3)[0]}_{output_name.split(' ', 3)[2]}.csv")
+                export_filenames.append(filename)
+                # create file and write header
+                with open(filename, "w", encoding="utf-8") as filestream:
+                    filestream.write("," + output_name + "\n")
+            # create the index
+            export_index = pd.date_range(
+                start=self._simulation_parameters.start_date,
+                end=self._simulation_parameters.end_date,
+                freq=f"{self._simulation_parameters.seconds_per_timestep}s",
+            )[:-1]
+            export_index = export_index.astype("str").tolist()
+
         for step in range(self._simulation_parameters.timesteps):
-            if self._simulation_parameters.timesteps % 500 == 0:
+            chunksize = 500
+            if step % chunksize == 0:
                 log.information("Starting step " + str(step))
+                # if post processing is skipped, export the data in chunks
+                if PPO.SKIP_POST_CONTINUOUS_EXPORT in self._simulation_parameters.post_processing_options:
+                    if step == 0: continue
+                    all_result_lines = list(zip(*all_result_lines))  # transpose the table
+                    for i, entry in enumerate(export_filenames): # unbound err is untrue; ignore
+                        this_result_lines = all_result_lines[i]
+                        with open(entry, "a", encoding="utf-8") as filestream:
+                            filestream.writelines([export_index[j] + "," + str(this_result_lines[j]) + "\n"
+                                                   for j in range(len(this_result_lines))])
+                    # clear data and remove the chunk from the index
+                    all_result_lines.clear()
+                    export_index = export_index[chunksize:]
 
             (
                 resulting_stsv,
@@ -286,6 +320,24 @@ class Simulator:
                 )
                 last_step = step
                 total_iteration_tries_since_last_msg = 0
+        
+        # export last chunk and then skip post processing if requested
+        if PPO.SKIP_POST_CONTINUOUS_EXPORT in self._simulation_parameters.post_processing_options:
+            all_result_lines = list(zip(*all_result_lines))  # transpose the table
+            for i, entry in enumerate(export_filenames): # unbound err is untrue; ignore
+                this_result_lines = all_result_lines[i]
+                with open(entry, "a", encoding="utf-8") as filestream:
+                    filestream.writelines([export_index[j] + "," + str(this_result_lines[j]) + "\n"
+                                           for j in range(len(this_result_lines))])
+            del all_result_lines
+            del export_filenames
+            del export_index
+            log.information("Skipped postprocessing, all data should be exported.")
+            with open(flagfile, "a", encoding="utf-8") as filestream:
+                filestream.write("finished")
+            return
+        
+        # else do post processing
         postprocessing_datatransfer = self.prepare_post_processing(all_result_lines, start_counter)
         log.information("Starting postprocessing")
         if postprocessing_datatransfer is None:
@@ -390,7 +442,7 @@ class Simulator:
         pd_timeline = pd.date_range(
             start=self._simulation_parameters.start_date,
             end=self._simulation_parameters.end_date,
-            freq=f"{self._simulation_parameters.seconds_per_timestep}S",
+            freq=f"{self._simulation_parameters.seconds_per_timestep}s",
         )[:-1]
         n_columns = results_data_frame.shape[1]
 

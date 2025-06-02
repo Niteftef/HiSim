@@ -149,6 +149,7 @@ class PostProcessor:
             end = timer()
             duration = end - start
             log.information("Computing network charts took " + f"{duration:1.2f}s.")
+
         # Generate Pdf report
         if PostProcessingOptions.GENERATE_PDF_REPORT in ppdt.post_processing_options:
             log.information("Making PDF report and writing simulation parameters to report.")
