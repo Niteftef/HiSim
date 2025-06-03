@@ -285,14 +285,14 @@ class Simulator:
                 if PPO.SKIP_POST_CONTINUOUS_EXPORT in self._simulation_parameters.post_processing_options:
                     if step == 0: continue
                     all_result_lines = list(zip(*all_result_lines))  # transpose the table
-                    for i, entry in enumerate(export_filenames): # unbound err is untrue; ignore
+                    for i, entry in enumerate(export_filenames): # type: ignore
                         this_result_lines = all_result_lines[i]
                         with open(entry, "a", encoding="utf-8") as filestream:
-                            filestream.writelines([export_index[j] + "," + str(this_result_lines[j]) + "\n"
+                            filestream.writelines([export_index[j] + "," + str(this_result_lines[j]) + "\n" # type: ignore
                                                    for j in range(len(this_result_lines))])
                     # clear data and remove the chunk from the index
                     all_result_lines.clear()
-                    export_index = export_index[chunksize:]
+                    export_index = export_index[chunksize:] # type: ignore
 
             (
                 resulting_stsv,
@@ -304,7 +304,7 @@ class Simulator:
             total_iteration_tries_since_last_msg += iteration_tries
 
             # Appends
-            all_result_lines.append(resulting_stsv.values)
+            all_result_lines.append(resulting_stsv.values) # type: ignore
             del resulting_stsv
             # Calculates time execution
             elapsed = datetime.datetime.now() - lastmessage
@@ -324,14 +324,14 @@ class Simulator:
         # export last chunk and then skip post processing if requested
         if PPO.SKIP_POST_CONTINUOUS_EXPORT in self._simulation_parameters.post_processing_options:
             all_result_lines = list(zip(*all_result_lines))  # transpose the table
-            for i, entry in enumerate(export_filenames): # unbound err is untrue; ignore
+            for i, entry in enumerate(export_filenames): # type: ignore
                 this_result_lines = all_result_lines[i]
                 with open(entry, "a", encoding="utf-8") as filestream:
-                    filestream.writelines([export_index[j] + "," + str(this_result_lines[j]) + "\n"
+                    filestream.writelines([export_index[j] + "," + str(this_result_lines[j]) + "\n" # type: ignore
                                            for j in range(len(this_result_lines))])
             del all_result_lines
-            del export_filenames
-            del export_index
+            del export_filenames # type: ignore
+            del export_index # type: ignore
             log.information("Skipped postprocessing, all data should be exported.")
             with open(flagfile, "a", encoding="utf-8") as filestream:
                 filestream.write("finished")
