@@ -312,18 +312,21 @@ class Simulator:
         # Prepares the results from the simulation for the post processing.
         if len(all_result_lines) != self._simulation_parameters.timesteps:
             raise ValueError("not all lines were generated")
-        colum_names = []
         if self.setup_function is None:
             raise ValueError("No setup function was set")
+        colum_names = []
         entry: cp.ComponentOutput
-        for _index, entry in enumerate(self.all_outputs):
+        for entry in self.all_outputs:
             column_name = entry.get_pretty_name()
             colum_names.append(column_name)
             log.debug("Output column: " + column_name)
         self.results_data_frame = pd.DataFrame(data=all_result_lines, columns=colum_names)
-        # todo: fix this constant
-        df_index = pd.date_range("2021-01-01 00:00:00", periods=len(self.results_data_frame), freq="T")
-        self.results_data_frame.index = df_index
+        pd_timeline = pd.date_range(
+            start=self._simulation_parameters.start_date,
+            end=self._simulation_parameters.end_date,
+            freq=f"{self._simulation_parameters.seconds_per_timestep}s",
+        )[:-1] # [:-1] is necessary bc pandas date_range includes the end date
+        self.results_data_frame.index = pd_timeline
         end_counter = time.perf_counter()
         execution_time = end_counter - start_counter
         log.information(f"Simulation took {execution_time:1.2f}s.")
@@ -388,78 +391,56 @@ class Simulator:
     def get_std_results(
         self, results_data_frame: pd.DataFrame
     ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        """Converts results into a pretty dataframe for post processing."""
-        pd_timeline = pd.date_range(
-            start=self._simulation_parameters.start_date,
-            end=self._simulation_parameters.end_date,
-            freq=f"{self._simulation_parameters.seconds_per_timestep}S",
-        )[:-1]
+        """Generates monthly, daily, hourly and cumulative versions of the results.
+        This may take very long for large data sets."""
         n_columns = results_data_frame.shape[1]
-
-        results_data_frame.index = pd_timeline
+        # for these units, we average the values, otherwise we sum them up
+        units_to_average = (
+            Units.CELSIUS,
+            Units.KELVIN,
+            Units.ANY,
+            Units.METER_PER_SECOND,
+            Units.DEGREES,
+            Units.WATT,
+            Units.KILOWATT,
+            Units.WATT_PER_SQUARE_METER,
+            Units.KG_PER_SEC,
+            Units.PERCENT,
+            Units.PASCAL
+        )
         results_merged_monthly = pd.DataFrame()
         results_merged_daily = pd.DataFrame()
         results_merged_hourly = pd.DataFrame()
         results_merged_cumulative = pd.DataFrame()
+
         for i_column in range(n_columns):
             temp_df = pd.DataFrame(
                 results_data_frame.values[:, i_column],
-                index=pd_timeline,
+                index=results_data_frame.index,
                 columns=[results_data_frame.columns[i_column]],
             )
-
-            if self.all_outputs[i_column].unit in (
-                Units.CELSIUS,
-                Units.KELVIN,
-                Units.ANY,
-                Units.METER_PER_SECOND,
-                Units.DEGREES,
-                Units.WATT,
-                Units.KILOWATT,
-                Units.WATT_PER_SQUARE_METER,
-                Units.KG_PER_SEC,
-                Units.PERCENT,
-                Units.PASCAL
-            ):
+            if self.all_outputs[i_column].unit in units_to_average:
                 temp_df_monthly = temp_df.resample("M").mean()
                 temp_df_daily = temp_df.resample("D").mean()
+                temp_df_hourly = temp_df.resample("h").mean()
                 temp_df_cumulative = temp_df.mean()
             else:
                 temp_df_monthly = temp_df.resample("M").sum()
                 temp_df_daily = temp_df.resample("D").sum()
+                temp_df_hourly = temp_df.resample("h").sum()
                 temp_df_cumulative = temp_df.sum()
-
+                
             # monthly results
             results_merged_monthly[temp_df_monthly.columns[0]] = temp_df_monthly.values[:, 0]
             results_merged_monthly.index = temp_df_monthly.index
             # daily results
             results_merged_daily[temp_df_daily.columns[0]] = temp_df_daily.values[:, 0]
             results_merged_daily.index = temp_df_daily.index
-
+            # hourly results
+            results_merged_hourly[temp_df_hourly.columns[0]] = temp_df_hourly.values[:, 0]
+            results_merged_hourly.index = temp_df_hourly.index
             # cumulative results
             results_merged_cumulative[temp_df_monthly.columns[0]] = temp_df_cumulative.values
-
-            if self._simulation_parameters.seconds_per_timestep != 3600:
-                if self.all_outputs[i_column].unit in (
-                    Units.CELSIUS,
-                    Units.KELVIN,
-                    Units.ANY,
-                    Units.METER_PER_SECOND,
-                    Units.DEGREES,
-                    Units.WATT,
-                    Units.KILOWATT,
-                    Units.WATT_PER_SQUARE_METER,
-                    Units.KG_PER_SEC,
-                    Units.PERCENT,
-                ):
-                    temp_df_hourly = temp_df.resample("60T").mean()  # .interpolate(method="linear")
-                else:
-                    temp_df_hourly = temp_df.resample("60T").sum()
-
-                results_merged_hourly[temp_df_hourly.columns[0]] = temp_df_hourly.values[:, 0]
-                results_merged_hourly.index = temp_df_hourly.index
-            else:
-                results_merged_hourly[temp_df.columns[0]] = temp_df.values[:, 0]
 
         return (
             results_merged_cumulative,
