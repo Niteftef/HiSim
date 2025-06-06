@@ -44,7 +44,7 @@ class FuelCellControllerConfig(ConfigBase):
     # control_strategy_deactivation: str <-- 'standby' or 'off'
 
     @classmethod
-    def get_default_fuel_cell_controller_config(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:

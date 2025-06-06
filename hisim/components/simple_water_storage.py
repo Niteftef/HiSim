@@ -80,7 +80,7 @@ class SimpleHotWaterStorageConfig(cp.ConfigBase):
     maintenance_cost_as_percentage_of_investment: float
 
     @classmethod
-    def get_default_simplehotwaterstorage_config(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> "SimpleHotWaterStorageConfig":

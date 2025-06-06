@@ -83,7 +83,7 @@ class HeatDistributionConfig(cp.ConfigBase):
     maintenance_cost_as_percentage_of_investment: float
 
     @classmethod
-    def get_default_heatdistributionsystem_config(
+    def get_default_config(
         cls,
         water_mass_flow_rate_in_kg_per_second: float,
         absolute_conditioned_floor_area_in_m2: float,

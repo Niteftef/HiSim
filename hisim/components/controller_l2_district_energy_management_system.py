@@ -72,7 +72,7 @@ class EMSDistrictConfig(cp.ConfigBase):
     space_heating_water_storage_temperature_offset_value: float
 
     @classmethod
-    def get_default_config_ems(
+    def get_default_config(
         cls,
         strategy: Union[EMSControlStrategy, int] = EMSControlStrategy.BUILDING_OPTIMIZEOWNCONSUMPTION_ITERATIV,
         building_name: str = "BUI1",

@@ -43,9 +43,10 @@ class GenericElectrolyzerConfig(cp.ConfigBase):
     #: maximal hydrogen production rate (at maximal electrical power) in kg / s
     max_hydrogen_production_rate: float
 
-    @staticmethod
+    @classmethod
     def get_default_config(
-        p_el: float,
+        cls,
+        p_el: float = 12000,
         building_name: str = "BUI1",
     ) -> "GenericElectrolyzerConfig":
         """Returns the default configuration of an electrolyzer."""

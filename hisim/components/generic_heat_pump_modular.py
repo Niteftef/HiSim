@@ -67,6 +67,28 @@ class HeatPumpConfig(cp.ConfigBase):
         """Returns the full class name of the base class."""
         return ModularHeatPump.get_full_classname()
 
+    @classmethod
+    def get_default_config(cls, building_name: str = "BUI1", t: str = "heating"):
+        """Returns a default configuration for the heat pump. Uses one of the other default
+        config functions depending on parameter t.
+        
+        Args:
+            building_name (str): the name of the building
+            t (str): The type of the heating. Allowed values are:
+                heating, waterheating, heating_electric, waterheating_electric
+        """
+        if t.lower() == "heating":
+            return HeatPumpConfig.get_default_config_heating(building_name=building_name)
+        elif t.lower() == "waterheating":
+            return HeatPumpConfig.get_default_config_waterheating(building_name=building_name)
+        elif t.lower() in ["heating_electric", "heating electric", "heatingelectric"]:
+            return HeatPumpConfig.get_default_config_heating_electric(building_name)
+        elif t.lower() in ["waterheating_electric", "waterheating electric", "waterheatingelectric"]:
+            return HeatPumpConfig.get_default_config_waterheating_electric(building_name)
+        else:
+            raise ValueError(f"Unknown type: {t}")
+
+
     @staticmethod
     def get_default_config_heating(
         building_name: str = "BUI1",

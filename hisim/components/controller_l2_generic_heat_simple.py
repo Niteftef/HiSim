@@ -48,6 +48,25 @@ class L2GenericHeatConfig(cp.ConfigBase):
         return L2GenericHeatController.get_full_classname()
 
     @staticmethod
+    def get_default_config(name: str, building_name: str = "BUI1", t: str = "heating") -> Any:
+        """Returns a default configuration for the L2 heat controller. Uses one of the other
+        default config functions depending on the parameter t.
+        
+        Args:
+            name (str): Name of the controller.
+            building_name (str): Name of the building. Defaults to "BUI1".
+            t (str): Type of controller, either "heating", "buffer_heating", 
+                or "waterheating". Defaults to "heating"."""
+        if t == "heating":
+            return L2GenericHeatController.get_default_config_heating(name, building_name) # type: ignore
+        elif t == "buffer_heating":
+            return L2GenericHeatController.get_default_config_buffer_heating(name, building_name) # type: ignore
+        elif t == "waterheating":
+            return L2GenericHeatController.get_default_config_waterheating(name, building_name) # type: ignore
+        else:
+            raise ValueError("Unknown type of controller: " + t)
+
+    @staticmethod
     def get_default_config_heating(
         name: str,
         building_name: str = "BUI1",

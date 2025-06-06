@@ -48,7 +48,7 @@ class ComponentNameConfig(ConfigBase):
     unit: loadtypes.Units
 
     @classmethod
-    def get_default_template_component(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:

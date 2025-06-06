@@ -83,7 +83,7 @@ class HeatPumpHplibConfig(ConfigBase):
     maintenance_cost_as_percentage_of_investment: float
 
     @classmethod
-    def get_default_generic_advanced_hp_lib(
+    def get_default_config(
         cls,
         set_thermal_output_power_in_watt: Quantity[float, Watt] = Quantity(8000, Watt),
         heating_reference_temperature_in_celsius: Quantity[float, Celsius] = Quantity(-7.0, Celsius),
@@ -899,7 +899,7 @@ class HeatPumpHplibControllerL1Config(ConfigBase):
     heat_distribution_system_type: Any
 
     @classmethod
-    def get_default_generic_heat_pump_controller_config(
+    def get_default_config(
         cls,
         heat_distribution_system_type: Any,
         mode: int = 2,

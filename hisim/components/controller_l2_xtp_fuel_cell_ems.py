@@ -48,6 +48,10 @@ class XTPControllerConfig(ConfigBase):
             data = json.load(json_file)
             return data.get("Fuel Cell variants", {}).get(fuel_cell_name, {})
 
+    @staticmethod
+    def get_default_config():
+        raise NotImplementedError()
+
     @classmethod
     def control_fuel_cell(
         cls,

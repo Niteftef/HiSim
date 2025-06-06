@@ -44,7 +44,7 @@ class HeatingMeterConfig(cp.ConfigBase):
     name: str
 
     @classmethod
-    def get_heating_meter_default_config(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:

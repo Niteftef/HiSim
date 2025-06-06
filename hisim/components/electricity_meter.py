@@ -36,7 +36,7 @@ class ElectricityMeterConfig(cp.ConfigBase):
     name: str
 
     @classmethod
-    def get_electricity_meter_default_config(
+    def get_default_config(
         cls,
         name: str = "ElectricityMeter",
         building_name: str = "BUI1",

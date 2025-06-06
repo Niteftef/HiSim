@@ -119,7 +119,7 @@ class MoreAdvancedHeatPumpHPLibConfig(ConfigBase):
     maintenance_cost_as_percentage_of_investment: float
 
     @classmethod
-    def get_default_generic_advanced_hp_lib(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
         name: str = "MoreAdvancedHeatPumpHPLib",

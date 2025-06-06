@@ -75,6 +75,24 @@ class SimpleHeatSourceConfig(cp.ConfigBase):
         return SimpleHeatSource.get_full_classname()
 
     @classmethod
+    def get_default_config(cls, building_name: str = "BUI1", t: str = "const_power"):
+        """Gets a default config. Uses one of the other default config functions
+        based on the value of parameter t.
+        
+        Args:
+            building_name: The name of the building.
+            t (str): Which type you want. Options are: "const_power", "const_temperature", 
+                and "var_brinetemperature"."""
+        if t == "const_power":
+            return SimpleHeatSourceConfig.get_default_config_const_power(building_name)
+        elif t == "const_temperature":
+            return SimpleHeatSourceConfig.get_default_config_const_temperature(building_name)
+        elif t == "var_brinetemperature":
+            return SimpleHeatSourceConfig.get_default_config_var_brinetemperature(building_name)
+        else:
+            raise ValueError(f"Unknown value for t: {t}")
+
+    @classmethod
     def get_default_config_const_power(
         cls,
         building_name: str = "BUI1",

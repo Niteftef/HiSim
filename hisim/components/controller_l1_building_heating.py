@@ -59,7 +59,7 @@ class L1BuildingHeatingConfig(cp.ConfigBase):
     day_of_heating_season_end: int
 
     @staticmethod
-    def get_default_config_heating(
+    def get_default_config(
         name: str,
         building_name: str = "BUI1",
     ) -> Any:

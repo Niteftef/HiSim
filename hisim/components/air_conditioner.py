@@ -51,7 +51,7 @@ class AirConditionerConfig(ConfigBase):
     # my_simulation_repository: Optional[cp.SimRepository] = None
 
     @classmethod
-    def get_default_air_conditioner_config(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:
@@ -86,7 +86,7 @@ class AirConditionerControllerConfig(ConfigBase):
     offset: float
 
     @classmethod
-    def get_default_air_conditioner_controller_config(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:

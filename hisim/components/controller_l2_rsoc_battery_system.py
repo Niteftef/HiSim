@@ -54,6 +54,10 @@ class RsocBatteryControllerConfig(ConfigBase):
             data = json.load(json_file)
             return data.get("rSOC variants", {}).get(rsoc_name, {})
 
+    @staticmethod
+    def get_default_config():
+        raise NotImplementedError()
+
     @classmethod
     def confic_rsoc(
         cls,

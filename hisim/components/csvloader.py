@@ -37,6 +37,10 @@ class CSVLoaderConfig(cp.ConfigBase):
         """Return the full class name of the base class."""
         return CSVLoader.get_full_classname()
 
+    @staticmethod
+    def get_default_config():
+        raise NotImplementedError()
+
 
 class CSVLoader(cp.Component):
     """Csvloader class.

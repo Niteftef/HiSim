@@ -31,7 +31,7 @@ class TransformerConfig(ConfigBase):
     efficiency: float
 
     @classmethod
-    def get_default_transformer(cls):
+    def get_default_config(cls):
         """Gets a default Transformer."""
         return TransformerConfig(building_name="BUI1", name="Generic Transformer and rectifier Unit", efficiency=0.95)
 

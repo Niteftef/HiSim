@@ -387,9 +387,9 @@ class WeatherConfig(ConfigBase):
         return Weather.get_full_classname()
 
     @classmethod
-    def get_default(
+    def get_default_config(
         cls,
-        location_entry: Any,
+        location_entry: Any = LocationEnum.AACHEN,
         name: str = "Weather",
         building_name: str = "BUI1",
     ) -> Any:

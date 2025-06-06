@@ -77,6 +77,32 @@ class StorageConfig(cp.ConfigBase):
         return HotWaterStorage.get_full_classname()
 
     @classmethod
+    def get_default_config(cls, name: str = None, building_name: str = "BUI1", t: str = "boiler"):
+        """Gets a default configuration. Uses one of the other default config functions
+        depending on parameter t.
+        
+        Args:
+            name (str): The name of the component. Defaults to none because the other functions
+                have default values.
+            building_name (str): The name of the building.
+            t (str): The type of the storage. Values can be: 'boiler', ''buffer'.
+                Defaults to boiler."""
+        if t.lower() == "boiler":
+            if name == None:
+                StorageConfig.get_default_config_for_boiler(building_name=building_name)
+            else:
+                StorageConfig.get_default_config_for_boiler(building_name=building_name, name=name)
+        elif t.lower() == "buffer":
+            if name == None:
+                StorageConfig.get_default_config_buffer(building_name=building_name)
+            else:
+                StorageConfig.get_default_config_buffer(building_name=building_name, name=name)
+        else:
+            raise ValueError(f"Unknown value for parameter t: {t}")
+
+        
+
+    @classmethod
     def get_default_config_for_boiler(
         cls,
         name: str = "DHWBoiler",

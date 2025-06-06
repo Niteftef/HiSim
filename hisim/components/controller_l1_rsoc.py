@@ -53,6 +53,12 @@ class RsocControllerConfig(ConfigBase):
     switching_time_from_sofc_to_soec: float
 
     @staticmethod
+    def get_default_config() -> "RsocControllerConfig":
+        """Returns the default config for the rSOC Controller."""
+        raise NotImplementedError(
+            "The rSOC Controller does not have a default config. Please use the config_rsoc method to create a config.")
+
+    @staticmethod
     def read_config(rsoc_name):
         """Opens the according JSON-file, based on the rSOC_name."""
 

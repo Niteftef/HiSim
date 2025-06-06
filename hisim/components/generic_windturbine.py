@@ -93,7 +93,7 @@ class WindturbineConfig(ConfigBase):
     prediction_horizon: Optional[int]
 
     @classmethod
-    def get_default_windturbine_config(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> "WindturbineConfig":

@@ -79,7 +79,7 @@ class SimpleStorageConfig(ConfigBase):
     capacity: float
 
     @classmethod
-    def get_default_thermal_storage(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:

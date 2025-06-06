@@ -64,7 +64,7 @@ class EMSConfig(cp.ConfigBase):
     space_heating_water_storage_temperature_offset_value: float
 
     @classmethod
-    def get_default_config_ems(
+    def get_default_config(
         cls,
         name: str = "L2EMSElectricityController",
         building_name: str = "BUI1",

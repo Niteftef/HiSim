@@ -58,7 +58,7 @@ class FuelCellConfig(cp.ConfigBase):
     # H_s_h2 = 33.33 #kWh/kg
 
     @classmethod
-    def get_default_pem_fuel_cell_config(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:

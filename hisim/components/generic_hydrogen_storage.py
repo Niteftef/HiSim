@@ -48,8 +48,9 @@ class GenericHydrogenStorageConfig(cp.ConfigBase):
     #: permanent hydrogen loss in % per day
     loss_factor_per_day: float
 
-    @staticmethod
+    @classmethod
     def get_default_config(
+        cls,
         capacity: float = 200,
         max_charging_rate: float = 2 / 3600,
         max_discharging_rate: float = 2 / 3600,

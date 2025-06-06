@@ -28,7 +28,7 @@ class SumBuilderConfig(cp.ConfigBase):
     unit: lt.Units
 
     @classmethod
-    def get_sumbuilder_default_config(cls):
+    def get_default_config(cls):
         """Gets a default Sumbuilder."""
         return SumBuilderConfig(building_name="BUI1", name="Sum", loadtype=lt.LoadTypes.ANY, unit=lt.Units.ANY)
 

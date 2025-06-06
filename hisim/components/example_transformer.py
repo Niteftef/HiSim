@@ -32,7 +32,7 @@ class ExampleTransformerConfig(ConfigBase):
     unit: lt.Units
 
     @classmethod
-    def get_default_transformer(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:

@@ -31,7 +31,7 @@ class ControllerHeatConfig(cp.ConfigBase):
     temperature_storage_target_hysteresis_hw: float
 
     @classmethod
-    def get_default_controller_heat_l1(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:

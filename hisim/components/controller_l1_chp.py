@@ -64,6 +64,27 @@ class L1CHPControllerConfig(ConfigBase):
     min_idle_time_in_seconds: int
 
     @staticmethod
+    def get_default_config(building_name: str = "BUI1", t: str = "chp") -> "L1CHPControllerConfig":
+        """Gets a default configuration. Uses one of the other default configuration functions
+        depending on the parameter t.
+        
+        Args:
+            building_name (str): Name of the building.
+            t (str): Type of CHP controller. Can be 'chp', 'fuelcell', 'chp_with_buffer' 
+                or 'fuelcell_with_buffer'. Defaults to 'chp'."""
+        if t.lower() == "chp":
+            return get_default_config_chp(building_name) # type: ignore
+        elif t.lower() == "fuelcell":
+            return get_default_config_fuel_cell(building_name) # type: ignore
+        elif t.lower() == "chp_with_buffer":
+            return get_default_config_chp_with_buffer(building_name) # type: ignore
+        elif t.lower() == "fuelcell_with_buffer":
+            return get_default_config_fuel_cell_with_buffer(building_name) # type: ignore
+        else:
+            raise ValueError("Unknown type of CHP controller. Please use 'chp', 'fuelcell', " \
+                             "'chp_with_buffer' or 'fuelcell_with_buffer'.")
+
+    @staticmethod
     def get_default_config_chp(
         building_name: str = "BUI1",
     ) -> "L1CHPControllerConfig":

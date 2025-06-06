@@ -46,6 +46,21 @@ class CHPConfig(cp.ConfigBase):
     #: demanded power of fuel input in Watt, when activated
     p_fuel: float
 
+    @classmethod
+    def get_default_config(cls, thermal_power: float = 12000, building_name: str = "BUI1",
+                           t: bool = False) -> "CHPConfig":
+        """Gets a default configuration. Uses one of the other two default config functions
+        depending on parameter t.
+        
+        Args:
+            thermal_power (float): Thermal power in W of the CHP. Defaults to 12'000.
+            building_name (str): The name of the building. Defaults to BUI1.
+            t (bool): Whether to use a fuel cell (true) or gas chp (false, default)."""
+        if t:
+            return CHPConfig.get_default_config_fuelcell(thermal_power=thermal_power, building_name=building_name)
+        else:
+            return CHPConfig.get_default_config_chp(thermal_power=thermal_power, building_name=building_name)
+
     @staticmethod
     def get_default_config_chp(
         thermal_power: float,

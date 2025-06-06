@@ -83,7 +83,7 @@ class UtspLpgConnectorConfig(cp.ConfigBase):
         return UtspLpgConnector.get_full_classname()
 
     @classmethod
-    def get_default_utsp_connector_config(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:

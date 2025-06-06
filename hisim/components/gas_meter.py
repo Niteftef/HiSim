@@ -37,7 +37,7 @@ class GasMeterConfig(cp.ConfigBase):
     total_energy_from_grid_in_kwh: None
 
     @classmethod
-    def get_gas_meter_default_config(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:

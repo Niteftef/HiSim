@@ -50,7 +50,7 @@ class PriceSignalConfig(cp.ConfigBase):
     prediction_horizon: Optional[int]
 
     @classmethod
-    def get_default_price_signal_config(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:

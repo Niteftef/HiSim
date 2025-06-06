@@ -57,7 +57,7 @@ class GenericHeatPumpConfig(cp.ConfigBase):
     min_idle_time: float
 
     @classmethod
-    def get_default_generic_heat_pump_config(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:
@@ -90,7 +90,7 @@ class GenericHeatPumpControllerConfig(cp.ConfigBase):
     mode: int
 
     @classmethod
-    def get_default_generic_heat_pump_controller_config(cls, building_name: str = "BUI1",) -> Any:
+    def get_default_config(cls, building_name: str = "BUI1",) -> Any:
         """Gets a default Generic Heat Pump Controller."""
         return GenericHeatPumpControllerConfig(
             building_name=building_name,

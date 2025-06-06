@@ -44,7 +44,7 @@ class HeatStorageConfig(ConfigBase):
     temperature_sp_hw: float
 
     @classmethod
-    def get_default_heat_storage_config(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:
@@ -79,9 +79,9 @@ class HeatStorageControllerConfig(ConfigBase):
     heating_load_of_building_in_watt: float
 
     @classmethod
-    def get_default_heat_storage_controller_config(
+    def get_default_config(
         cls,
-        heating_load_of_building_in_watt: float,
+        heating_load_of_building_in_watt: float = 8000,
         building_name: str = "BUI1",
     ) -> Any:
         """Get default config."""

@@ -34,7 +34,7 @@ class SmartControllerConfig(ConfigBase):
         return SmartController.get_full_classname()
 
     @classmethod
-    def get_default_config_ems(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:

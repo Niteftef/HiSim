@@ -86,6 +86,21 @@ class GenericBoilerConfig(ConfigBase):
     #: energy consumption in kWh
     consumption_in_kilowatt_hour: float
 
+    @staticmethod
+    def get_default_config(building_name: str = "BUI", t: str = "condensing") -> "GenericBoilerConfig":
+        """Get a default config for the generic boiler. Uses one of the other default config
+        functions depending on parameter t.
+        
+        Args:
+            building_name (str): Name of the building for which the boiler is configured.
+            t (str): Type of boiler to configure. Can be "condensing" or "conventional_oil"."""
+        if t.lower() == "condensing":
+            return GenericBoilerConfig.get_default_condensing_gas_boiler_config(building_name=building_name)
+        elif t.lower() == "conventional_oil":
+            return GenericBoilerConfig.get_default_conventional_oil_boiler_config(building_name=building_name)
+        else:
+            raise ValueError(f"Unknown boiler type {t}. Use 'condensing' or 'conventional_oil'.")
+
     @classmethod
     def get_default_condensing_gas_boiler_config(cls, building_name: str = "BUI1",) -> Any:
         """Get a default condensing gas boiler."""
@@ -597,6 +612,25 @@ class GenericBoilerControllerConfig(ConfigBase):
     minimal_thermal_power_in_watt: float
     maximal_thermal_power_in_watt: float
     set_temperature_difference_for_full_power: float
+
+    @classmethod
+    def get_default_config(cls, building_name: str = "BUI1", 
+                           is_modulating: bool = True) -> "GenericBoilerControllerConfig":
+        """Get a default config for the Generic Boiler Controller. Uses one of the other default config
+        functions depending on parameter is_modulating.
+        
+        Args:
+            building_name (str): Name of the building for which the boiler controller is configured.
+            is_modulating (bool): If True, returns a modulating boiler controller config, 
+                otherwise an on/off controller config."""
+        if is_modulating:
+            return cls.get_default_modulating_generic_boiler_controller_config(
+                maximal_thermal_power_in_watt=12000, minimal_thermal_power_in_watt=1000, building_name=building_name,
+            )
+        else:
+            return cls.get_default_on_off_generic_boiler_controller_config(
+                maximal_thermal_power_in_watt=12000, minimal_thermal_power_in_watt=1000, building_name=building_name,
+            )
 
     @classmethod
     def get_default_modulating_generic_boiler_controller_config(

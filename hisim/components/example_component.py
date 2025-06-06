@@ -45,7 +45,7 @@ class ExampleComponentConfig(ConfigBase):
     initial_temperature: Optional[float]
 
     @classmethod
-    def get_default_example_component(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:

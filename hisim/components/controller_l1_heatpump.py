@@ -68,6 +68,24 @@ class L1HeatPumpConfig(ConfigBase):
         return L1HeatPumpController.get_full_classname()
 
     @staticmethod
+    def get_default_config(name: str = "Controller", building_name: str = "BUI1", t="") -> "L1HeatPumpConfig":
+        """Returns default configuration for the controller of building heating.
+        Uses one of the three default configurations depending on the type of heat source controller.
+        
+        Args:
+            name (str): Name of the controller.
+            building_name (str): Name of the building.
+            t (str): Type of heat source controller. Can be "", "buffer", or "dhw"."""
+        if t == "":
+            return get_default_config_heat_source_controller(name=name, building_name=building_name) # type: ignore
+        elif t == "buffer":
+            return get_default_config_heat_source_controller_buffer(name=name, building_name=building_name) # type: ignore
+        elif t == "dhw":
+            return get_default_config_heat_source_controller_dhw(name=name, building_name=building_name) # type: ignore
+        else:
+            raise ValueError("Unknown type of heat source controller: " + t)
+
+    @staticmethod
     def get_default_config_heat_source_controller(
         name: str = "Controller",
         building_name: str = "BUI1",

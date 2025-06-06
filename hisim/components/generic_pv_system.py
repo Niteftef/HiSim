@@ -115,7 +115,7 @@ class PVSystemConfig(ConfigBase):
     prediction_horizon: Optional[int]
 
     @classmethod
-    def get_default_pv_system(
+    def get_default_config(
         cls,
         name: str = "PVSystem",
         power_in_watt: float = 10e3,

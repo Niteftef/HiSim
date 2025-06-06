@@ -62,7 +62,7 @@ class DistrictHeatingForSHConfig(ConfigBase):
     consumption_in_kilowatt_hour: float
 
     @classmethod
-    def get_default_district_heating_config(cls, building_name: str = "BUI1",) -> Any:
+    def get_default_config(cls, building_name: str = "BUI1",) -> Any:
         """Get a default district heating."""
         config = DistrictHeatingForSHConfig(
             building_name=building_name,
@@ -319,7 +319,7 @@ class DistrictHeatingControllerForSHConfig(ConfigBase):
     set_heating_threshold_outside_temperature_in_celsius: Optional[float]
 
     @classmethod
-    def get_default_district_heating_controller_config(
+    def get_default_config(
         cls, building_name: str = "BUI1",
     ) -> Any:
         """Gets a default district heating controller."""
@@ -611,7 +611,7 @@ class DistrictHeatingForDHWConfig(ConfigBase):
     consumption_in_kilowatt_hour: float
 
     @classmethod
-    def get_default_district_dhw_heating_config(cls, building_name: str = "BUI1",) -> Any:
+    def get_default_config(cls, building_name: str = "BUI1",) -> Any:
         """Get a default district heating for dhw."""
         config = DistrictHeatingForDHWConfig(
             building_name=building_name,
@@ -870,7 +870,7 @@ class DistrictHeatingControllerForDHWConfig(ConfigBase):
     name: str
 
     @classmethod
-    def get_default_district_heating_dhw_controller_config(
+    def get_default_config(
         cls, building_name: str = "BUI1",
     ) -> Any:
         """Gets a default district heating controller."""

@@ -56,6 +56,10 @@ class ConfigBase(JSONWizard):
                 first_entry = first_entry.capitalize()
                 my_list.append(first_entry + ": " + str(entry[1]))
         return my_list
+    
+    @classmethod
+    def get_default_config(cls):
+        raise NotImplementedError(f"get_default_config is not implemented for class {cls.__name__}.")
 
 
 @dataclass

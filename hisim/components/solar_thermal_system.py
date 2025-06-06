@@ -73,7 +73,7 @@ class SolarThermalSystemConfig(ConfigBase):
     source_weight: int
 
     @classmethod
-    def get_default_solar_thermal_system(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
         coordinates: Coordinates = Coordinates(latitude=50.78, longitude=6.08),
@@ -598,7 +598,7 @@ class SolarThermalSystemControllerConfig(ConfigBase):
     set_temperature_difference_for_on: float
 
     @classmethod
-    def get_solar_thermal_system_controller_config(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
         name: str = "SolarThermalSystemController",

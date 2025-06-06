@@ -51,6 +51,11 @@ class L2HeatSmartConfig(cp.ConfigBase):
     def get_main_classname(cls):
         """Return the full class name of the base class."""
         return L2HeatSmartController.get_full_classname()
+    
+    @staticmethod
+    def get_default_config():
+        """Get a default configuration."""
+        raise NotImplementedError()
 
 
 class L2HeatSmartControllerState:

@@ -165,6 +165,27 @@ class CarConfig(cp.ConfigBase):
         return Car.get_full_classname()
 
     @classmethod
+    def get_default_config(
+        cls,
+        name: str = "Car",
+        building_name: str = "BUI1",
+        t: str = "diesel"
+    ) -> "CarConfig":
+        """Defines default configuration for car. Uses one of the two default 
+        configurations depending on the parameter t (type of car).
+        
+        Args:
+            name (str): Name of the car.
+            building_name (str): Name of the building.
+            t (str): Type of car, either 'diesel' or 'ev'."""
+        if t.lower() == "diesel":
+            return cls.get_default_diesel_config(name=name, building_name=building_name)
+        elif t.lower() == "ev":
+            return cls.get_default_ev_config(name=name, building_name=building_name)
+        else:
+            raise ValueError(f"Unknown car type {t}. Please use 'diesel' or 'ev'.")
+
+    @classmethod
     def get_default_diesel_config(
         cls,
         name: str = "Car",
@@ -187,12 +208,13 @@ class CarConfig(cp.ConfigBase):
     @classmethod
     def get_default_ev_config(
         cls,
+        name: str = "Car",
         building_name: str = "BUI1",
     ) -> Any:
         """Defines default configuration for electric vehicle."""
         config = CarConfig(
             building_name=building_name,
-            name="Car",
+            name=name,
             source_weight=1,
             fuel=lt.LoadTypes.ELECTRICITY,
             consumption_per_km=0.15,

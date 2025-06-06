@@ -97,7 +97,7 @@ class BuildingConfig(cp.ConfigBase):
     enable_opening_windows: bool
 
     @classmethod
-    def get_default_german_single_family_home(
+    def get_default_config(
         cls,
         set_heating_temperature_in_celsius: float = 20.0,
         set_cooling_temperature_in_celsius: float = 25.0,
@@ -105,7 +105,7 @@ class BuildingConfig(cp.ConfigBase):
         max_thermal_building_demand_in_watt: Optional[float] = None,
         building_name: str = "BUI1",
     ) -> Any:
-        """Get a default Building."""
+        """Get a default Building. This is a default German single-family home."""
         config = BuildingConfig(
             building_name=building_name,
             name="Building",

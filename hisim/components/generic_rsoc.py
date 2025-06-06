@@ -52,6 +52,10 @@ class RsocConfig(cp.ConfigBase):
     ramp_up_rate_sofc: float  # [%/s]
     ramp_down_rate_sofc: float  # [%/s]
 
+    @classmethod
+    def get_default_config(cls):
+        return super().get_default_config()
+
     @staticmethod
     def read_config(rsoc_name):
         """Opens the according JSON-file, based on the rSOC_name."""

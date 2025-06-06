@@ -43,7 +43,7 @@ class ElectrolyzerControllerConfig(ConfigBase):
     cold_start_time: float
 
     @classmethod
-    def get_default_electrolyzer_controller_config(
+    def get_default_config(
         cls,
         building_name: str = "BUI1",
     ) -> Any:

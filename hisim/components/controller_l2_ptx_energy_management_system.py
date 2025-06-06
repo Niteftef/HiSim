@@ -48,6 +48,19 @@ class PTXControllerConfig(ConfigBase):
             data = json.load(json_file)
             return data.get("Electrolyzer variants", {}).get(electrolyzer_name, {})
 
+    @staticmethod
+    def get_default_config() -> "PTXControllerConfig":
+        """Returns the default configuration."""
+        return PTXControllerConfig(
+            building_name="BUI1",
+            name="L2PtXController",
+            nom_load=0.0,
+            min_load=0.0,
+            max_load=0.0,
+            standby_load=0.0,
+            operation_mode="NominalLoad",
+        )
+
     @classmethod
     def control_electrolyzer(
         cls,
