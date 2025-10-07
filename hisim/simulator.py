@@ -228,6 +228,7 @@ class Simulator:
             raise ValueError("Not a single component was defined. Quitting.")
 
         # call again because it might not have gotten executed depending on how it's called.
+        # ? This is actually the only place that thing is ever called and it's not exactly the best place either
         self.prepare_simulation_directory()
 
         flagfile = os.path.join(self._simulation_parameters.result_directory, "finished.flag")

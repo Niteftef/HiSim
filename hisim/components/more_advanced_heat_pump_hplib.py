@@ -58,6 +58,7 @@ from hisim.components.configuration import (
 from hisim.simulationparameters import SimulationParameters
 from hisim.postprocessing.kpi_computation.kpi_structure import KpiEntry, KpiHelperClass, KpiTagEnumClass
 from hisim.postprocessing.cost_and_emission_computation.capex_computation import CapexComputationHelperFunctions
+from hisim import log
 
 __authors__ = "Jonas Hoppe"
 __copyright__ = ""
@@ -2679,9 +2680,9 @@ class MoreAdvancedHeatPumpHPLibControllerDHW(Component):
         self.p_th_max_dhw = self.config.p_th_max_dhw_in_watt
 
         if self.thermalpower_dhw_is_constant is True:
-            print("INFO: DHW Power is constant with " + str(self.p_th_max_dhw) + " Watt.")
+            log.information("DHW Power is constant with " + str(self.p_th_max_dhw) + " Watt.")
         elif self.thermalpower_dhw_is_constant is False:
-            print("INFO: DHW Power is modulating")
+            log.information("DHW Power is modulating")
             self.p_th_max_dhw = 0.0
 
     def i_prepare_simulation(self) -> None:

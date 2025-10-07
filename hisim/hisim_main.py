@@ -23,14 +23,19 @@ def main(
     # Suppress warnings (e.g., from pvlib)
     warnings.filterwarnings("ignore")
 
+    # set logging level if already available to ignore the log.information calls below
+    if (my_simulation_parameters is not None and
+        my_simulation_parameters.logging_level is not None):
+        log.LOGGING_LEVEL = my_simulation_parameters.logging_level
     # Delete old log files
-    logging_default_path = Path(log.LOGGING_PATH)
-    if logging_default_path.exists() and logging_default_path.is_dir():
-        for file in logging_default_path.iterdir():
-            try:
-                file.unlink()
-            except Exception:
-                log.information("Logging default file could not be removed. This can occur when more than one simulation run simultaneously.")
+# ! Removed by Felix in working branch
+#    logging_default_path = Path(log.LOGGING_PATH)
+#    if logging_default_path.exists() and logging_default_path.is_dir():
+#        for file in logging_default_path.iterdir():
+#            try:
+#                file.unlink()
+#            except Exception:
+#                log.information("Logging default file could not be removed. This can occur when more than one simulation run simultaneously.")
 
     # Logging simulation start
     function_in_module = "setup_function"
@@ -42,44 +47,35 @@ def main(
     log.profile(f"{path_to_module} {function_in_module} Start @ {starting_date_time_str}")
     log.information("#################################")
 
-    # Normalize module path and resolve absolute path
+    # Do some shenanigans to find and import the setup module
     path_obj = Path(path_to_module).with_suffix(".py").resolve()
-
-    # Get module name (filename without suffix)
     module_filename = path_obj.stem
-
-    # Add parent directory to PYTHONPATH
     module_dir = path_obj.parent
     if module_dir.exists():
         sys.path.append(str(module_dir))
     else:
         raise ValueError(f"Directory of module does not exist: {module_dir}")
-
-    # Final check and import
     if not path_obj.is_file():
         raise ValueError(f"Python script {module_filename}.py could not be found at {path_obj}")
-
-    # Make setup function executable
+    # import
     targetmodule = importlib.import_module(module_filename)
 
-    # Initialize simulator based on setup function
+    # Initialize simulator
     my_sim: sim.Simulator = sim.Simulator(
         module_directory=str(module_dir),
         module_filename=module_filename,
         setup_function=function_in_module,
         my_simulation_parameters=my_simulation_parameters,
-        my_module_config=my_module_config,
-    )
+        my_module_config=my_module_config)
 
-    # Build method
+    # Call setup function in setup module
     model_init_method = getattr(targetmodule, function_in_module)
-
-    # Pass setup function to simulator
     model_init_method(my_sim, my_simulation_parameters)
 
     # Perform simulation throughout the defined timeline
     my_sim.run_all_timesteps()
 
+    # finalize
     log.information("#################################")
     endtime = datetime.now()
     starting_date_time_str = endtime.strftime("%d-%b-%Y %H:%M:%S")

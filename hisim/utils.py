@@ -459,7 +459,12 @@ class InstanceCounter(metaclass=InstanceCounterMeta):
         else:
             self.instance_id = next(self.__class__.ids)
         if self.instance_id > 1e3:
-            raise RuntimeError(
-                f"""Too many instances of {self.__class__}.
-                Consider using a more performant or simpler type (e.g. int, float)."""
-            )
+            # ! Felix wrote: fuck this, it doesn't reset on subsequent runs
+            # therefore it'll raise if you run hisim many times in a row
+            # even though there are no actual problems.
+            # Solution: Ignore all this, it doesn't matter at all
+            pass
+            #raise RuntimeError(
+            #    f"""Too many instances of {self.__class__}.
+            #    Consider using a more performant or simpler type (e.g. int, float)."""
+            #)
