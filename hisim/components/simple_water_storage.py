@@ -1030,7 +1030,8 @@ class SimpleHotWaterStorage(SimpleWaterStorage):
         self.state.heat_loss_in_watt = heat_loss
         self.state.temperature_loss_in_celsius_per_timestep = temp_loss * self.seconds_per_timestep
         self.state.mean_water_temperature_in_celsius = (
-            self.mean_water_temperature_in_water_storage_in_celsius - temp_loss)
+            self.mean_water_temperature_in_water_storage_in_celsius
+            - temp_loss * self.seconds_per_timestep)
         
 # !      print(f"vol: {a1_vol: 4.2f}")
 #        print(f"t_1: {a2_t_prev: 4.2f}")
