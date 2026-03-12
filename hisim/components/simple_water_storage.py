@@ -116,42 +116,26 @@ class SimpleHotWaterStorageConfig(cp.ConfigBase):
         max_thermal_power_in_watt_of_heating_system: float,
         name: str = "SimpleHotWaterStorage",
         building_name: str = "BUI1",
-        temperature_difference_between_flow_and_return_in_celsius: float = 7.0,
         sizing_option: HotWaterStorageSizingEnum = HotWaterStorageSizingEnum.SIZE_ACCORDING_TO_GENERAL_HEATING_SYSTEM,
     ) -> "SimpleHotWaterStorageConfig":
         """Gets a default storage with scaling according to heating load of the building_name.
 
         The information for scaling the buffer storage is taken from the heating system guidelines from Buderus:
         https://www.baunetzwissen.de/heizung/fachwissen/speicher/dimensionierung-von-pufferspeichern-161296
+        Or from here:
+        https://www.flexiheatuk.com/buffer-vessel-sizing-for-hydronic-heating-systems/#:~:text=20%2D25%20litres%20per%20kW,kW%20for%20heat%20pump%20systems
 
-        - If the heating system is a heat pump -> use formular:
-        buffer storage size [m3] =
-        (max. thermal power of heat pump [kW]* bridging time [h])
-        /
-        (spec. heat capacity water [Wh/(kg*K)]* temperature difference flow-return [K])
-        with bridging time = 1h
-        You can also check the paper:
-        https://www.sciencedirect.com/science/article/pii/S2352152X2201533X?via%3Dihub.
-
-        - If the heating system is something else (e.g. gasheater, ...), use approximation: 60 l per kW thermal power.
         """
 
         # if the used heating system is a heat pump use formular
         if sizing_option == HotWaterStorageSizingEnum.SIZE_ACCORDING_TO_HEAT_PUMP:
-            volume_heating_water_storage_in_liter: float = (
-                max_thermal_power_in_watt_of_heating_system
-                * 1e-3
-                / (
-                    PhysicsConfig.get_properties_for_energy_carrier(
-                        energy_carrier=lt.LoadTypes.WATER
-                    ).specific_heat_capacity_in_watthour_per_kg_per_kelvin
-                    * temperature_difference_between_flow_and_return_in_celsius
-                )
-            ) * 1000  # 1m3 = 1000l
+
+            volume_heating_water_storage_in_liter = max_thermal_power_in_watt_of_heating_system / 1e3 * 50
+            # https://www.flexiheatuk.com/buffer-vessel-sizing-for-hydronic-heating-systems/#:~:text=20%2D25%20litres%20per%20kW,kW%20for%20heat%20pump%20systems
 
         # otherwise use approximation: 60l per kw thermal power
         elif sizing_option == HotWaterStorageSizingEnum.SIZE_ACCORDING_TO_GENERAL_HEATING_SYSTEM:
-            volume_heating_water_storage_in_liter = max_thermal_power_in_watt_of_heating_system / 1e3 * 60
+            volume_heating_water_storage_in_liter = max_thermal_power_in_watt_of_heating_system / 1e3 * 20
 
         # large storage for pellet heating to avoid frequent on-off
         elif sizing_option == HotWaterStorageSizingEnum.SIZE_ACCORDING_TO_PELLET_HEATING:
@@ -159,7 +143,7 @@ class SimpleHotWaterStorageConfig(cp.ConfigBase):
 
         # large storage even more important than for pellets, as on-off behavior should be avoided
         elif sizing_option == HotWaterStorageSizingEnum.SIZE_ACCORDING_TO_WOOD_CHIP_HEATING:
-            volume_heating_water_storage_in_liter = max_thermal_power_in_watt_of_heating_system / 1e3 * 100
+            volume_heating_water_storage_in_liter = max_thermal_power_in_watt_of_heating_system / 1e3 * 50
 
         # or for gas heaters make hws smaller because gas heaters are a bigger inertia than heat pump
         elif sizing_option == HotWaterStorageSizingEnum.SIZE_ACCORDING_TO_GAS_HEATER:
@@ -398,9 +382,12 @@ class SimpleWaterStorage(cp.Component):
         ambient_temperature_in_celsius: float,
         mass_in_storage_in_kg: float,
     ) -> Tuple[float, float]:
-        """Calculates the heat loss in watt and the temperature loss in Kelvin per second
-        of the storage and the water inside the storage."""
+        """Calculate heat energy loss in W and temperature loss in K/s.
 
+        Calculate the heat energy loss in W and the temperature loss in K/s of the water storage
+        based on surface area, heat transfer coefficient, inner and outer temperature and water
+        mass in storage.
+        """
         heat_loss_in_watt = self.calculate_heat_loss_in_watt(
             mean_temperature_in_storage_in_celsius=mean_water_temperature_in_water_storage_in_celsius,
             storage_surface_in_m2=storage_surface_in_m2,
@@ -408,11 +395,13 @@ class SimpleWaterStorage(cp.Component):
             ambient_temperature_in_celsius=ambient_temperature_in_celsius)
 
         # basis here: Q = m * cw * delta temperature, temperature loss is another term for delta temperature here
-        c_p = PhysicsConfig.get_properties_for_energy_carrier(lt.LoadTypes.WATER
+        temperature_loss_of_water_in_kelvin_per_s = heat_loss_in_watt / (
+            PhysicsConfig.get_properties_for_energy_carrier(
+                energy_carrier=lt.LoadTypes.WATER
             ).specific_heat_capacity_in_joule_per_kg_per_kelvin
         t_loss_in_K_per_s = heat_loss_in_watt / (c_p * mass_in_storage_in_kg)
 
-        return heat_loss_in_watt, t_loss_in_K_per_s
+        return heat_loss_in_watt, temperature_loss_of_water_in_kelvin_per_s
 
     def calculate_heat_loss_in_watt(
         self,
@@ -1014,18 +1003,20 @@ class SimpleHotWaterStorage(SimpleWaterStorage):
             p_therm_from_hg_in_W)
         stsv.set_output_value(
             self.thermal_power_from_secondary_heat_generator_channel,
-            p_therm_from_hg2_in_W)
-        
-        # ----------------------------------------------------------------------------------------
-        # ----- Set new state --------------------------------------------------------------------
-        # ----------------------------------------------------------------------------------------
+            thermal_power_from_secondary_heat_generator_in_watt,
+        )
+        # Set state -------------------------------------------------------------------------------------------------------
 
-        heat_loss, temp_loss = self.calculate_heat_loss_and_temperature_loss(
+        # calc heat loss in W and the temperature loss
+        self.state.heat_loss_in_watt, t_loss = self.calculate_heat_loss_and_temperature_loss(
             storage_surface_in_m2=self.storage_surface_in_m2,
             mean_water_temperature_in_water_storage_in_celsius=self.mean_water_temperature_in_water_storage_in_celsius,
             heat_transfer_coefficient_in_watt_per_m2_per_kelvin=self.heat_transfer_coefficient_in_watt_per_m2_per_kelvin,
             mass_in_storage_in_kg=self.water_mass_in_storage_in_kg,
-            ambient_temperature_in_celsius=self.ambient_temperature_in_celsius)
+            ambient_temperature_in_celsius=self.ambient_temperature_in_celsius,
+        )
+
+        self.state.temperature_loss_in_celsius_per_timestep = t_loss * self.seconds_per_timestep
 
         self.state.heat_loss_in_watt = heat_loss
         self.state.temperature_loss_in_celsius_per_timestep = temp_loss * self.seconds_per_timestep
@@ -1298,6 +1289,7 @@ class SimpleDHWStorage(SimpleWaterStorage):
 
     # Output
     WaterTemperatureToHeatGenerator = "WaterTemperatureToHeatGenerator"
+    WaterTemperatureToSecondaryHeatGenerator = "WaterTemperatureToSecondaryHeatGenerator"
     WaterTemperatureFromHeatGeneratorOutput = "WaterTemperatureFromHeatGenerator"
     WaterTemperatureFromSecondaryHeatGeneratorOutput = "WaterTemperatureFromSecondaryHeatGenerator"
     WaterMeanTemperatureInStorage = "WaterMeanTemperatureInStorage"
@@ -1394,6 +1386,14 @@ class SimpleDHWStorage(SimpleWaterStorage):
             lt.LoadTypes.WATER,
             lt.Units.CELSIUS,
             output_description=f"here a description for {self.WaterTemperatureToHeatGenerator} will follow.",
+        )
+
+        self.water_temperature_secondary_heat_generator_output_channel: ComponentOutput = self.add_output(
+            self.component_name,
+            self.WaterTemperatureToSecondaryHeatGenerator,
+            lt.LoadTypes.WATER,
+            lt.Units.CELSIUS,
+            output_description=f"here a description for {self.WaterTemperatureToSecondaryHeatGenerator} will follow.",
         )
 
         self.water_temperature_from_heat_generator_channel: ComponentOutput = self.add_output(
@@ -1847,10 +1847,16 @@ class SimpleDHWStorage(SimpleWaterStorage):
         )
 
         water_temperature_to_heat_generator_in_celsius = self.state.mean_water_temperature_in_celsius
+        water_temperature_to_secondary_heat_generator_in_celsius = self.state.mean_water_temperature_in_celsius
 
         stsv.set_output_value(
             self.water_temperature_to_heat_generator_channel,
             water_temperature_to_heat_generator_in_celsius,
+        )
+
+        stsv.set_output_value(
+            self.water_temperature_secondary_heat_generator_output_channel,
+            water_temperature_to_secondary_heat_generator_in_celsius,
         )
 
         stsv.set_output_value(
@@ -1924,11 +1930,7 @@ class SimpleDHWStorage(SimpleWaterStorage):
         )
         # Set state -------------------------------------------------------------------------------------------------------
         # calc heat loss in W and the temperature loss
-
-        (
-            self.state.heat_loss_in_watt,
-            t_loss_per_s,
-        ) = self.calculate_heat_loss_and_temperature_loss(
+        self.state.heat_loss_in_watt, t_loss = self.calculate_heat_loss_and_temperature_loss(
             storage_surface_in_m2=self.storage_surface_in_m2,
             mean_water_temperature_in_water_storage_in_celsius=self.mean_water_temperature_in_water_storage_in_celsius,
             heat_transfer_coefficient_in_watt_per_m2_per_kelvin=self.heat_transfer_coefficient_in_watt_per_m2_per_kelvin,
@@ -1936,7 +1938,7 @@ class SimpleDHWStorage(SimpleWaterStorage):
             ambient_temperature_in_celsius=self.ambient_temperature_in_celsius,
         )
 
-        self.state.temperature_loss_in_celsius_per_timestep = t_loss_per_s * self.seconds_per_timestep
+        self.state.temperature_loss_in_celsius_per_timestep = t_loss * self.seconds_per_timestep
 
         self.state.mean_water_temperature_in_celsius = (
             self.mean_water_temperature_in_water_storage_in_celsius
