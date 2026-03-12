@@ -2,6 +2,8 @@
 # provides heat based on a temperature input. Connect the building temperature
 # to the input and set a threshold temperature.
 
+# ! author Felix
+
 # Imports
 
 # Generic/Built-in

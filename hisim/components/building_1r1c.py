@@ -2,6 +2,7 @@
 # This means simplest possible modeling, one thermal zone with a thermal capacity and
 # only one conducting connection to the outside.
 
+# ! author Felix
 
 # Imports
 
@@ -70,7 +71,7 @@ class Building1R1C(Component):
                          my_config=my_config,
                          my_display_config=my_display_config)
         
-        self.state = 20 # initial internal temperature in degree Celsius
+        self.state = 20.0 # initial internal temperature in degree Celsius
 
         self.thermal_power_input_channel: ComponentInput = self.add_input(
             self.config.name,

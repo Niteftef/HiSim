@@ -2,6 +2,8 @@
 The other options are: simple_water_storage.py, example_storage.py, generic_heat_water_storage.py,
 and generic_hot_water_storage.py."""
 
+# ! author Felix
+
 from typing import List
 from hisim.component import Component, ConfigBase, DisplayConfig, SingleTimeStepValues
 from hisim.loadtypes import LoadTypes, Units
@@ -27,15 +29,15 @@ class WaterStorageConfig(ConfigBase):
 
     # If you want to have constant values for any of the inputs, you can set them here.
     # If you set a connection to the channel in the main component, that will override this value.
-    connection1_flow_input: float = None # kg/s # type: ignore
-    connection1_temperature_input: float = None # °C # type: ignore
-    connection2_flow_input: float = None # kg/s # type: ignore
-    connection2_temperature_input: float = None # °C # type: ignore
-    connection3_flow_input: float = None # kg/s # type: ignore
-    connection3_temperature_input: float = None # °C # type: ignore
-    connection4_flow_input: float = None # kg/s # type: ignore
-    connection4_temperature_input: float = None # °C # type: ignore
-    ambient_temperature_input: float = None # °C # type: ignore
+    connection1_flow_input: float | None = None # kg/s # type: ignore
+    connection1_temperature_input: float | None = None # °C # type: ignore
+    connection2_flow_input: float | None = None # kg/s # type: ignore
+    connection2_temperature_input: float | None = None # °C # type: ignore
+    connection3_flow_input: float | None = None # kg/s # type: ignore
+    connection3_temperature_input: float | None = None # °C # type: ignore
+    connection4_flow_input: float | None = None # kg/s # type: ignore
+    connection4_temperature_input: float | None = None # °C # type: ignore
+    ambient_temperature_input: float | None = None # °C # type: ignore
 
     def __init__(self, name: str, **kwargs) -> None:
         """Only the name is required, everything else has default values.
@@ -182,9 +184,9 @@ class WaterStorage(Component):
         # -------------------------------------
         # --- set state and other variables ---
         # -------------------------------------
-        self.state_temperature = 60 # °C # Todo: reasonable value!
+        self.state_temperature = 60.0 # °C # Todo: reasonable value!
         self.previous_temperature = self.state_temperature # used in save_state and restore_state
-        self.state_energy_imbalance = 0 # J, used for the blended_mixed model
+        self.state_energy_imbalance = 0.0 # J, used for the blended_mixed model
         self.previous_energy_imbalance = self.state_energy_imbalance # I assume you can guess
         self.cp = 4180 # J/(kg*K) specific heat capacity of water
         # this is redundant, but won't change, so I can save some computations by doing it here:
@@ -308,14 +310,15 @@ class WaterStorage(Component):
         # src_object_name or src_field_name is not None.
         # f.ex.: if self.ambient_temperature_channel.src_field_name is not None: ...
         # get ambient temperature, either from input or config
+        assert isinstance(self.config.ambient_temperature_input, float)
         if self.ambient_temperature_channel.src_field_name is not None:
             ambient_temperature = stsv.get_input_value(self.ambient_temperature_channel)
         else: ambient_temperature = self.config.ambient_temperature_input
         # use self.state_temperature as output temperature and for standby heat loss
         t_out = self.state_temperature
-        heat_loss_power = 0
+        heat_loss_power = 0.0
         for i in range(1, 5):
-            values = []
+            values: list[float] = []
             if self.get_connection_inputs(i, values, stsv):
                 flow, t_in = values
                 heat_loss_power += flow * (t_out - t_in) * self.cp
