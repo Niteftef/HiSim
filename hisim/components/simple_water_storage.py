@@ -395,10 +395,10 @@ class SimpleWaterStorage(cp.Component):
             ambient_temperature_in_celsius=ambient_temperature_in_celsius)
 
         # basis here: Q = m * cw * delta temperature, temperature loss is another term for delta temperature here
-        temperature_loss_of_water_in_kelvin_per_s = heat_loss_in_watt / (
-            PhysicsConfig.get_properties_for_energy_carrier(
+        c_p = PhysicsConfig.get_properties_for_energy_carrier(
                 energy_carrier=lt.LoadTypes.WATER
             ).specific_heat_capacity_in_joule_per_kg_per_kelvin
+        temperature_loss_of_water_in_kelvin_per_s = heat_loss_in_watt / c_p
         t_loss_in_K_per_s = heat_loss_in_watt / (c_p * mass_in_storage_in_kg)
 
         return heat_loss_in_watt, temperature_loss_of_water_in_kelvin_per_s
@@ -1003,7 +1003,7 @@ class SimpleHotWaterStorage(SimpleWaterStorage):
             p_therm_from_hg_in_W)
         stsv.set_output_value(
             self.thermal_power_from_secondary_heat_generator_channel,
-            thermal_power_from_secondary_heat_generator_in_watt,
+            0,
         )
         # Set state -------------------------------------------------------------------------------------------------------
 
@@ -1018,11 +1018,9 @@ class SimpleHotWaterStorage(SimpleWaterStorage):
 
         self.state.temperature_loss_in_celsius_per_timestep = t_loss * self.seconds_per_timestep
 
-        self.state.heat_loss_in_watt = heat_loss
-        self.state.temperature_loss_in_celsius_per_timestep = temp_loss * self.seconds_per_timestep
         self.state.mean_water_temperature_in_celsius = (
             self.mean_water_temperature_in_water_storage_in_celsius
-            - temp_loss * self.seconds_per_timestep)
+            - t_loss * self.seconds_per_timestep)
         
 # !      print(f"vol: {a1_vol: 4.2f}")
 #        print(f"t_1: {a2_t_prev: 4.2f}")
@@ -1921,7 +1919,7 @@ class SimpleDHWStorage(SimpleWaterStorage):
 
         stsv.set_output_value(
             self.thermal_power_from_secondary_heat_generator_channel,
-            thermal_power_from_secondary_heat_generator_in_watt,
+            0,
         )
 
         stsv.set_output_value(

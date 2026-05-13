@@ -51,12 +51,32 @@ class Building1R1CConfig(ConfigBase):
 
 
 class Building1R1C(Component):
-    # Inputs -> Heating and ambient temperature
-    ThermalPowerInput = "ThermalPowerInput"
-    AmbientTemperature = "AmbientTemperature"
+    """This component models a building with one thermal zone and one thermal connection to the outside (1R1C approach).\\
+    It has a single thermal capacity and a single area&u-value for heat loss to the outside.\\
+    It can receive thermal power from a number of different sources and uses the ambient temperature as a boundary condition
+    for the heat loss to the outside.\\
+    The outputs are the internal temperature and the solar gain through windows (if solar radiation inputs are used)."""
 
-    # Outputs -> Internal temperature
+    # Inputs -> Heating
+    ThermalPowerInput = "ThermalPowerInput"
+    HeatingByResidents = "HeatingByResidents"
+    HeatingByDevices = "HeatingByDevices"
+
+    # Inputs -> Weather influences
+    AmbientTemperature = "AmbientTemperature"
+    Altitude = "Altitude" # also called elevation
+    Azimuth = "Azimuth"
+    ApparentZenith = "ApparentZenith"
+    DirectNormalIrradiance = "DirectNormalIrradiance"
+    DirectNormalIrradianceExtra = "DirectNormalIrradianceExtra"
+    DiffuseHorizontalIrradiance = "DiffuseHorizontalIrradiance"
+    GlobalHorizontalIrradiance = "GlobalHorizontalIrradiance"
+    TemperatureOutside = "TemperatureOutside"
+
+    # Outputs
     InternalTemperature = "InternalTemperature"
+    SolarGainThroughWindows = "SolarGainThroughWindows"
+
 
     def __init__(
         self, 
