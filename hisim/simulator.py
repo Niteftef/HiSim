@@ -398,7 +398,7 @@ class Simulator:
         simulation_status = f"Simulating... {(step / self._simulation_parameters.timesteps) * 100:.1f}% "
         simulation_status += f"| Elapsed Time: {elapsed_minutes}:{elapsed_seconds_str} min "
         simulation_status += f"| Speed: {steps_per_second:.0f} step/s "
-        simulation_status += f"| Time Left: {time_left_minutes}:{time_left_seconds} min"
+        simulation_status += f"| Time Left: {time_left_minutes}:{time_left_seconds} min "
         simulation_status += f"| Avg. iterations {average_iteration_tries:.1f}"
         if force_covergence:
             simulation_status += " (forced)"
