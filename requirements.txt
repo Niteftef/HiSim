@@ -25,11 +25,13 @@ plotly
 ordered_set
 typing_extensions
 python-dotenv
-windpowerlib  # ==0.2.1
+windpowerlib # ==0.2.1
 timezonefinder<6.0
-wetterdienst==0.63.0
+wetterdienst==0.63.0 # TODO: migrate weather_data_import.py to new API before upgrading
 cdsapi
 xarray
 pygfunction
 pyloadprofilegenerator
 portalocker
+pyhumps==3.8.0
+pydantic

@@ -128,6 +128,8 @@ def setup_function(
 
     # Set Weather
     weather_location = arche_type_config_.weather_location
+    if weather_location is None:
+        weather_location = "AACHEN"  # default weather location
 
     # Set heat distribution system
     if energy_system_config_.heat_distribution_system == ComponentType.HEAT_DISTRIBUTION_SYSTEM_FLOORHEATING:
@@ -378,7 +380,7 @@ def setup_function(
         loading_power_input_for_battery_in_watt = my_electricity_controller.add_component_output(
             source_output_name="LoadingPowerInputForBattery_",
             source_tags=[lt.ComponentType.BATTERY, lt.InandOutputType.ELECTRICITY_TARGET],
-            source_weight=5,
+            source_weight=6,
             source_load_type=lt.LoadTypes.ELECTRICITY,
             source_unit=lt.Units.WATT,
             output_description="Target electricity for Battery Control. ",
