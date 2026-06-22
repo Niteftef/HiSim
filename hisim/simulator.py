@@ -49,7 +49,7 @@ class Simulator:
         self._simulation_parameters: SimulationParameters
         if my_simulation_parameters is not None:
             self._simulation_parameters = my_simulation_parameters
-            log.LOGGING_LEVEL = self._simulation_parameters.logging_level
+            log.logger.logging_level = self._simulation_parameters.logging_level
         self.wrapped_components: List[ComponentWrapper] = []
         self.all_outputs: List[cp.ComponentOutput] = []
 
@@ -66,7 +66,7 @@ class Simulator:
         """Sets the simulation parameters and the logging level at the same time."""
         self._simulation_parameters = my_simulation_parameters
         if self._simulation_parameters is not None:
-            log.LOGGING_LEVEL = self._simulation_parameters.logging_level
+            log.logger.logging_level = self._simulation_parameters.logging_level
 
     def get_simulation_parameters(self) -> SimulationParameters:
         """Returns the simulation parameters for exporting them to JSON."""
@@ -212,7 +212,6 @@ class Simulator:
         if not os.path.isdir(self._simulation_parameters.result_directory):
             os.makedirs(self._simulation_parameters.result_directory, exist_ok=True)
 
-        log.LOGGING_LEVEL = self._simulation_parameters.logging_level
         self.iteration_logging_path = os.path.join(
             self._simulation_parameters.result_directory, "Detailed_Iteration_Log.txt"
         )
@@ -231,9 +230,9 @@ class Simulator:
         if len(self.wrapped_components) == 0:
             raise ValueError("Not a single component was defined. Quitting.")
 
-        # call again because it might not have gotten executed depending on how it's called.
-        # ? This is actually the only place that thing is ever called and it's not exactly the best place either
+        # prepare logging and simulation directory
         self.prepare_simulation_directory()
+        log.logger.setup(self._simulation_parameters.result_directory)
 
         flagfile = os.path.join(self._simulation_parameters.result_directory, "finished.flag")
         if self._simulation_parameters.skip_finished_results and os.path.exists(flagfile):
@@ -264,15 +263,14 @@ class Simulator:
         stsv = cp.SingleTimeStepValues(number_of_outputs)
 
         for step in range(self._simulation_parameters.timesteps):
-            if self._simulation_parameters.timesteps % 500 == 0:
-                log.information("Starting step " + str(step))
-
             (
                 resulting_stsv,
                 iteration_tries,
                 force_convergence,
             ) = self.process_one_timestep(step, stsv)
-            stsv = cp.SingleTimeStepValues(number_of_outputs)
+            # Comment this out to always begin the convergence process with the previously converged state
+            # stsv = cp.SingleTimeStepValues(number_of_outputs)
+
             # Accumulates iteration counter
             total_iteration_tries_since_last_msg += iteration_tries
 
