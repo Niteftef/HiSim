@@ -215,7 +215,6 @@ class Simulator:
         self.iteration_logging_path = os.path.join(
             self._simulation_parameters.result_directory, "Detailed_Iteration_Log.txt"
         )
-        log.initialize_properly(self._simulation_parameters.result_directory)
 
     # @profile
     # @utils.measure_execution_time
