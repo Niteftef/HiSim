@@ -568,6 +568,7 @@ class SimpleHotWaterStorage(SimpleWaterStorage):
         self.seconds_per_timestep = my_simulation_parameters.seconds_per_timestep
         self.waterstorageconfig = config
         self.mean_water_temperature_in_water_storage_in_celsius: float = 35
+        self.no_explicit_warning_yet = True
         self.position_hot_water_storage_in_system = self.waterstorageconfig.position_hot_water_storage_in_system
         # ! I'm like pretty sure this is deprecated. I already deleted it in i_simulate
         if SingletonSimRepository().exist_entry(key=SingletonDictKeyEnum.WATERMASSFLOWRATEOFHEATGENERATOR):
@@ -963,11 +964,17 @@ class SimpleHotWaterStorage(SimpleWaterStorage):
         }
 
         # also useful
-        weighted_average_inflow_temperature = (
-            t_water_from_hg_in_c * water_mass_from_hg_in_kg
-            + t_water_from_hg2_in_c * water_mass_from_hg2_in_kg
-            + t_water_from_hds_in_c * water_mass_from_hds_in_kg
-        ) / water_mass_sum
+        if water_mass_sum > 0:
+            weighted_average_inflow_temperature = (
+                t_water_from_hg_in_c * water_mass_from_hg_in_kg
+                + t_water_from_hg2_in_c * water_mass_from_hg2_in_kg
+                + t_water_from_hds_in_c * water_mass_from_hds_in_kg
+            ) / water_mass_sum
+        else: #! Is this good?
+            weighted_average_inflow_temperature = (
+                t_water_from_hg_in_c + t_water_from_hg2_in_c + t_water_from_hds_in_c
+            ) / 3
+
 
         # ----------------------------------------------------------------------------------------
         # ----- Calculations ---------------------------------------------------------------------
@@ -977,23 +984,26 @@ class SimpleHotWaterStorage(SimpleWaterStorage):
 
         # Standard model
         if self.config.simulation_model in ["standard", "hisim"]:
-            t_out = self.mean_water_temperature_in_water_storage_in_celsius
+            t_out_1 = self.mean_water_temperature_in_water_storage_in_celsius
+            t_out = self.state.mean_water_temperature_in_celsius
             t_new_in_storage = self.calculate_mean_water_temperature_in_water_storage(
                 **some_kwargs, explicit_or_implicit="implicit")
         # Explicit Euler calculation
         elif self.config.simulation_model == "explicit":
-            t_out = self.mean_water_temperature_in_water_storage_in_celsius
+            t_out = self.state.mean_water_temperature_in_celsius
             t_new_in_storage = self.calculate_mean_water_temperature_in_water_storage(
                 **some_kwargs, explicit_or_implicit="explicit")
-            if water_mass_sum > self.water_mass_in_storage_in_kg:  # stability condition not met
+            if water_mass_sum > self.water_mass_in_storage_in_kg and self.no_explicit_warning_yet:  # stability condition not met
                 log.warning("Using explicit Euler in buffer tank even though the stability criterion "
                     "is not met! If this simulation fails, consider reducing seconds_per_timestep! "
                     "The stability criterion is that the water flow must be smaller than the tank volume."
+                    f"\n  Timestep: {timestep}"
                     f"\n  Water flow from heat generator: {water_flow_from_hg_in_kg_per_s} kg/s"
                     f"\n  Water flow from 2nd heat generator: {water_flow_from_hg2_in_kg_per_s} kg/s"
                     f"\n  Water flow from heat distribution: {water_mass_flow_rate_from_hds_in_kg_per_s} kg/s"
                     f"\n  Total resulting water mass flow in this time step: {water_mass_sum} kg"
                     f"\n  Volume of the buffer tank: {self.water_mass_in_storage_in_kg} kg")
+                self.no_explicit_warning_yet = False
         # Implicit Euler calculation
         elif self.config.simulation_model == "implicit":
             t_new_in_storage = self.calculate_mean_water_temperature_in_water_storage(
@@ -1005,7 +1015,7 @@ class SimpleHotWaterStorage(SimpleWaterStorage):
         # Explicit Euler with bypass solution for unstable regime
         elif self.config.simulation_model == "explicit_with_bypass":
             if water_mass_sum <= self.water_mass_in_storage_in_kg:  # stability condition met
-                t_out = self.mean_water_temperature_in_water_storage_in_celsius
+                t_out = self.state.mean_water_temperature_in_celsius
                 t_new_in_storage = self.calculate_mean_water_temperature_in_water_storage(
                     **some_kwargs, explicit_or_implicit="explicit")
             else:
@@ -1016,20 +1026,14 @@ class SimpleHotWaterStorage(SimpleWaterStorage):
                 t_new_in_storage = self.mean_water_temperature_in_water_storage_in_celsius
         # Explicit Euler with culling solution for unstable regime
         elif self.config.simulation_model == "explicit_with_culling":
-            if water_mass_sum <= self.water_mass_in_storage_in_kg:  # stability condition met
-                t_out = self.mean_water_temperature_in_water_storage_in_celsius
-                t_new_in_storage = self.calculate_mean_water_temperature_in_water_storage(
-                    **some_kwargs, explicit_or_implicit="explicit")
-            else:
-                log.information("Stability criterion in buffer tank not met. Using culling to compensate.")
-                t_out = self.mean_water_temperature_in_water_storage_in_celsius
-                t_new_in_storage, t_mismatch = self.calc_culling_model(
-                    some_kwargs = some_kwargs,
-                    previous_mismatch = self.state.temperature_mismatch,
-                    t_in_storage = self.mean_water_temperature_in_water_storage_in_celsius,
-                    weighted_average_inflow_temperature = weighted_average_inflow_temperature
-                )
-                self.state.temperature_mismatch = t_mismatch
+            t_out = self.state.mean_water_temperature_in_celsius
+            t_new_in_storage, t_mismatch = self.calc_culling_model(
+                some_kwargs = some_kwargs,
+                previous_mismatch = self.state.temperature_mismatch,
+                t_in_storage = self.state.mean_water_temperature_in_celsius,
+                weighted_average_inflow_temperature = weighted_average_inflow_temperature
+            )
+            self.state.temperature_mismatch = t_mismatch
         # wtf did you put in lol
         else:
             raise KeyError(f"Simulation model not recognized: {self.config.simulation_model}")
@@ -1795,11 +1799,16 @@ class SimpleDHWStorage(SimpleWaterStorage):
         }
 
         # also useful
-        weighted_average_inflow_temperature = (
-            t_water_from_hg_in_c * water_mass_from_hg_in_kg
-            + t_water_from_hg2_in_c * water_mass_from_hg2_in_kg
-            + t_water_input_of_dhw_in_c * water_mass_of_dhw_in_kg
-        ) / water_mass_sum
+        if water_mass_sum > 0:
+            weighted_average_inflow_temperature = (
+                t_water_from_hg_in_c * water_mass_from_hg_in_kg
+                + t_water_from_hg2_in_c * water_mass_from_hg2_in_kg
+                + t_water_input_of_dhw_in_c * water_mass_of_dhw_in_kg
+            ) / water_mass_sum
+        else:
+            weighted_average_inflow_temperature = (
+                t_water_from_hg_in_c + t_water_from_hg2_in_c + t_water_input_of_dhw_in_c
+            ) / 3
 
         # ----------------------------------------------------------------------------------------
         # ----- Calculations ---------------------------------------------------------------------
@@ -1807,12 +1816,12 @@ class SimpleDHWStorage(SimpleWaterStorage):
 
         # Standard model
         if self.config.simulation_model in ["standard", "hisim"]:
-            t_out = self.mean_water_temperature_in_water_storage_in_celsius
+            t_out = self.state.mean_water_temperature_in_celsius
             t_new_in_storage = self.calculate_mean_water_temperature_in_water_storage(
                 **some_kwargs, explicit_or_implicit="implicit")
         # Explicit Euler calculation
         elif self.config.simulation_model == "explicit":
-            t_out = self.mean_water_temperature_in_water_storage_in_celsius
+            t_out = self.state.mean_water_temperature_in_celsius
             t_new_in_storage = self.calculate_mean_water_temperature_in_water_storage(
                 **some_kwargs, explicit_or_implicit="explicit")
             if water_mass_sum > self.water_mass_in_storage_in_kg:  # stability condition not met
@@ -1835,7 +1844,7 @@ class SimpleDHWStorage(SimpleWaterStorage):
         # Explicit Euler with bypass solution for unstable regime
         elif self.config.simulation_model == "explicit_with_bypass":
             if water_mass_sum <= self.water_mass_in_storage_in_kg:  # stability condition met
-                t_out = self.mean_water_temperature_in_water_storage_in_celsius
+                t_out = self.state.mean_water_temperature_in_celsius
                 t_new_in_storage = self.calculate_mean_water_temperature_in_water_storage(
                     **some_kwargs, explicit_or_implicit="explicit")
             else:
@@ -1846,20 +1855,14 @@ class SimpleDHWStorage(SimpleWaterStorage):
                 t_new_in_storage = self.mean_water_temperature_in_water_storage_in_celsius
         # Explicit Euler with culling solution for unstable regime
         elif self.config.simulation_model == "explicit_with_culling":
-            if water_mass_sum <= self.water_mass_in_storage_in_kg:  # stability condition met
-                t_out = self.mean_water_temperature_in_water_storage_in_celsius
-                t_new_in_storage = self.calculate_mean_water_temperature_in_water_storage(
-                    **some_kwargs, explicit_or_implicit="explicit")
-            else:
-                log.information("Stability criterion in buffer tank not met. Using culling to compensate.")
-                t_out = self.mean_water_temperature_in_water_storage_in_celsius
-                t_new_in_storage, t_mismatch = self.calc_culling_model(
-                    some_kwargs = some_kwargs,
-                    previous_mismatch = self.state.temperature_mismatch,
-                    t_in_storage = self.mean_water_temperature_in_water_storage_in_celsius,
-                    weighted_average_inflow_temperature = weighted_average_inflow_temperature
-                )
-                self.state.temperature_mismatch = t_mismatch
+            t_out = self.state.mean_water_temperature_in_celsius
+            t_new_in_storage, t_mismatch = self.calc_culling_model(
+                some_kwargs = some_kwargs,
+                previous_mismatch = self.state.temperature_mismatch,
+                t_in_storage = self.state.mean_water_temperature_in_celsius,
+                weighted_average_inflow_temperature = weighted_average_inflow_temperature
+            )
+            self.state.temperature_mismatch = t_mismatch
         # wtf did you put in lol
         else:
             raise KeyError(f"Simulation model not recognized: {self.config.simulation_model}")
