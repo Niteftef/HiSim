@@ -395,11 +395,13 @@ class SimpleWaterStorage(cp.Component):
         if t_new_in_storage_theoretical < lower_limit:
             t_mismatch = t_new_in_storage_theoretical - lower_limit
             t_new_in_storage = t_new_in_storage_theoretical - t_mismatch
-            assert t_new_in_storage == lower_limit
+            assert t_new_in_storage == lower_limit, (f"t_new_in_storage ({t_new_in_storage}) "
+                                                    f"should be equal to lower_limit ({lower_limit})")
         elif t_new_in_storage_theoretical > upper_limit:
             t_mismatch = t_new_in_storage_theoretical - upper_limit
             t_new_in_storage = t_new_in_storage_theoretical - t_mismatch
-            assert t_new_in_storage == upper_limit
+            assert t_new_in_storage == upper_limit, (f"t_new_in_storage ({t_new_in_storage}) "
+                                                    f"should be equal to upper_limit ({upper_limit})")
         else:
             t_mismatch = 0
             t_new_in_storage = t_new_in_storage_theoretical
