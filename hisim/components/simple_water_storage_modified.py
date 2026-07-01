@@ -4,6 +4,7 @@
 # Owned
 import importlib
 from dataclasses import dataclass
+import math
 from typing import List, Any, Tuple, Union, Optional
 from enum import IntEnum
 import numpy as np
@@ -395,12 +396,12 @@ class SimpleWaterStorage(cp.Component):
         if t_new_in_storage_theoretical < lower_limit:
             t_mismatch = t_new_in_storage_theoretical - lower_limit
             t_new_in_storage = t_new_in_storage_theoretical - t_mismatch
-            assert t_new_in_storage == lower_limit, (f"t_new_in_storage ({t_new_in_storage}) "
+            assert math.isclose(t_new_in_storage, lower_limit), (f"t_new_in_storage ({t_new_in_storage}) "
                                                     f"should be equal to lower_limit ({lower_limit})")
         elif t_new_in_storage_theoretical > upper_limit:
             t_mismatch = t_new_in_storage_theoretical - upper_limit
             t_new_in_storage = t_new_in_storage_theoretical - t_mismatch
-            assert t_new_in_storage == upper_limit, (f"t_new_in_storage ({t_new_in_storage}) "
+            assert math.isclose(t_new_in_storage, upper_limit), (f"t_new_in_storage ({t_new_in_storage}) "
                                                     f"should be equal to upper_limit ({upper_limit})")
         else:
             t_mismatch = 0
@@ -1025,7 +1026,7 @@ class SimpleHotWaterStorage(SimpleWaterStorage):
                 # t_out is simply weighted average of the inflow temperatures
                 t_out = weighted_average_inflow_temperature
                 # buffer temperature stays as it is because the tank gets bypassed entirely
-                t_new_in_storage = self.mean_water_temperature_in_water_storage_in_celsius
+                t_new_in_storage = self.state.mean_water_temperature_in_celsius
         # Explicit Euler with culling solution for unstable regime
         elif self.config.simulation_model == "explicit_with_culling":
             t_out = self.state.mean_water_temperature_in_celsius
@@ -1854,7 +1855,7 @@ class SimpleDHWStorage(SimpleWaterStorage):
                 # t_out is simply weighted average of the inflow temperatures
                 t_out = weighted_average_inflow_temperature
                 # buffer temperature stays as it is because the tank gets bypassed entirely
-                t_new_in_storage = self.mean_water_temperature_in_water_storage_in_celsius
+                t_new_in_storage = self.state.mean_water_temperature_in_celsius
         # Explicit Euler with culling solution for unstable regime
         elif self.config.simulation_model == "explicit_with_culling":
             t_out = self.state.mean_water_temperature_in_celsius
