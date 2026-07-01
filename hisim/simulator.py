@@ -18,7 +18,7 @@ import hisim.dynamic_component as dcp
 from hisim import log
 from hisim.simulationparameters import SimulationParameters
 from hisim import utils
-from hisim.postprocessingoptions import PostProcessingOptions as PPO
+from hisim import postprocessingoptions
 from hisim.loadtypes import Units
 from hisim.result_path_provider import ResultPathProviderSingleton, SortingOptionEnum
 
@@ -154,7 +154,7 @@ class Simulator:
                 continue_calculation = False
             if (
                 iterative_tries > 2
-                and PPO.PROVIDE_DETAILED_ITERATION_LOGGING
+                and postprocessingoptions.PostProcessingOptions.PROVIDE_DETAILED_ITERATION_LOGGING
                 in self._simulation_parameters.post_processing_options
             ):
                 myerr = stsv.get_differences_for_error_msg(previous_values, self.all_outputs)
@@ -257,7 +257,7 @@ class Simulator:
         stsv = cp.SingleTimeStepValues(number_of_outputs)
 
         # prepare csv exports if post processing is skipped
-        if PPO.SKIP_POST_CONTINUOUS_EXPORT in self._simulation_parameters.post_processing_options:
+        if postprocessingoptions.PostProcessingOptions.SKIP_POST_CONTINUOUS_EXPORT in self._simulation_parameters.post_processing_options:
             # create a list of filenames, it will be in order of the outputs, just like the all_outputs list
             export_filenames = []
             for entry in self.all_outputs:
@@ -282,7 +282,7 @@ class Simulator:
             if step % chunksize == 0:
                 log.information("Starting step " + str(step))
                 # if post processing is skipped, export the data in chunks
-                if PPO.SKIP_POST_CONTINUOUS_EXPORT in self._simulation_parameters.post_processing_options:
+                if postprocessingoptions.PostProcessingOptions.SKIP_POST_CONTINUOUS_EXPORT in self._simulation_parameters.post_processing_options:
                     if step == 0: continue
                     all_result_lines = list(zip(*all_result_lines))  # transpose the table
                     for i, entry in enumerate(export_filenames): # type: ignore
@@ -304,7 +304,7 @@ class Simulator:
             total_iteration_tries_since_last_msg += iteration_tries
 
             # Appends
-            all_result_lines.append(resulting_stsv.values) # type: ignore
+            all_result_lines.append(resulting_stsv.values)
             del resulting_stsv
             # Calculates time execution
             elapsed = datetime.datetime.now() - lastmessage
@@ -322,7 +322,7 @@ class Simulator:
                 total_iteration_tries_since_last_msg = 0
         
         # export last chunk and then skip post processing if requested
-        if PPO.SKIP_POST_CONTINUOUS_EXPORT in self._simulation_parameters.post_processing_options:
+        if postprocessingoptions.PostProcessingOptions.SKIP_POST_CONTINUOUS_EXPORT in self._simulation_parameters.post_processing_options:
             all_result_lines = list(zip(*all_result_lines))  # transpose the table
             for i, entry in enumerate(export_filenames): # type: ignore
                 this_result_lines = all_result_lines[i]
@@ -442,7 +442,7 @@ class Simulator:
         pd_timeline = pd.date_range(
             start=self._simulation_parameters.start_date,
             end=self._simulation_parameters.end_date,
-            freq=f"{self._simulation_parameters.seconds_per_timestep}s",
+            freq=f"{self._simulation_parameters.seconds_per_timestep}S",
         )[:-1]
         n_columns = results_data_frame.shape[1]
 
