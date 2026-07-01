@@ -339,13 +339,12 @@ class Simulator:
                 with open(entry, "a", encoding="utf-8") as filestream:
                     filestream.writelines([export_index[j] + "," + str(this_result_lines[j]) + "\n" # type: ignore
                                            for j in range(len(this_result_lines))])
-            del all_result_lines
+            all_result_lines = []
             del export_filenames # type: ignore
             del export_index # type: ignore
             log.information("Skipped postprocessing, all data should be exported.")
             with open(flagfile, "a", encoding="utf-8") as filestream:
                 filestream.write("finished")
-            return
         
         # else do post processing
         postprocessing_datatransfer = self.prepare_post_processing(all_result_lines, start_counter)
@@ -385,8 +384,12 @@ class Simulator:
         """
         log.information("Preparing post processing")
         # Prepares the results from the simulation for the post processing.
-        if len(all_result_lines) != self._simulation_parameters.timesteps:
-            raise ValueError("not all lines were generated")
+        if postprocessingoptions.PostProcessingOptions.SKIP_POST_CONTINUOUS_EXPORT in self._simulation_parameters.post_processing_options:
+            if len(all_result_lines) != 0:
+                raise ValueError(f"With continuous export, all_result_lines should be empty, but there are lines: {all_result_lines}")
+        else:
+            if len(all_result_lines) != self._simulation_parameters.timesteps:
+                raise ValueError("not all lines were generated")
         colum_names = []
         if self.setup_function is None:
             raise ValueError("No setup function was set")
@@ -401,6 +404,8 @@ class Simulator:
             end=self._simulation_parameters.end_date,
             freq=f"{self._simulation_parameters.seconds_per_timestep}s",
         )[:-1]
+        if postprocessingoptions.PostProcessingOptions.SKIP_POST_CONTINUOUS_EXPORT in self._simulation_parameters.post_processing_options:
+            df_index = []
         self.results_data_frame.index = df_index
         end_counter = time.perf_counter()
         execution_time = end_counter - start_counter
