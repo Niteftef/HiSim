@@ -21,8 +21,8 @@ def test_basic_household():
     if Path(config_filename).is_file():
         os.remove(config_filename)
 
-    path = "../system_setups/household_2_advanced_hp_diesel_car_pv.py"
-    mysimpar = SimulationParameters.one_day_only(year=2019, seconds_per_timestep=60)
-    mysimpar.post_processing_options.append(PostProcessingOptions.MAKE_NETWORK_CHARTS)
-    hisim_main.main(path, mysimpar)
+    system_setup_path = "../system_setups/household_2_advanced_hp_diesel_car_pv.py"
+    simulation_parameters = SimulationParameters.one_day_only(year=2019, seconds_per_timestep=60)
+    simulation_parameters.post_processing_options.append(PostProcessingOptions.MAKE_NETWORK_CHARTS)
+    hisim_main.main(system_setup_path, simulation_parameters)
     log.information(os.getcwd())

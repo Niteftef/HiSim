@@ -134,8 +134,6 @@ def setup_function(
 
     # Set Weather
     weather_location = arche_type_config_.weather_location
-    if weather_location is None:
-        weather_location = "AACHEN"  # default weather location
 
     # Set Photovoltaic System
     azimuth = arche_type_config_.pv_azimuth
@@ -319,7 +317,7 @@ def setup_function(
     # Heat Distribution System
     my_heat_distribution_system_config = (
         heat_distribution_system.HeatDistributionConfig.get_default_heatdistributionsystem_config(
-            water_mass_flow_rate_in_kg_per_second=my_hds_controller_information.water_mass_flow_rate_in_kp_per_second,
+            water_mass_flow_rate_in_kg_per_second=my_hds_controller_information.water_mass_flow_rate_in_kg_per_second,
             absolute_conditioned_floor_area_in_m2=my_building_information.scaled_conditioned_floor_area_in_m2,
             heating_system=my_hds_controller_information.hds_controller_config.heating_system,
         )

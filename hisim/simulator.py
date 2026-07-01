@@ -12,7 +12,6 @@ import pandas as pd
 from hisim.postprocessing.postprocessing_datatransfer import PostProcessingDataTransfer
 from hisim.component_wrapper import ComponentWrapper
 from hisim import sim_repository
-from hisim.postprocessing import postprocessing_main as pp
 import hisim.component as cp
 import hisim.dynamic_component as dcp
 from hisim import log
@@ -187,8 +186,9 @@ class Simulator:
         ):
 
             # check if result path is already set somewhere manually
-            if ResultPathProviderSingleton().get_result_directory_name() is not None:
-                self._simulation_parameters.result_directory = ResultPathProviderSingleton().get_result_directory_name()
+            result_directory = ResultPathProviderSingleton().get_result_directory_name()
+            if result_directory is not None:
+                self._simulation_parameters.result_directory = result_directory
                 log.information(
                     "Using result directory: "
                     + self._simulation_parameters.result_directory
@@ -203,7 +203,10 @@ class Simulator:
                     scenario_hash_string=None,
                     sorting_option=SortingOptionEnum.FLAT,
                 )
-                self._simulation_parameters.result_directory = ResultPathProviderSingleton().get_result_directory_name()
+                result_directory = ResultPathProviderSingleton().get_result_directory_name()
+                if result_directory is None:
+                    raise ValueError("Result path provider did not return a result directory.")
+                self._simulation_parameters.result_directory = result_directory
                 log.information(
                     f"Using result directory:  {self._simulation_parameters.result_directory}"
                     + " which is set by the simulator."
@@ -295,6 +298,8 @@ class Simulator:
         if postprocessing_datatransfer is None:
             raise ValueError("postprocessing_datatransfer was none")
 
+        from hisim.postprocessing import postprocessing_main as pp  # pylint: disable=import-outside-toplevel
+
         my_post_processor = pp.PostProcessor()
         my_post_processor.run(ppdt=postprocessing_datatransfer, my_sim=self)
         for wrapped_component in self.wrapped_components:
@@ -309,7 +314,20 @@ class Simulator:
 
     @utils.measure_execution_time
     def prepare_post_processing(self, all_result_lines, start_counter):
-        """Prepares the post processing."""
+        """Assembles simulation results into a DataFrame and prepares data for post-processing.
+
+        Builds a pandas DataFrame from simulation outputs, assigns a datetime index based on
+        simulation start/end dates and timestep size, and optionally computes monthly, daily,
+        hourly, and cumulative aggregations. Returns a PostProcessingDataTransfer object
+        containing all results and metadata.
+
+        Args:
+            all_result_lines: List of result arrays, one per timestep.
+            start_counter: High-resolution time from before simulation started, used to compute execution time.
+
+        Returns:
+            PostProcessingDataTransfer: Object bundling results, outputs, parameters, and timing for post-processing.
+        """
         log.information("Preparing post processing")
         # Prepares the results from the simulation for the post processing.
         if len(all_result_lines) != self._simulation_parameters.timesteps:
@@ -326,7 +344,7 @@ class Simulator:
         df_index = pd.date_range(
             start=self._simulation_parameters.start_date,
             end=self._simulation_parameters.end_date,
-            freq=f"{self._simulation_parameters.seconds_per_timestep}S",
+            freq=f"{self._simulation_parameters.seconds_per_timestep}s",
         )[:-1]
         self.results_data_frame.index = df_index
         end_counter = time.perf_counter()
@@ -437,14 +455,14 @@ class Simulator:
             unit = self.all_outputs[i].unit
 
             if unit in units_mean:
-                monthly = col_data.resample("M").mean()
+                monthly = col_data.resample("ME").mean()
                 daily = col_data.resample("D").mean()
-                hourly = col_data.resample("60T").mean() if use_hourly_resample else col_data
+                hourly = col_data.resample("60min").mean() if use_hourly_resample else col_data
                 cumulative = col_data.mean()
             else:
-                monthly = col_data.resample("M").sum()
+                monthly = col_data.resample("ME").sum()
                 daily = col_data.resample("D").sum()
-                hourly = col_data.resample("60T").sum() if use_hourly_resample else col_data
+                hourly = col_data.resample("60min").sum() if use_hourly_resample else col_data
                 cumulative = col_data.sum()
 
             monthly_frames.append(monthly.rename(column_name))

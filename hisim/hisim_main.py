@@ -18,7 +18,6 @@ try:
     from hisim import log
     from hisim.simulationparameters import SimulationParameters
     from hisim.sim_repository_singleton import SingletonSimRepository, SingletonDictKeyEnum
-    from hisim.hisim_convert_to_json import get_description_from_py
 except ModuleNotFoundError:
     raise ModuleNotFoundError(
         "Could not import HiSim modules. "
@@ -41,6 +40,19 @@ __email__ = "v.janser@fz-juelich.de"
 def is_hisim_root(path: Path) -> bool:
     """Check if given path is HiSim root directory."""
     return (path / "setup.py").exists() and (path / "hisim").is_dir()
+
+
+def get_description_from_py(path_obj: Path) -> str:
+    """Extract brief description from the first line of the system setup python file."""
+    with path_obj.open("r", encoding="utf-8") as file:
+        first_line = file.readline().strip()
+
+    desc = first_line
+    for quote_type in ['"""', "'''"]:
+        if first_line.startswith(quote_type):
+            desc = first_line.replace(quote_type, "").strip()
+            break
+    return desc
 
 
 def initialize_from_python(
@@ -152,7 +164,6 @@ def initialize_from_json(
     my_sim = setup_components_and_connections(scenario_data, my_sim, sim_params)
 
     if delta:
-        # delta_data = load_json_file(delta)
         log.warning("====================================================================")
         log.warning("== The delta file is currently not supported and will be ignored. ==")
         log.warning("====================================================================")
@@ -225,7 +236,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def validate_args(args: argparse.Namespace):
+def validate_args(args: argparse.Namespace) -> dict[str, Optional[str]]:
     """Check the provided command-line arguments for validity and determine execution mode."""
 
     inputs = args.inputs
@@ -281,42 +292,51 @@ def validate_args(args: argparse.Namespace):
     )
 
 
-def main_cli():
+def get_required_config_value(config: dict[str, Optional[str]], key: str) -> str:
+    """Return a required command-line config value."""
+    value = config[key]
+    if value is None:
+        raise ValueError(f"Missing required command-line argument: {key}")
+    return value
+
+
+def main_cli() -> None:
     """Main function for command-line execution of HiSim, supporting both Python-based and JSON-based scenarios."""
 
-    try:
-        args = parse_args()
-        config = validate_args(args)
+    args = parse_args()
+    config = validate_args(args)
 
-        # Suppress warnings (e.g., from pvlib)
-        warnings.filterwarnings("ignore")
+    # Suppress warnings (e.g., from pvlib)
+    warnings.filterwarnings("ignore")
 
-        my_sim: sim.Simulator
-        ptm: str
-        # Dispatching logic
-        if config["mode"] == "python":
-            print(f"Calling setup_function from {config['module_file']}")
-            my_sim = initialize_from_python(
-                path_to_module=config["module_file"],
-                my_module_config=config["module_config"],
-            )
-            ptm = config["module_file"]
+    my_sim: sim.Simulator
+    ptm: str
+    # Dispatching logic
+    if config["mode"] == "python":
+        module_file = get_required_config_value(config, "module_file")
+        print(f"Calling setup_function from {module_file}")
+        my_sim = initialize_from_python(
+            path_to_module=module_file,
+            my_module_config=config["module_config"],
+        )
+        ptm = module_file
 
-        elif config["mode"] == "json":
-            print(f"Running simulation of scenario {config['scenario']} with simulation parameters {config['simulation']}"
-                  + (f" and delta {config['delta']}" if config["delta"] else ""))
-            my_sim = initialize_from_json(
-                scenario=config["scenario"],
-                simulation_parameters=config["simulation"],
-                path_to_module=config["scenario"],
-                delta=config["delta"],
-            )
-            ptm = config["scenario"]
+    elif config["mode"] == "json":
+        scenario = get_required_config_value(config, "scenario")
+        simulation = get_required_config_value(config, "simulation")
+        print(
+            f"Running simulation of scenario {scenario} with simulation parameters {simulation}"
+            + (f" and delta {config['delta']}" if config["delta"] else "")
+        )
+        my_sim = initialize_from_json(
+            scenario=scenario,
+            simulation_parameters=simulation,
+            path_to_module=scenario,
+            delta=config["delta"],
+        )
+        ptm = scenario
 
-        run_simulation(my_sim, path_to_module=ptm)
-
-    except Exception as e:
-        raise e
+    run_simulation(my_sim, path_to_module=ptm)
 
 
 def main(path_to_module: str, my_simulation_parameters: Optional[SimulationParameters] = None, my_module_config: Optional[str] = None) -> None:

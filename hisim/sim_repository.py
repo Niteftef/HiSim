@@ -24,9 +24,7 @@ class SimRepository:
 
     def exist_entry(self, key: str) -> bool:
         """Checks if an entry exists."""
-        if key in self.my_dict:
-            return True
-        return False
+        return key in self.my_dict
 
     def delete_entry(self, key: str) -> None:
         """Deletes an existing entry."""
@@ -37,7 +35,7 @@ class SimRepository:
         self.my_dynamic_dict[component_type][source_weight] = entry
 
     def get_dynamic_entry(self, component_type: lt.ComponentType, source_weight: int) -> Any:
-        """Gets a dynmaic entry."""
+        """Gets a dynamic entry."""
         component = self.my_dynamic_dict.get(component_type, None)
         if component is None:
             return None

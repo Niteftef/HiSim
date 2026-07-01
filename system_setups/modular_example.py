@@ -24,7 +24,7 @@ from hisim.components import (
     generic_smart_device,
 )
 from hisim.modular_household import component_connections
-from hisim.modular_household.interface_configs.modular_household_config import read_in_configs
+from hisim.modular_household.interface_configs.modular_household_config import read_config
 from hisim.postprocessingoptions import PostProcessingOptions
 from hisim.simulator import SimulationParameters
 
@@ -93,7 +93,7 @@ def setup_function(
     year = 2021
     seconds_per_timestep = 60 * 60
 
-    household_config = read_in_configs(my_sim.my_module_config)
+    household_config = read_config(my_sim.my_module_config)
 
     assert household_config.archetype_config_ is not None
     assert household_config.system_config_ is not None
@@ -487,7 +487,7 @@ def setup_function(
 
     # """hydrogen storage with fuel cell and electrolyzer"""
     if hydrogen_setup_included and not buffer_included:
-        count = component_connections.configure_elctrolysis_h2storage_fuelcell_system(
+        count = component_connections.configure_electrolysis_h2storage_fuelcell_system(
             my_sim=my_sim,
             my_simulation_parameters=my_simulation_parameters,
             my_building=my_building,
@@ -501,7 +501,7 @@ def setup_function(
         )
 
     if hydrogen_setup_included and buffer_included:
-        count = component_connections.configure_elctrolysis_h2storage_fuelcell_system_with_buffer(
+        count = component_connections.configure_electrolysis_h2storage_fuelcell_system_with_buffer(
             my_sim=my_sim,
             my_simulation_parameters=my_simulation_parameters,
             my_buffer=my_buffer,

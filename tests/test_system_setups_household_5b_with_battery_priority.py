@@ -14,16 +14,16 @@ from hisim.postprocessingoptions import PostProcessingOptions
 # @pytest.mark.system_setups
 @pytest.mark.utsp
 @utils.measure_execution_time
-def test_basic_household():
+def test_basic_household() -> None:
     """Single day."""
 
     config_filename = "household_5_advanced_hp_ev_pv_battery_config.json"
     if Path(config_filename).is_file():
         os.remove(config_filename)
 
-    path = "../system_setups/household_5b_with_battery_priority_advanced_hp_ev_pv_battery.py"
+    setup_path = "../system_setups/household_5b_with_battery_priority_advanced_hp_ev_pv_battery.py"
 
-    mysimpar = SimulationParameters.one_day_only(year=2019, seconds_per_timestep=60)
-    mysimpar.post_processing_options.append(PostProcessingOptions.MAKE_NETWORK_CHARTS)
-    hisim_main.main(path, mysimpar)
+    simulation_parameters = SimulationParameters.one_day_only(year=2019, seconds_per_timestep=60)
+    simulation_parameters.post_processing_options.append(PostProcessingOptions.MAKE_NETWORK_CHARTS)
+    hisim_main.main(setup_path, simulation_parameters)
     log.information(os.getcwd())

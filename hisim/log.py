@@ -3,11 +3,13 @@
 # noqa: D400, D415, D413, D407
 # pylint: skip-file
 """ Logging functionality for all of HiSim. """
+from __future__ import annotations
+
 # clean
 from enum import IntEnum
-import os
+from pathlib import Path
 
-LOGGING_DEFAULT_LEVEL = 3
+LOGGING_DEFAULT_LEVEL: int = 3
 LOGGING_DEFAULT_PATH: str = r"../logs/"
 
 
@@ -24,7 +26,8 @@ class LogPrio(IntEnum):
     @staticmethod
     def get_prio_string(prio: int) -> str:
         """Get the string representation of the priority."""
-        prio_strings = {
+
+        prio_strings: dict[int, str] = {
             LogPrio.ERROR: "ERR",
             LogPrio.WARNING: "WRN",
             LogPrio.INFORMATION: "IFO",
@@ -32,7 +35,7 @@ class LogPrio(IntEnum):
             LogPrio.PROFILE: "PRF",
             LogPrio.TRACE: "TRC"
         }
-        return prio_strings.get(prio, "???")  # type: ignore
+        return prio_strings.get(prio, "???")
 
 
 class Logger:
@@ -58,7 +61,7 @@ class Logger:
     # ----- setup functions ----------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------
 
-    def setup(self, logging_path) -> None:
+    def setup(self, logging_path: str) -> None:
         """Create actual logging path and files and move the buffered logs there.
 
         Args:
@@ -76,12 +79,12 @@ class Logger:
                     pass
         # set path and make folder if it does not exist
         self.logging_path = logging_path
-        if not os.path.exists(logging_path):
-            os.makedirs(logging_path)
+        if not Path(logging_path).exists():
+            Path(logging_path).mkdir(parents=True, exist_ok=True)
         # write buffered logs to files
         for filename, buffer in [["hisim_simulation", self.log_buffer],
                                  ["profiling_timeuse", self.profile_buffer]]:
-            file_path = os.path.join(logging_path, filename + ".log")
+            file_path = str(Path(logging_path) / (filename + ".log"))
             try:
                 with open(file_path, "a", encoding="utf-8") as filestream:
                     filestream.write(buffer)
@@ -105,10 +108,10 @@ class Logger:
         self.log_buffer: str = ""
         self.profile_buffer: str = ""
 
-    def file_thanos(self, filename):
+    def file_thanos(self, filename: str) -> None:
         """Checks the size of a default logfile and halves it if it is too large."""
-        file_path = os.path.join(LOGGING_DEFAULT_PATH, filename + ".log")
-        if not os.path.exists(file_path):
+        file_path = str(Path(LOGGING_DEFAULT_PATH) / (filename + ".log"))
+        if not Path(file_path).exists():
             return
         with open(file_path, "rb") as file:
             num_lines = sum(1 for line in file)
@@ -131,20 +134,21 @@ class Logger:
         """
         if logging_message_path is None:
             logging_message_path = self.logging_path
-        # if prio high enough: print to stdout
-        if not use_profile_file and prio <= self.logging_level:
+        if prio > self.logging_level:
+            return
+        if not use_profile_file:
             print(str(LogPrio.get_prio_string(prio)) + ":" + message)
         # if logging path doesn't exist: create directory
-        if not os.path.exists(logging_message_path):
-            os.makedirs(logging_message_path)
+        if not Path(logging_message_path).exists():
+            Path(logging_message_path).mkdir(parents=True, exist_ok=True)
         # log to file if possible
         filename = "profiling_timeuse.log" if use_profile_file else "hisim_simulation.log"
-        file_path = os.path.join(logging_message_path, filename)
+        file_path = str(Path(logging_message_path) / filename)
         try:
             with open(file_path, "a", encoding="utf-8") as filestream:
                 filestream.write(message + "\n")
         except Exception:
-            print("{filename} could not be appended. "
+            print(f"{filename} could not be appended. "
                 "This might happen when too many simultaneous simulations are running.")
         # if result directory and therefore actual log file not yet created: buffer logs
         if self.before_result_dir_created:
@@ -157,7 +161,7 @@ class Logger:
 
 
 # this gets executed once per kernel when the module is first imported
-logger = Logger()
+logger: Logger = Logger()
 
 
 def error(message: str, logging_message_path: str|None = None) -> None:
