@@ -286,9 +286,8 @@ class Simulator:
             export_index = export_index.astype("str").tolist()
 
         for step in range(self._simulation_parameters.timesteps):
-            chunksize = 500
+            chunksize = 1000
             if step % chunksize == 0:
-                log.information("Starting step " + str(step))
                 # if post processing is skipped, export the data in chunks
                 if postprocessingoptions.PostProcessingOptions.SKIP_POST_CONTINUOUS_EXPORT in self._simulation_parameters.post_processing_options:
                     if step == 0: continue
