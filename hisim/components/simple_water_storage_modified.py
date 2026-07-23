@@ -1,4 +1,4 @@
-"""Simple Water Storage Module for dhw storage and hot water storage for heating."""
+"""Modified Simple Water Storage Module for dhw storage and hot water storage for heating."""
 
 # clean
 # Owned
@@ -343,6 +343,10 @@ class SimpleWaterStorage(cp.Component):
         super().__init__(name, my_simulation_parameters, my_config, my_display_config)
         self.my_simulation_parameters = my_simulation_parameters
         self.seconds_per_timestep = my_simulation_parameters.seconds_per_timestep
+        self.t_min = 0
+        """The absolute minimum temperature that the storage can have, otherwise we throw an error. Default: 0"""
+        self.t_max = 100
+        """The absolute maximum temperature that the storage can have, otherwise we throw an error. Default: 100"""
 
     def calculate_mean_water_temperature_in_water_storage(
         self,
@@ -355,13 +359,17 @@ class SimpleWaterStorage(cp.Component):
         water_temperature_from_secondary_heat_generator_in_celsius: float = 0,
         mass_of_input_water_flows_from_secondary_heat_generator_in_kg: float = 0,
         explicit_or_implicit: str = "explicit",
+        set_t_out_2nd_side: float|None = None
     ) -> float:
-        """Calculate the mean temperature of the water in the water tank."""
+        """Calculate the mean temperature of the water in the water tank.
+        
+        If the outflow temperature at the secondary side should be set to a specific value instead of
+        using the mean temperature in the tank, you can use the set_t_out_2nd_side parameter for that.
+        Works only for the explicit calculation method. This is meant for dhw tanks."""
         # prepare
-        mass_sum_inputs = (mass_of_input_water_flows_from_heat_generator_in_kg
-            + mass_of_input_water_flows_from_secondary_heat_generator_in_kg
-            + mass_of_input_water_flows_of_secondary_side_in_kg)
-        mass_sum = mass_sum_inputs + water_mass_in_storage_in_kg
+        mass_sum_hgs = (mass_of_input_water_flows_from_heat_generator_in_kg
+            + mass_of_input_water_flows_from_secondary_heat_generator_in_kg)
+        mass_sum = mass_sum_hgs + water_mass_in_storage_in_kg + mass_of_input_water_flows_of_secondary_side_in_kg
         # first calc the (weighted) average temperature of the storage + all inflows        
         t_intermediate = (
             water_mass_in_storage_in_kg * previous_mean_water_temperature_in_water_storage_in_celsius
@@ -372,10 +380,18 @@ class SimpleWaterStorage(cp.Component):
         # now t_intermediate is the weighted average of the previous temperature plus all inflows
         # depending in the method, the outflows now have to be subtracted or not
         if explicit_or_implicit == "explicit": # potentially numerically unstable
+            if set_t_out_2nd_side is None:
+                set_t_out_2nd_side = previous_mean_water_temperature_in_water_storage_in_celsius
+            t_out_2nd_side = set_t_out_2nd_side
+            mass_flow_2nd_side = mass_of_input_water_flows_of_secondary_side_in_kg
             t_prev = previous_mean_water_temperature_in_water_storage_in_celsius
-            result = (t_intermediate * mass_sum - t_prev * mass_sum_inputs) / water_mass_in_storage_in_kg
+            result = (t_intermediate * mass_sum - t_prev * mass_sum_hgs - t_out_2nd_side * mass_flow_2nd_side)
+            result = result / water_mass_in_storage_in_kg
         elif explicit_or_implicit == "implicit":  # in this method, the outflows are the same temperature,
             result = t_intermediate               # so it doesn't matter whether we actively subtract them
+            if set_t_out_2nd_side is not None:
+                log.warning("Using parameter set_t_out_2nd_side in SimpleWaterStorage.calculate_mean_water_temperature_in_water_storage "
+                            "even though implicit method is selected, where this parameter is without effect.")
         else:
             raise KeyError(f"Unrecognized method, should be explizit or implicit but was: {explicit_or_implicit}")
         return result
@@ -384,15 +400,24 @@ class SimpleWaterStorage(cp.Component):
         some_kwargs: dict,
         previous_mismatch: float,
         t_in_storage: float,
-        weighted_average_inflow_temperature: float
+        weighted_average_inflow_temperature: float,
+        set_t_out_2nd_side: float|None = None
     ) -> tuple[float, float]:
-        """t_mismatch is defined by: t_actual_in_storage + t_mismatch = t_theoretical_in_storage"""
+        """t_mismatch is defined by: t_actual_in_storage + t_mismatch = t_theoretical_in_storage
+        
+        If the outflow temperature at the secondary side should be set to a specific value instead of
+        using the mean temperature in the tank, you can use the set_t_out_2nd_side parameter for that.
+        See calculate_mean_water_temperature_in_water_storage, this parameter simply gets passed.
+        This is meant for dhw tanks."""
         # calc theoretical temperature without culling and add back previous mismatch
         t_new_in_storage_theoretical = self.calculate_mean_water_temperature_in_water_storage(
-            **some_kwargs, explicit_or_implicit="explicit")
+            **some_kwargs, explicit_or_implicit="explicit", set_t_out_2nd_side=set_t_out_2nd_side)
         t_new_in_storage_theoretical = t_new_in_storage_theoretical + previous_mismatch
-        # cull if necessary
+        # find correct limits for culling: current temp and and inflow temp +-10, but not outside t_min or t_max
         lower_limit, upper_limit = sorted([t_in_storage, weighted_average_inflow_temperature])
+        lower_limit = max(lower_limit - 10, self.t_min)
+        upper_limit = min(upper_limit + 10, self.t_max)
+        # cull if necessary
         if t_new_in_storage_theoretical < lower_limit:
             t_mismatch = t_new_in_storage_theoretical - lower_limit
             t_new_in_storage = t_new_in_storage_theoretical - t_mismatch
@@ -944,7 +969,7 @@ class SimpleHotWaterStorage(SimpleWaterStorage):
             water_flow_from_hg2_in_kg_per_s = 0
 
         # check water temperature limits
-        if not (0 < self.mean_water_temperature_in_water_storage_in_celsius < 90):
+        if not (self.t_min < self.mean_water_temperature_in_water_storage_in_celsius < self.t_max):
             raise ValueError(f"""The water temperature in the water storage is with 
                 {self.mean_water_temperature_in_water_storage_in_celsius}°C way too high or too low.""")
 
@@ -1778,9 +1803,9 @@ class SimpleDHWStorage(SimpleWaterStorage):
 
         # Water Temperature Limit Check
         msg = "The water temperature in the DHW water storage is with {}°C way too {}."
-        if self.mean_water_temperature_in_water_storage_in_celsius > 90:
+        if self.mean_water_temperature_in_water_storage_in_celsius > self.t_max:
             raise ValueError(msg.format(self.mean_water_temperature_in_water_storage_in_celsius, "high"))
-        if self.mean_water_temperature_in_water_storage_in_celsius < 0:
+        if self.mean_water_temperature_in_water_storage_in_celsius < self.t_min:
             raise ValueError(msg.format(self.mean_water_temperature_in_water_storage_in_celsius, "low"))
 
         # calc water masses for simplicity later
@@ -1826,7 +1851,7 @@ class SimpleDHWStorage(SimpleWaterStorage):
         elif self.config.simulation_model == "explicit":
             t_out = self.state.mean_water_temperature_in_celsius
             t_new_in_storage = self.calculate_mean_water_temperature_in_water_storage(
-                **some_kwargs, explicit_or_implicit="explicit")
+                **some_kwargs, explicit_or_implicit="explicit", set_t_out_2nd_side=t_water_output_to_dhw_in_c)
             if water_mass_sum > self.water_mass_in_storage_in_kg:  # stability condition not met
                 log.warning("Using explicit Euler in buffer tank even though the stability criterion "
                     "is not met! If this simulation fails, consider reducing seconds_per_timestep! "
@@ -1849,7 +1874,7 @@ class SimpleDHWStorage(SimpleWaterStorage):
             if water_mass_sum <= self.water_mass_in_storage_in_kg:  # stability condition met
                 t_out = self.state.mean_water_temperature_in_celsius
                 t_new_in_storage = self.calculate_mean_water_temperature_in_water_storage(
-                    **some_kwargs, explicit_or_implicit="explicit")
+                    **some_kwargs, explicit_or_implicit="explicit", set_t_out_2nd_side=t_water_output_to_dhw_in_c)
             else:
                 log.information("Stability criterion in buffer tank not met. Using bypass to compensate.")
                 # t_out is simply weighted average of the inflow temperatures
@@ -1863,7 +1888,8 @@ class SimpleDHWStorage(SimpleWaterStorage):
                 some_kwargs = some_kwargs,
                 previous_mismatch = self.state.temperature_mismatch,
                 t_in_storage = self.state.mean_water_temperature_in_celsius,
-                weighted_average_inflow_temperature = weighted_average_inflow_temperature
+                weighted_average_inflow_temperature = weighted_average_inflow_temperature,
+                set_t_out_2nd_side=t_water_output_to_dhw_in_c
             )
             self.state.temperature_mismatch = t_mismatch
         # wtf did you put in lol
