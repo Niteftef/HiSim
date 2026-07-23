@@ -969,7 +969,7 @@ class SimpleHotWaterStorage(SimpleWaterStorage):
             water_flow_from_hg2_in_kg_per_s = 0
 
         # check water temperature limits
-        if not (self.t_min < self.mean_water_temperature_in_water_storage_in_celsius < self.t_max):
+        if not (self.t_min <= self.mean_water_temperature_in_water_storage_in_celsius <= self.t_max):
             raise ValueError(f"""The water temperature in the water storage is with 
                 {self.mean_water_temperature_in_water_storage_in_celsius}°C way too high or too low.""")
 
